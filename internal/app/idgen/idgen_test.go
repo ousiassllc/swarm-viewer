@@ -47,7 +47,7 @@ func TestNewID_UniqueAndTimeOrdered(t *testing.T) {
 	t0 := time.UnixMilli(1_700_000_000_000)
 	a := ULID{Now: func() time.Time { return t0 }}.NewID()
 	b := ULID{Now: func() time.Time { return t0.Add(time.Second) }}.NewID()
-	if !(a < b) {
+	if a >= b {
 		t.Fatalf("IDs from a later time must sort after: %q vs %q", a, b)
 	}
 }

@@ -138,9 +138,9 @@ func TestWithAttrsAndGroupsAreMasked(t *testing.T) {
 
 func TestHostOnly(t *testing.T) {
 	cases := map[string]string{
-		"http://100.64.0.1:48120/report?token=x": "100.64.0.1:48120",
+		"http://100.64.0.1:48120/report?q=1":     "100.64.0.1:48120",
 		"  http://[fd7a:115c:a1e0::1]:48120/a  ": "[fd7a:115c:a1e0::1]:48120",
-		"swarm-viewer://pair?token=x":            "pair",
+		"swarm-viewer://pair?x=1":                "pair",
 		"":                                       Redacted,
 		"no scheme/path":                         Redacted,
 		"http://":                                Redacted,

@@ -60,7 +60,7 @@ func TestHandle_ParseErrorGoesToPasteWithoutLeaking(t *testing.T) {
 	p, n, buf := &fakeParser{err: errors.New("pairing: invalid")}, &fakeNav{}, &bytes.Buffer{}
 	newHandler(p, n, buf).Handle(pairLink)
 
-	if len(n.paths) != 1 || n.paths[0] != paths.Pairing+"?link=invalid" {
+	if len(n.paths) != 1 || n.paths[0] != paths.PairingInvalidLink {
 		t.Fatalf("navigated to %v, want the paste page with the generic error flag", n.paths)
 	}
 	logged := buf.String()

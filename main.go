@@ -33,6 +33,9 @@ const (
 var appIcon []byte
 
 func main() {
+	// `wails3 dev` は Vite 用の FRONTEND_DEVSERVER_URL を設定する。この app は別プロセスのフロントエンドを持たず
+	// （画面は in-process の Gin が返す）、残すと Wails が存在しない dev server を待って起動に失敗する。
+	_ = os.Unsetenv("FRONTEND_DEVSERVER_URL")
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "swarm-viewer:", err)
 		os.Exit(1)

@@ -46,7 +46,7 @@ func TestOpenCreatesPrivateLogFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, "swarm-viewer.log")
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // t.TempDir() 配下のパス
 	if err != nil {
 		t.Fatal(err)
 	}

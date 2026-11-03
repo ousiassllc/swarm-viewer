@@ -10,7 +10,7 @@ import (
 
 // invalidLinkPath は解析に失敗したときに開く貼り付けページ（固定の汎用メッセージを出す）。
 // 入力の内容は URL に載せない。
-const invalidLinkPath = paths.Pairing + "?link=invalid"
+const invalidLinkPath = paths.PairingInvalidLink
 
 // Parser は接続文字列から下書きを作る（*service.PairingService が満たす）。
 type Parser interface {
