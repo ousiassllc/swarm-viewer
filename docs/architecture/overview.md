@@ -94,9 +94,14 @@ swarm-viewer/
 │   │   ├── tray.go              #   トレイ常駐・メニュー
 │   │   ├── protocol.go          #   swarm-viewer:// の受信
 │   │   ├── notifier.go          #   OS 通知（service が使う interface の実装）
-│   │   ├── logging.go           #   slog + lumberjack のローテーション・マスク
-│   │   ├── clock.go             #   Clock の実装
-│   │   └── id.go                #   IDGenerator（ULID）の実装
+│   │   ├── shell.go             #   Wails アプリの生成・単一インスタンス・終了処理
+│   │   ├── applog/              #   ログのマスク・ローテーション設定（Wails 非依存）
+│   │   ├── compose/             #   SQLite・service・router の組み立てと recovery モードの切替（Wails 非依存）
+│   │   ├── deeplink/            #   swarm-viewer:// の抽出・下書き作成・遷移（Wails 非依存）
+│   │   ├── idgen/               #   IDGenerator（ULID）の実装
+│   │   ├── navpath/             #   遷移先パスの検証
+│   │   ├── notice/              #   OS 通知の中身の組み立てとクリック時の遷移先
+│   │   └── swap/                #   差し替え可能な http.Handler（アセットハンドラ用）
 │   ├── router/                  # Gin ルーティング定義（画面ルート + Huma の登録）
 │   └── web/                     # Web 層
 │       ├── handler/             #   画面ハンドラ（機能ドメイン別）
@@ -164,18 +169,16 @@ sequenceDiagram
     WV->>H: GET /
     H->>S: 接続一覧・直近の選択
     alt 接続が 0 件
-        H-->>WV: 302 /pairing
+        H-->>WV: 200 ペアリング画面（リダイレクトしない）
     else 接続あり
-        H-->>WV: 302 /connections/{cid}（→ 302 /connections/{cid}/sessions/{sid}）
+        H-->>WV: 200 フルページ（レイアウト + 上段タブ（直近のタブ、無ければ 1 件）+ 保存済みの直前値をグレーアウトしたペイン領域）。ホストとは通信しない
     end
-    WV->>H: GET /connections/{cid}/sessions/{sid}
-    H-->>WV: フルページ（レイアウト + 上段タブ + ペイン領域のプレースホルダ）
     WV->>H: GET /connections/{cid}/sessions/{sid}/snapshot（hx-trigger="load"）
-    H->>S: Snapshot(cid, sid)
-    S->>C: tools/call report {format:json, session}
-    C-->>S: report JSON
-    S-->>H: Snapshot（domain）
-    H-->>WV: フラグメント（要対応バー + ペイングリッド + 利用上限 + ホスト負荷）
+    H->>S: Snapshot(cid, sid) と Tabs(cid)（古いとき。短い上限付き）
+    S->>C: tools/call report {format:json, session} / sessions_list
+    C-->>S: report JSON / セッション一覧
+    S-->>H: Snapshot・タブ（domain）
+    H-->>WV: フラグメント（要対応バー + ペイングリッド + 利用上限 + ホスト負荷）+ #session-tabs の OOB
 ```
 
 ### 5.2 画面更新ポーリング（HTMX）
@@ -199,7 +202,7 @@ sequenceDiagram
 ### 5.3 セッション・接続の切り替え
 
 - **セッションタブ**: 各タブは `hx-get="/connections/{cid}/sessions/{sid}"` + `hx-target="#main"` + `hx-push-url` なし。クリックで main 領域（タブ + スナップショット）を差し替える。差し替え時にサーバーが `last_session` を SQLite へ記録する（FR-SESS-3）
-- **接続切り替え**: 接続セレクタから `/connections/{cid}` へ遷移し、サーバーがその接続の `last_session`（なければ先頭の許可セッション）へ 302 する
+- **接続切り替え**: 接続セレクタから `/connections/{cid}` へ遷移し、サーバーがその接続の `last_session`（なければ先頭の許可セッション）のメイン画面をその場に返す（WebKit の WebView が 3xx を扱えないため、リダイレクトしない。§11 #7）
 - 切り替え後の最初の取得は、対象セッションの `report` のみ（他セッションは取得しない）
 
 ### 5.4 ペアリング
@@ -227,7 +230,7 @@ sequenceDiagram
     alt 成功
         S->>K: token を保存
         S->>DB: connections / settings を保存
-        S-->>WV: メイン画面へ 303
+        S-->>WV: メイン画面へ（HX-Redirect）
     else 失敗
         S-->>WV: エラーフラグメント（保存しない）
     end
@@ -341,6 +344,7 @@ graph LR
 | 4 | `SetURL` による遷移 | WebView の履歴・フォーカス・`hx-` 状態が遷移後に正しく初期化されるか |
 | 5 | `visibilityState` | WebView（WebView2 / WKWebView）で最小化・トレイ格納時に `hidden` になるか |
 | 6 | OS サスペンドからの復帰 | 通知スケジューラ（`Clock` の ticker）がサスペンド後に遅れず発火するか、復帰時の即時取得（NFR-AVL-4）を WebView の `visibilitychange` だけで満たせるか。足りなければ Wails の電源イベントを使う |
+| 7 | WebKit WebView（macOS）とリダイレクト・`HX-Redirect` の挙動 | Wails の v3 アセットサーバーのコメントは `http.Redirect` が WebKit の WebView（macOS/Linux）で動かないとしている。このためアプリは通常モードで 3xx を返さず（フルページはその場に描画、HX の移動は `HX-Redirect`）、実機での確認は未実施。残る確認: (a) macOS の WKWebView で `/` の初回表示・接続切替・ペアリング確定後の遷移が正しく描画されるか、(b) htmx の `HX-Redirect`（`window.location` への遷移）がアセットサーバー経由の同一オリジンで効くか、(c) `/` をその場に描画した画面でリロード・戻る・`SetURL` 後の履歴が破綻しないか、(d) セッション名に `/` を含む URL（`%2F`）がアセットサーバーで途中でデコードされず Gin に届くか |
 
 ## 改訂履歴
 
@@ -350,3 +354,4 @@ graph LR
 | 1.1 | 2026-11-03 | ディレクトリ構成を app・handler・middleware の詳細に合わせて更新。秘密領域ライブラリを確定 | コンポーネント設計との整合 |
 | 1.2 | 2026-11-03 | トリガーフィルタ式を廃止し静的 `app.js` で可視性を制御。htmx-config と CSRF 配布方法を明記 | CSP（`unsafe-eval` なし）で htmx のフィルタ式が動かないため |
 | 1.3 | 2026-11-03 | 生成物（`_templ.go`・`static/dist/`）をコミットしないと確定 | 環境構築ドキュメントでの決定 |
+| 1.4 | 2026-11-04 | リダイレクト（302・303）を廃止しその場に描画・`HX-Redirect` に変更。初回描画をホストと通信しない方式にし、タブを snapshot 応答の OOB で更新。§11 に #7 を追加 | WebKit の WebView が `http.Redirect` を扱えないため。到達不能なホストで初回表示が遅れるため |

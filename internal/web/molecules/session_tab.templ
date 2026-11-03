@@ -1,0 +1,35 @@
+package molecules
+
+import "github.com/ousiassllc/swarm-viewer/internal/web/paths"
+
+// SessionTabProps は SessionTab の入力。
+type SessionTabProps struct {
+	// ConnectionID は接続 ID（connections.id）。
+	ConnectionID string
+	// Session は tmux セッション名。
+	Session string
+	// Selected は選択中のタブか。
+	Selected bool
+}
+
+func sessionTabClass(selected bool) string {
+	if selected {
+		return "rounded-t-md border-b-2 border-sky-500 bg-slate-800 px-3 py-1.5 text-sm font-semibold text-sky-300"
+	}
+	return "rounded-t-md border-b-2 border-transparent px-3 py-1.5 text-sm text-slate-400 hover:text-slate-200"
+}
+
+// SessionTab はセッションタブ 1 つ。選択でメイン領域（#main）を再取得する（FR-SESS-2）。
+templ SessionTab(p SessionTabProps) {
+	<a
+		href={ templ.SafeURL(paths.Session(p.ConnectionID, p.Session)) }
+		hx-get={ paths.Session(p.ConnectionID, p.Session) }
+		hx-target="#main"
+		class={ sessionTabClass(p.Selected) }
+		if p.Selected {
+			aria-current="page"
+		}
+	>
+		{ p.Session }
+	</a>
+}

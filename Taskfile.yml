@@ -1,0 +1,89 @@
+version: '3'
+
+# タスクランナー。`task <名前>`（または `wails3 task <名前>`）で実行する（docs/environment/setup.md §3.2）。
+# JS / CSS ツールは bun（bun install / bunx）のみ使う。npm・npx・yarn・pnpm は使わない。
+
+vars:
+  APP_NAME: "swarm-viewer"
+  BIN_DIR: "bin"
+  # `wails3 build GOOS=...`（または環境変数 GOOS）で上書きされる。既定はホスト OS。
+  GOOS: '{{.GOOS | default OS}}'
+
+includes:
+  common: ./build/Taskfile.yml
+  windows: ./build/windows/Taskfile.yml
+  darwin: ./build/darwin/Taskfile.yml
+  linux: ./build/linux/Taskfile.yml
+
+tasks:
+  setup:
+    summary: clone 直後に 1 回実行する（依存の導入・Git Hooks の登録・生成物の作成）
+    cmds:
+      - bun install --frozen-lockfile
+      - bunx lefthook install
+      - task: generate
+
+  generate:
+    summary: 生成物（*_templ.go・static/dist/）を作る。go build / vet / test / lint の前に必ず実行する
+    run: once
+    cmds:
+      - go tool templ generate
+      - bunx @tailwindcss/cli -i static/src/css/app.css -o static/dist/css/app.css --minify
+      # htmx・response-targets 拡張・app.js を static/dist/js/ へ配置する。
+      # Windows でも動くよう cp / mkdir ではなく bun を使う（Bun.write は親ディレクトリも作る）。
+      - |
+        bun -e '
+          const copies = [
+            ["node_modules/htmx.org/dist/htmx.min.js", "static/dist/js/htmx.min.js"],
+            ["node_modules/htmx-ext-response-targets/dist/response-targets.min.js", "static/dist/js/response-targets.min.js"],
+            ["static/src/js/app.js", "static/dist/js/app.js"],
+          ];
+          for (const [from, to] of copies) {
+            await Bun.write(to, Bun.file(from));
+          }
+        '
+
+  fmt:
+    summary: Go（gofmt・goimports）・Templ・JS/CSS（Biome）を整形する
+    cmds:
+      - golangci-lint fmt
+      - go tool templ fmt .
+      - bunx biome format --write .
+
+  lint:
+    summary: golangci-lint・templ fmt・Biome・linterly を実行する（事前に task generate）
+    cmds:
+      - golangci-lint run ./...
+      - go tool templ fmt -fail .
+      - bunx biome check .
+      - bunx linterly check
+
+  test:
+    summary: 生成物を作ってから go test を実行する
+    cmds:
+      - task: generate
+      - go test ./...
+
+  build:
+    summary: 生成物を作ってから Wails でビルドする（`wails3 build` はこのタスクを実行する）
+    deps:
+      - generate
+    cmds:
+      - task: "{{.GOOS}}:build"
+
+  package:
+    summary: "配布用パッケージを作る（Windows は NSIS インストーラ、macOS は .app）"
+    deps:
+      - generate
+    cmds:
+      - task: "{{.GOOS}}:package"
+
+  run:
+    summary: ビルドしたアプリを実行する
+    cmds:
+      - task: "{{.GOOS}}:run"
+
+  dev:
+    summary: wails3 dev で開発モードを起動する（Templ・Tailwind は dev_mode の executes が生成する）
+    cmds:
+      - wails3 dev -config ./build/config.yml

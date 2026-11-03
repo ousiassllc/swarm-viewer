@@ -1,0 +1,98 @@
+package organisms
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+	"strconv"
+)
+
+// 設定フォームの項目名（PUT /settings のフォーム値。チェックボックスはオフのとき送られない）。
+const (
+	FieldNotificationsEnabled = "notifications_enabled"
+	FieldScreenPollSeconds    = "screen_poll_seconds"
+	FieldNotifyPollMinutes    = "notify_poll_minutes"
+	FieldDebugLog             = "debug_log"
+)
+
+// SettingsFormID は設定フォームを包む要素の id（hx-target と 422 の再描画先）。
+const SettingsFormID = "settings-form"
+
+// NotifyPermission は OS の通知許可状態の表示用の値。
+type NotifyPermission string
+
+// NotifyPermission の値。
+const (
+	NotifyPermissionUnknown NotifyPermission = ""
+	NotifyPermissionGranted NotifyPermission = "granted"
+	NotifyPermissionDenied  NotifyPermission = "denied"
+)
+
+// SettingsFormProps は SettingsForm の入力。
+type SettingsFormProps struct {
+	// Settings は表示する設定値。
+	Settings domain.Settings
+	// Permission は OS の通知許可状態。Denied のとき案内を出す（機能要件 §8.3）。
+	Permission NotifyPermission
+	// Error は検証失敗（422）の固定文言。空なら出さない。
+	Error string
+}
+
+func permissionText(p NotifyPermission) string {
+	switch p {
+	case NotifyPermissionGranted:
+		return "OS の通知は許可されています"
+	case NotifyPermissionDenied:
+		return "OS が通知を許可していません。OS の設定で許可してください"
+	default:
+		return "OS の通知許可状態は確認できません"
+	}
+}
+
+// SettingsForm は設定フォーム（通知・画面更新間隔・通知用ポーリング間隔・デバッグログ）。
+// 画面更新 5/10/30/60 秒、通知用ポーリング 5/10/30/60 分（機能要件 §9）。
+templ SettingsForm(p SettingsFormProps) {
+	<form
+		hx-put={ paths.Settings }
+		hx-target={ "#" + SettingsFormID }
+		hx-target-422={ "#" + SettingsFormID }
+		hx-indicator="#settings-spinner"
+		hx-disabled-elt="find button"
+		class="flex flex-col gap-4"
+	>
+		<div class="flex flex-col gap-1">
+			<label class="flex items-center gap-2 text-sm text-slate-200">
+				<input type="checkbox" name={ FieldNotificationsEnabled } value="on" checked?={ p.Settings.NotificationsEnabled }/>
+				通知
+			</label>
+			<p class="text-xs text-slate-400">{ permissionText(p.Permission) }</p>
+		</div>
+		<div class="flex flex-col gap-1">
+			<label for="screen-poll" class="text-sm text-slate-200">画面更新間隔（選択中のセッション）</label>
+			<select id="screen-poll" name={ FieldScreenPollSeconds } class="w-40 rounded-md border border-slate-600 bg-slate-900 px-2 py-1 text-sm">
+				for _, n := range domain.AllowedScreenPollSeconds() {
+					<option value={ strconv.Itoa(n) } selected?={ n == p.Settings.ScreenPollSeconds }>{ strconv.Itoa(n) } 秒</option>
+				}
+			</select>
+		</div>
+		<div class="flex flex-col gap-1">
+			<label for="notify-poll" class="text-sm text-slate-200">通知用ポーリング間隔（全セッション）</label>
+			<select id="notify-poll" name={ FieldNotifyPollMinutes } class="w-40 rounded-md border border-slate-600 bg-slate-900 px-2 py-1 text-sm">
+				for _, n := range domain.AllowedNotifyPollMinutes() {
+					<option value={ strconv.Itoa(n) } selected?={ n == p.Settings.NotifyPollMinutes }>{ strconv.Itoa(n) } 分</option>
+				}
+			</select>
+		</div>
+		<label class="flex items-center gap-2 text-sm text-slate-200">
+			<input type="checkbox" name={ FieldDebugLog } value="on" checked?={ p.Settings.DebugLog }/>
+			デバッグログ
+		</label>
+		if p.Error != "" {
+			<p role="alert" class="text-sm text-red-300">{ p.Error }</p>
+		}
+		<div class="flex items-center gap-3">
+			@atoms.Button(atoms.ButtonProps{Label: "保存", Type: "submit", Variant: atoms.ButtonPrimary})
+			@atoms.Spinner(atoms.SpinnerProps{ID: "settings-spinner", Size: atoms.SpinnerSmall})
+		</div>
+	</form>
+}

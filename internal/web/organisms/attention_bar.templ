@@ -1,0 +1,54 @@
+package organisms
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
+	"time"
+)
+
+// AttentionBarProps は AttentionBar の入力。
+type AttentionBarProps struct {
+	// Attention は attention[]。
+	Attention []domain.Attention
+	// Warnings は warnings[]。message を警告バナーに表示する。
+	Warnings []domain.Warning
+	// Auth は auth.agents[]。auth_expired / auth_expiring に expires_at を併記するために使う。
+	Auth domain.Auth
+}
+
+// authExpiresAt は auth_expired / auth_expiring の detail（エージェント名）に対応する expires_at。無ければ零値。
+func authExpiresAt(auth domain.Auth, a domain.Attention) time.Time {
+	if a.Kind != "auth_expired" && a.Kind != "auth_expiring" {
+		return time.Time{}
+	}
+	for _, ag := range auth.Agents {
+		if ag.Agent == a.Detail && ag.ExpiresAt != nil {
+			return *ag.ExpiresAt
+		}
+	}
+	return time.Time{}
+}
+
+// AttentionBar は要対応（attention）と警告（warnings）。どちらも空なら何も描画しない。
+templ AttentionBar(p AttentionBarProps) {
+	if len(p.Attention) > 0 || len(p.Warnings) > 0 {
+		<section class="flex flex-col gap-2" aria-label="要対応">
+			if len(p.Warnings) > 0 {
+				<ul class="flex flex-col gap-1">
+					for _, w := range p.Warnings {
+						<li role="alert" class="rounded-md border border-amber-500/60 bg-amber-500/10 px-3 py-1.5 text-sm text-amber-200" data-warning-code={ w.Code }>
+							{ w.Message }
+						</li>
+					}
+				</ul>
+			}
+			if len(p.Attention) > 0 {
+				<ul class="flex flex-col gap-1 rounded-md border border-slate-700 bg-slate-900 px-3 py-2">
+					for _, a := range p.Attention {
+						@molecules.AttentionItem(molecules.AttentionItemProps{Attention: a, AuthExpiresAt: authExpiresAt(p.Auth, a)})
+					}
+				</ul>
+			}
+		</section>
+	}
+}

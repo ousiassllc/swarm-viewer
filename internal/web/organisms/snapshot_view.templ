@@ -1,0 +1,180 @@
+package organisms
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+	"strconv"
+	"time"
+)
+
+// SnapshotRegionID はスナップショット領域の id。
+const SnapshotRegionID = "snapshot"
+
+// SnapshotStatusID は取得失敗バナーの id（OOB の差し替え先。API 仕様 §4.4）。
+const SnapshotStatusID = "snapshot-status"
+
+// SnapshotViewProps は SnapshotView の入力。service の SnapshotResult 等をハンドラが平坦な値に直して渡す。
+type SnapshotViewProps struct {
+	// Snapshot は表示する値。取得失敗時は直前値（無ければ零値）。
+	Snapshot domain.Snapshot
+	// Fresh は今回の取得が成功したか。false なら直前値をグレーアウトし、失敗バナーを返す。
+	Fresh bool
+	// Err は失敗の種別。Fresh のとき nil。
+	Err *domain.FetchError
+	// PollSeconds は画面更新間隔（秒。5/10/30/60）。許容外は既定（10）に置き換える。
+	PollSeconds int
+	// Repair は接続が needs_repair のとき true。ポーリング属性（hx-get・hx-trigger）を出さない。
+	Repair bool
+	// ConnectionID・Session は接続 ID と tmux セッション名（snapshot の URL に使う）。
+	ConnectionID string
+	Session      string
+	// Now は相対時間の基準。
+	Now time.Time
+	// Initial はメイン画面の初回描画のとき true。hx-trigger に load を加えて直ちに取得する。
+	// ストア済みの直前値を渡し、Fresh=false・Err=nil にすれば、グレーアウトの前回値を先に見せられる（FR-POLL-4）。
+	Initial bool
+	// Tabs が空でなければ、SnapshotView がタブバーを OOB で差し替える（初回描画は保存値で出し、
+	// 取得できたセッション一覧をここで反映する。API 仕様 §4.4）。
+	Tabs []domain.Session
+}
+
+// polling はポーリング属性を出すか。needs_repair、または再ペアリングが必要な失敗（401・403）のときは止める。
+func polling(p SnapshotViewProps) bool {
+	return !p.Repair && !format.NeedsRepair(p.Err)
+}
+
+func pollSeconds(p SnapshotViewProps) int {
+	if domain.ValidScreenPollSeconds(p.PollSeconds) {
+		return p.PollSeconds
+	}
+	return domain.DefaultScreenPollSeconds
+}
+
+// PollTrigger は snapshot 領域の hx-trigger。フィルタ式 `[…]` は使わない（API 仕様 §4.5）。
+// 非表示中の停止と復帰時の即時取得は静的 app.js が行う（`refresh` はそのイベント）。
+// initial は画面の初回描画で、load でも取得する。応答で置き換えた要素には load を含めない（再取得の無限ループを防ぐ）。
+func PollTrigger(seconds int, initial bool) string {
+	t := "every " + strconv.Itoa(seconds) + "s, refresh from:body"
+	if initial {
+		return "load, " + t
+	}
+	return t
+}
+
+func snapshotClass(p SnapshotViewProps) string {
+	if p.Fresh {
+		return "flex flex-col gap-4"
+	}
+	return "flex flex-col gap-4 opacity-50 grayscale"
+}
+
+func (p SnapshotViewProps) isEmpty() bool {
+	return !p.Fresh && p.Snapshot.FetchedAt.IsZero()
+}
+
+// SnapshotRegion はスナップショット領域（要対応バー・ペイングリッド・利用上限・ホスト負荷）。
+//
+// ポーリング中は自分自身を outerHTML で置き換える（hx-get＋hx-trigger＋hx-sync）。
+// Repair（または 401・403）のときは取得の導線そのものを出さない（API 仕様 §4.4）。
+// 取得失敗（!Fresh）のときは直前値をグレーアウトする。
+templ SnapshotRegion(p SnapshotViewProps) {
+	<div
+		id={ SnapshotRegionID }
+		class={ snapshotClass(p) }
+		if polling(p) {
+			hx-get={ paths.Snapshot(p.ConnectionID, p.Session) }
+			hx-trigger={ PollTrigger(pollSeconds(p), p.Initial) }
+			hx-sync="this:drop"
+			hx-swap="outerHTML"
+		}
+	>
+		if p.isEmpty() {
+			<p class="text-sm text-slate-400">表示できるデータがありません</p>
+		} else {
+			@AttentionBar(AttentionBarProps{Attention: p.Snapshot.Report.Attention, Warnings: p.Snapshot.Report.Warnings, Auth: p.Snapshot.Report.Auth})
+			@PaneGrid(PaneGridProps{Layout: p.Snapshot.Report.Layout, Panes: p.Snapshot.Report.Panes, Attention: p.Snapshot.Report.Attention, Stale: !p.Fresh})
+			<div class="grid gap-4 md:grid-cols-2">
+				@UsagePanel(UsagePanelProps{Usage: p.Snapshot.Report.Usage, Stale: !p.Fresh, Now: p.Now})
+				@HostPanel(HostPanelProps{Host: p.Snapshot.Report.Host})
+			</div>
+		}
+	</div>
+}
+
+// SnapshotView は `GET …/snapshot` が返すフラグメント。領域本体と、取得失敗バナーの OOB（#snapshot-status）。
+// 成功時はバナーを空にして消す（API 仕様 §4.4）。Tabs があればタブバーの OOB（#session-tabs）も返す。
+templ SnapshotView(p SnapshotViewProps) {
+	@SnapshotRegion(p)
+	if len(p.Tabs) > 0 {
+		@SessionTabs(SessionTabsProps{ConnectionID: p.ConnectionID, Sessions: p.Tabs, Selected: p.Session, OOB: true})
+	}
+	<div id={ SnapshotStatusID } hx-swap-oob="true">
+		@SnapshotBanner(p)
+	</div>
+}
+
+// SnapshotStatus はメイン画面に置く #snapshot-status（OOB ではない通常の要素）。以後の応答の OOB が差し替える。
+templ SnapshotStatus(p SnapshotViewProps) {
+	<div id={ SnapshotStatusID }>
+		@SnapshotBanner(p)
+	</div>
+}
+
+templ repairLink() {
+	<a href={ templ.SafeURL(paths.Pairing) } hx-get={ paths.Pairing } hx-target="#main" class="text-sky-400 underline">再ペアリング</a>
+}
+
+// SnapshotBanner は取得失敗・前回値表示のバナー本体。Fresh のときは何も描画しない。
+// 失敗種別の固定文言（swarm-console の message は出さない）に「最終更新 HH:MM」「次回再試行 N 秒後」を併記する。
+templ SnapshotBanner(p SnapshotViewProps) {
+	if !p.Fresh {
+		<div role="alert" class="rounded-md border border-red-500/60 bg-red-500/10 px-3 py-2 text-sm text-red-200" data-error-kind={ errKind(p.Err) }>
+			<p>{ statusMessage(p) }</p>
+			<p class="text-xs text-red-300/80">
+				{ format.JoinNonEmpty(" / ", lastFetched(p), nextRetry(p)) }
+			</p>
+			if p.Err != nil && p.Err.Code != "" {
+				<details class="text-xs text-red-300/80">
+					<summary class="cursor-pointer">詳細</summary>
+					<code class="font-mono">{ p.Err.Code }</code>
+				</details>
+			}
+			if !polling(p) {
+				@repairLink()
+			}
+		</div>
+	}
+}
+
+func errKind(e *domain.FetchError) string {
+	if e == nil {
+		return ""
+	}
+	return e.Kind.String()
+}
+
+// statusMessage は失敗種別の固定文言。Err が無い（起動直後に直前値を出している）ときは前回値の案内。
+func statusMessage(p SnapshotViewProps) string {
+	if p.Err != nil {
+		return format.FetchErrorMessage(p.Err)
+	}
+	if p.Snapshot.FetchedAt.IsZero() {
+		return "読み込み中…"
+	}
+	return "前回取得した状態を表示しています"
+}
+
+func lastFetched(p SnapshotViewProps) string {
+	if p.Snapshot.FetchedAt.IsZero() {
+		return ""
+	}
+	return "前回取得 " + format.ClockTime(p.Snapshot.FetchedAt)
+}
+
+func nextRetry(p SnapshotViewProps) string {
+	if !polling(p) {
+		return ""
+	}
+	return "次回再試行 " + strconv.Itoa(pollSeconds(p)) + " 秒後"
+}

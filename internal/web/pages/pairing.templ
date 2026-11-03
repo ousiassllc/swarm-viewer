@@ -1,0 +1,115 @@
+package pages
+
+import (
+	"strings"
+
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/layout"
+	"github.com/ousiassllc/swarm-viewer/internal/web/organisms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+)
+
+// PairingProps は PairingPage / PairingContent の入力。
+type PairingProps struct {
+	// Form は貼り付けフォームの入力（検証失敗の固定文言）。
+	Form organisms.PairingFormProps
+	// HasConnections は保存済み接続があるとき true（接続管理へのリンクを出す）。
+	HasConnections bool
+}
+
+// PairingPage は接続文字列の貼り付け画面のフルページ。
+templ PairingPage(shell layout.BaseProps, p PairingProps) {
+	@layout.Base(shell) {
+		@PairingContent(p)
+	}
+}
+
+// PairingContent は貼り付け画面のフラグメント。
+// 422 のときは organisms.PairingForm だけを #pairing-form へ返す。
+templ PairingContent(p PairingProps) {
+	@pageTitle("接続を追加")
+	<p class="text-sm text-slate-400">swarm-console の <code class="font-mono">swarm-console pair</code> が出力した接続文字列を貼り付けてください。発行した接続文字列は再利用しないでください。</p>
+	<div id={ organisms.PairingFormID }>
+		@organisms.PairingForm(p.Form)
+	</div>
+	if p.HasConnections {
+		@navLink(paths.Connections, "保存済みの接続")
+	}
+}
+
+// DraftProps は PairingDraftPage / PairingDraftContent の入力。token を持たない（API 仕様 §4.2）。
+type DraftProps struct {
+	// DraftID は下書き ID（base64url。確定・破棄の URL に使う）。
+	DraftID string
+	// Name は表示名。
+	Name string
+	// Host は接続先の host のみ（url の host）。URL 全体は出さない。
+	Host string
+	// SessionsHint はホストが申告した許可セッション（表示のヒントのみ。権限の正は sessions_list）。
+	SessionsHint []string
+	// ExpiresText は期限の表示（例: 「あと 4 分」「12:34 まで」）。空なら出さない。
+	ExpiresText string
+	// Error は確定（疎通確認）失敗の固定文言。空なら出さない。下書きは残るので再試行できる。
+	Error string
+}
+
+// PairingDraftPage はペアリング確認画面のフルページ。
+templ PairingDraftPage(shell layout.BaseProps, p DraftProps) {
+	@layout.Base(shell) {
+		@PairingDraftContent(p)
+	}
+}
+
+// PairingDraftContent はペアリング確認画面のフラグメント。
+// 表示名・接続先ホスト・申告された許可セッションを見せ、確定（confirm）と破棄（discard）を用意する。
+templ PairingDraftContent(p DraftProps) {
+	@pageTitle("この接続を追加しますか？")
+	<dl class="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-2 rounded-lg border border-slate-700 bg-slate-900 p-4 text-sm">
+		<dt class="text-slate-400">表示名</dt>
+		<dd class="truncate text-slate-100" title={ p.Name }>{ p.Name }</dd>
+		<dt class="text-slate-400">接続先ホスト</dt>
+		<dd class="font-mono text-slate-100">{ p.Host }</dd>
+		<dt class="text-slate-400">ホストが申告した許可セッション</dt>
+		<dd class="text-slate-100">
+			if len(p.SessionsHint) == 0 {
+				申告なし
+			} else {
+				{ strings.Join(p.SessionsHint, ", ") }
+			}
+		</dd>
+	</dl>
+	if p.ExpiresText != "" {
+		<p class="text-xs text-slate-500">{ "有効期限: " + p.ExpiresText }</p>
+	}
+	if p.Error != "" {
+		<p role="alert" class="text-sm text-red-300">{ p.Error }</p>
+	}
+	<div class="flex items-center gap-3">
+		@atoms.Button(atoms.ButtonProps{Label: "接続を保存", Variant: atoms.ButtonPrimary, Attrs: templ.Attributes{
+			"hx-post":         paths.DraftConfirm(p.DraftID),
+			"hx-target":       "#main",
+			"hx-indicator":    "#draft-spinner",
+			"hx-disabled-elt": "this",
+		}})
+		@atoms.Button(atoms.ButtonProps{Label: "破棄", Attrs: templ.Attributes{
+			"hx-post":         paths.DraftDiscard(p.DraftID),
+			"hx-target":       "#main",
+			"hx-disabled-elt": "this",
+		}})
+		@atoms.Spinner(atoms.SpinnerProps{ID: "draft-spinner", Size: atoms.SpinnerSmall})
+	</div>
+}
+
+// DraftExpiredPage は下書きが期限切れ・不明のときのフルページ。404 にはしない（API 仕様 §4.3）。
+templ DraftExpiredPage(shell layout.BaseProps) {
+	@layout.Base(shell) {
+		@DraftExpiredContent()
+	}
+}
+
+// DraftExpiredContent は「もう一度ペアリングしてください」のフラグメント。
+templ DraftExpiredContent() {
+	@pageTitle("もう一度ペアリングしてください")
+	<p class="text-sm text-slate-400">ペアリングの確認画面の有効期限が切れました。接続文字列をもう一度貼り付けてください。</p>
+	@navLink(paths.Pairing, "ペアリングをやり直す")
+}

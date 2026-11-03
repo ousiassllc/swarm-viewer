@@ -1,0 +1,70 @@
+package layout
+
+import (
+	"encoding/json"
+
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+)
+
+// MainID は画面本体の id。ページ遷移の hx-target とフラグメントの差し替え先。
+const MainID = "main"
+
+// HTMXConfig は htmx-config メタの内容。eval とインラインスタイル注入を止める（NFR-SEC-9、API 仕様 §4.5）。
+const HTMXConfig = `{"allowEval":false,"includeIndicatorStyles":false}`
+
+// CSRFHeader は CSRF トークンを運ぶリクエストヘッダ名。
+const CSRFHeader = "X-CSRF-Token"
+
+// BaseProps は Base の入力。
+type BaseProps struct {
+	// Title は <title>。
+	Title string
+	// CSRFToken はプロセス起動ごとに生成した CSRF トークン。meta と hx-headers で配る。
+	// swarm-console の token とは無関係で、接続の秘密は一切含まない。
+	CSRFToken string
+}
+
+// csrfHeaders は body の hx-headers に入れる JSON 属性（eval 不要）。値の埋め込みは json.Marshal が行う。
+func csrfHeaders(token string) string {
+	b, err := json.Marshal(map[string]string{CSRFHeader: token})
+	if err != nil {
+		// map[string]string の Marshal は失敗しない。
+		return "{}"
+	}
+	return string(b)
+}
+
+// Base はフルページの骨格。
+//
+//   - <head>: htmx-config メタ、CSRF メタ、app.css。CSP は HTTP ヘッダで付与する
+//   - <body>: hx-headers で全リクエストに X-CSRF-Token を付け、response-targets 拡張を有効にする
+//   - スクリプトは htmx.min.js・response-targets.min.js・app.js の外部ファイルだけ（インラインスクリプト・hx-on を使わない）
+//
+// 子要素は <main id="main"> に入る。
+templ Base(p BaseProps) {
+	<!DOCTYPE html>
+	<html lang="ja" class="bg-slate-950">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="htmx-config" content={ HTMXConfig }/>
+			<meta name="csrf-token" content={ p.CSRFToken }/>
+			<title>{ p.Title }</title>
+			<link rel="stylesheet" href={ paths.StaticCSS }/>
+			<script src={ paths.StaticHTMX } defer></script>
+			<script src={ paths.StaticResponseTarget } defer></script>
+			<script src={ paths.StaticAppJS } defer></script>
+		</head>
+		<body
+			class="min-h-screen bg-slate-950 text-slate-100 antialiased"
+			hx-headers={ csrfHeaders(p.CSRFToken) }
+			hx-ext="response-targets"
+		>
+			<div id={ atoms.ToastContainerID } class="fixed bottom-4 right-4 z-50 flex flex-col gap-2" aria-live="polite"></div>
+			<main id={ MainID } class="mx-auto flex max-w-6xl flex-col gap-4 p-4">
+				{ children... }
+			</main>
+		</body>
+	</html>
+}

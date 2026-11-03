@@ -1,0 +1,18 @@
+package pages
+
+import "github.com/ousiassllc/swarm-viewer/internal/web/paths"
+
+// navLink は #main を差し替えるアプリ内リンク。JS 無効時のために href も持つ。
+templ navLink(href, label string) {
+	<a href={ templ.SafeURL(href) } hx-get={ href } hx-target="#main" class="text-sm text-sky-400 underline hover:text-sky-300">{ label }</a>
+}
+
+// pageTitle は各画面の見出し。
+templ pageTitle(text string) {
+	<h1 class="text-lg font-semibold text-slate-100">{ text }</h1>
+}
+
+// homeLink は `/` へ戻るリンク。
+templ homeLink(label string) {
+	@navLink(paths.Home, label)
+}

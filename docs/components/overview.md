@@ -171,7 +171,7 @@ func (c *Client) Probe(ctx context.Context, url, token string) ([]domain.Session
 |------|------|
 | 責務 | [ER](../architecture/er.md)のテーブルへの読み書き、マイグレーション、DB の整合性チェック |
 | 依存 | `modernc.org/sqlite`、`database/sql`、domain |
-| 起動 | `Open(path)`: ファイルを `0600` で作成、PRAGMA（`foreign_keys`・`journal_mode=WAL`・`busy_timeout`）、`user_version` 照合、マイグレーション適用 |
+| 起動 | `Open(path)`: ファイルを `0600` で作成（既存ファイルの権限が緩ければ `0600` に締める。Windows を除く）、PRAGMA（`foreign_keys`・`busy_timeout`）、`user_version` 照合（新しい版は DB を変更せず `ErrSchemaTooNew`）、整合性チェック、`journal_mode=WAL`、マイグレーション適用（WAL への切り替えは版・整合性の確認後。DB ファイルを書き換えるため） |
 | 失敗 | 開けない・壊れている → `ErrCorrupt`。新しい `user_version` → `ErrSchemaTooNew`。service/app はこれを受けて起動を止めず初期化導線を出す（NFR-AVL-5・CMP-4） |
 | トランザクション | 通知済み記録の更新と `baselined_at` の更新は 1 トランザクション |
 
@@ -264,7 +264,8 @@ func (s *PairingService) Discard(id DraftID)
 
 - `Confirm`: ①`Probe`（疎通） → ②同じ `url` の接続があるか → ③あれば token を差し替え、なければ新規 ID で `SaveConnection` → ④`secret.Set` → ⑤下書き削除。④が失敗したら新規作成した行を削除して失敗を返す（行だけ残る不整合を防ぐ）
 - 新規接続は `baselined_at = NULL` で保存する（初回一巡は通知しない）。同じ `url` の再ペアリングでも `baselined_at` は維持する
-- 期限（5 分）の判定は `Clock.Now()` で行う
+- 期限（5 分）の判定は `Clock.Now()` で行う。加えて、下書きがある間は `Clock.NewTicker` の掃除 goroutine が期限後に（呼び出しを待たず）下書きをメモリから消す。下書きが無くなれば goroutine は終わり、次の `Parse` が再び起動する
+- `Confirm` の成功後に `PollTrigger.Wake(connID)`（`SetPollTrigger` で配線。`*NotificationService` が満たす）を呼び、新しい接続の最初の通知用ポーリングを次の周期（10〜60 分）まで待たせない
 
 ### 5.3 ConnectionService
 
@@ -275,7 +276,7 @@ func (s *PairingService) Discard(id DraftID)
 
 ```go
 func (s *ConnectionService) List(ctx context.Context) ([]domain.Connection, error)
-func (s *ConnectionService) Delete(ctx context.Context, id string) error   // 先に Store.DeleteConnection、次に secret.Delete。後者の失敗は警告ログのみ
+func (s *ConnectionService) Delete(ctx context.Context, id string) error   // 先に secret.Delete、次に Store.DeleteConnection。前者の失敗は接続を残してエラーを返す（再試行可）。後者の失敗は needs_repair 扱いで接続が残る
 func (s *ConnectionService) Tabs(ctx context.Context, id string) ([]domain.Session, error) // sessions_list。結果を NotificationService と共有しない（呼び出しごとに取得）
 func (s *ConnectionService) ResolveSession(ctx context.Context, id, requested string) (string, error) // 許可外・消滅時は先頭の許可セッション。0 件は ErrNoSessions
 func (s *ConnectionService) NeedsRepair(id string) bool
@@ -299,6 +300,7 @@ type SnapshotResult struct {
     Err      *domain.FetchError   // 失敗の種別。Fresh のとき nil
 }
 func (s *SnapshotService) Get(ctx context.Context, connID, session string) SnapshotResult
+func (s *SnapshotService) Last(ctx context.Context, connID, session string) (domain.Snapshot, bool) // 取得せず直前値（Stale）だけ返す。メイン画面の初回描画用（FR-POLL-4）
 ```
 
 - `Get` は `singleflight`（キー `connID + "\x00" + session`）で包む。同じキーの同時呼び出しは `report` 1 本にまとまる
@@ -319,6 +321,8 @@ func (s *SnapshotService) Get(ctx context.Context, connID, session string) Snaps
 func (s *NotificationService) Observe(ctx context.Context, conn domain.Connection, session string, r domain.Report) error
 // スケジューラ。ctx のキャンセルで停止。設定変更（通知オン/オフ・間隔）に追随する
 func (s *NotificationService) Run(ctx context.Context)
+// 1 接続の通知用ポーリングを、次の周期を待たずに回すよう Run へ依頼する（待たずに返る。PairingService.Confirm が呼ぶ）
+func (s *NotificationService) Wake(connID string)
 ```
 
 `Observe` の手順:
@@ -333,7 +337,7 @@ func (s *NotificationService) Run(ctx context.Context)
 1. `Clock.NewTicker(settings.NotifyPollMinutes)` で周期を作る。起動直後に 1 回実行する（再起動後の取りこぼしを減らす）
 2. `settings.NotificationsEnabled == false` の間は取得しない（ticker は動かしてよいが tick で即 return）。設定変更の通知で ticker を `Reset`
 3. Tick ごとに接続を順次処理（並列にしない。NFR-PERF-6）: `needs_repair` はスキップ → `Sessions` → `PruneSnapshots` → 各許可セッションを `Report` → `Observe`。失敗した接続・セッションは飛ばす（記録は変更しない。NFR-AVL-3）
-4. 全許可セッションが成功した一巡の最後に、`BaselinedAt == nil` なら `MarkBaselined`
+4. 全許可セッションが成功した一巡の最後に、`BaselinedAt == nil` なら `MarkBaselined`。一部のセッションが失敗し続けている間は `baselined_at` を記録せず、その接続は通知せず記録だけを続ける（機能要件 §8.2。残余リスクは [ER §3.5](../architecture/er.md)）
 5. 1 接続の失敗が 401/403 なら `needs_repair` を立てて次の接続へ
 
 ### 5.6 SettingsService
@@ -366,12 +370,14 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 
 | ファイル | ルート（[API 仕様 §4.2](../api/endpoints.md)） | 主な呼び出し |
 |---------|---------------------------------------------|-------------|
-| `main.go` | `GET /`、`GET /connections/{cid}`、`GET /connections/{cid}/sessions/{sid}`、`GET …/snapshot` | `ConnectionService.ResolveSession/Tabs`、`SnapshotService.Get` |
+| `main.go`・`tabs.go`・`snapshot.go` | `GET /`、`GET /connections/{cid}`、`GET /connections/{cid}/sessions/{sid}`、`GET …/snapshot` | `ConnectionService.CachedTabs/Tabs`、`SnapshotService.Last/Get` |
 | `connection.go` | `GET /connections`、`DELETE /connections/{cid}` | `ConnectionService.List/Delete` |
 | `pairing.go` | `GET/POST /pairing`、`GET /pairing/drafts/{did}`、`POST …/confirm`、`POST …/discard` | `PairingService` |
 | `settings.go` | `GET /settings`、`PUT /settings` | `SettingsService` |
 
 - ページルートは `HX-Request` でフルページ / フラグメントを分岐する（[API 仕様 §4.1](../api/endpoints.md)）
+- 通常モードのルートは 3xx を返さない（WebKit の WebView が `http.Redirect` を扱えないため）。フルページはその場に描画し、HX の移動は `HX-Redirect`（[API 仕様 §4.1](../api/endpoints.md)、[アーキテクチャ設計 §11](../architecture/overview.md) #7）
+- メイン画面の初回描画はホストと通信しない（保存済みスナップショットと直近のタブで描画し、最新のタブは snapshot 応答の `#session-tabs` OOB が反映する。[API 仕様 §4.2](../api/endpoints.md)）
 - snapshot ハンドラは `SnapshotResult` を `organisms.SnapshotView` に渡す。`Fresh == false` のときは直前値のグレーアウトと失敗バナー（[API 仕様 §4.4](../api/endpoints.md)）。`needs_repair` のときはポーリング属性を出さない
 
 ### 6.2 middleware
@@ -423,9 +429,12 @@ Wails に依存する唯一の層。`service/` を呼び、service の interface
 | `app/tray.go` | システムトレイ（macOS はメニューバー）。メニューは「開く」「終了」。「終了」は `ctx` をキャンセルして `NotificationService.Run` を止めてからアプリを終了 |
 | `app/protocol.go` | `ApplicationLaunchedWithUrl` と `OnSecondInstanceLaunch` の引数から `swarm-viewer://` を取り出し、`PairingService.Parse` → `Navigator.Open("/pairing/drafts/{did}")`。他のスキーム・形式不正は破棄してログ（URL は host のみ。token を出さない） |
 | `app/notifier.go` | `Notifier` を実装。Wails の通知 API で OS 通知を出し、クリックで `Navigator.Open("/connections/{cid}/sessions/{sid}")`。OS の許可状態を `Permitted()` で返す |
-| `app/logging.go` | `slog` + `lumberjack`（5MB×3 世代、`UserConfigDir()/swarm-viewer/logs/`）。`slog.LevelVar` を `SettingsService` の購読で更新。ハンドラの `ReplaceAttr` で `token`・`url`（host のみに丸める）・`activity`・`note` のキーを伏せる |
-| `app/clock.go` | 実時間の `Clock` 実装 |
-| `app/id.go` | `IDGenerator` の ULID 実装（`oklog/ulid/v2`、`crypto/rand`） |
+| `app/applog` | `slog` + `lumberjack`（上限 5MB、現行 + 退避 2 = 3 世代、`UserConfigDir()/swarm-viewer/logs/`）。`slog.LevelVar` を `SettingsService` の購読で更新。ハンドラの `ReplaceAttr` で `token`・`authorization`・`body`・`activity`・`note` などのキーを伏せ、`url` 系のキーは host のみに丸める。メッセージ・その他の値に含まれる URL は `scheme://host` に縮め、Bearer の値を伏せる |
+| `service.SystemClock` | 実時間の `Clock`（`app` では独自実装を持たず、これを使う） |
+| `app/idgen` | `IDGenerator` の ULID 実装（`oklog/ulid/v2`、`crypto/rand`） |
+| `app/deeplink` | 引数・イベントから `swarm-viewer://` を取り出す（引用符・大文字小文字・他 scheme の破棄）。`Parse` → `Navigator.Open` の流れと、起動直後に届いたリンクを溜める `Dispatcher`。Wails 非依存で、`protocol.go` と `Shell` の 2 つ目の起動の受信から呼ばれる。解析失敗は `paths.PairingInvalidLink`（固定文言）へ遷移する |
+| `app/compose` | SQLite を開き、service・router を documented order で組み立てる。`ErrCorrupt`/`ErrSchemaTooNew` は recovery モード（`router.NewRecovery`）で続行し、`POST /recovery/reset` で DB を退避して通常モードへ切り替える（ハンドラは `app/swap` で差し替え）。通知スケジューラは Wails の準備完了（`Ready`）後に 1 度だけ起動する |
+| `app/notice`・`app/navpath`・`app/swap` | 通知の本文組み立てとクリック時の遷移先復元、遷移先パスの検証（同一オリジンの絶対パスのみ）、atomic に差し替えられる `http.Handler` |
 
 - ウィンドウを閉じて非表示のとき、WebView が `visibilityState === 'hidden'` になるかは実機で確認する（[アーキテクチャ設計 §11](../architecture/overview.md) の未確認事項 5）。`hidden` にならない場合、非表示中の画面更新ポーリングを止めるため、`window.go` が非表示/表示の遷移時に `refresh`/停止用のイベントを発行する設計に変更する
 - **可視性制御**: 非表示中のポーリング停止と復帰時の即時取得は、静的 `static/src/js/app.js`（`htmx:beforeRequest` で `…/snapshot` を取り消し、`visibilitychange` で `refresh` を発火）が行う。`SnapshotView` の `hx-trigger` にフィルタ式 `[…]` は使わない（CSP が `unsafe-eval` を許さず、htmx の `allowEval:false` と矛盾するため）
@@ -469,7 +478,7 @@ func main() {
 | `domain.ParseReport` | 固定サンプル（swarm-console `docs/api/endpoints-report.md` の JSON と、欠落・未知値・`available:false` を足したもの） | NFR-QLT-1 |
 | `repository/report` | `httptest.Server`（Streamable HTTP を模擬） | 401・403・405・ツール `isError`（`session_required`・`session_forbidden`・`invalid_args`）・タイムアウト・リダイレクト拒否・許可リスト |
 | `repository/store` | 一時ファイルの SQLite | マイグレーション、`ErrSchemaTooNew`、`ApplyNotified` の二重挿入、1,000 件上限、`ON DELETE CASCADE` |
-| `service`（Pairing・Connection・Snapshot・Notification・Settings） | fake `ReportClient`/`Store`/`SecretStore`/`Notifier`/`Clock` | single-flight、`needs_repair` による停止、`Observe` の二重通知防止、一巡後の `MarkBaselined`、`Delete` 時の順序（SQLite → 秘密領域）、下書きの期限（フェイク `Clock`。固定時間の待ちを使わない） |
+| `service`（Pairing・Connection・Snapshot・Notification・Settings） | fake `ReportClient`/`Store`/`SecretStore`/`Notifier`/`Clock` | single-flight、`needs_repair` による停止、`Observe` の二重通知防止、一巡後の `MarkBaselined`、`Delete` 時の順序（秘密領域 → SQLite。どちらの失敗でも接続が残り再試行できる）、下書きの期限（フェイク `Clock`。固定時間の待ちを使わない） |
 | `web/handler`・Templ | `httptest` + HTML アサーション | フルページ/フラグメント、CSRF 拒否、token が HTML に含まれない、グレーアウト・バナー、`needs_repair` でポーリング属性なし、`PaneCard` に操作系の要素がない |
 | `app` | 実機 | トレイ・通知・URL スキーム・単一インスタンス（自動テスト対象外。確認手順は実装 Issue に記載） |
 
@@ -478,7 +487,7 @@ func main() {
 | 要件 | コンポーネント |
 |------|---------------|
 | FR-PAIR-1〜4 | `PairingService`、`handler/pairing.go`、`app/protocol.go`、`secret.Store` |
-| FR-SESS-1〜3 | `ConnectionService.Tabs/ResolveSession`、`store.SetLastSession`、`organisms.SessionTabs` |
+| FR-SESS-1〜3 | `ConnectionService.Tabs/CachedTabs`、`store.SetLastSession`、`organisms.SessionTabs` |
 | FR-PANE-1〜3 | `organisms.PaneGrid`、`molecules.PaneCard`、`web` の `StateLabel`/`StateTone` |
 | FR-USE-1・2 | `organisms.UsagePanel`/`HostPanel`、`domain.UsageTone` |
 | FR-ATT-1 | `organisms.AttentionBar` |
@@ -499,3 +508,5 @@ func main() {
 | 1.1 | 2026-11-03 | 通知オフ中も記録は更新する規則を明記 | 機能要件 §8.3 の補足 |
 | 1.2 | 2026-11-03 | `Base` に htmx-config・`hx-headers`・`app.js` を追加。可視性制御の方式を明記 | CSP と htmx のトリガーフィルタ式の不整合の解消 |
 | 1.3 | 2026-11-03 | go-keyring の macOS での token 受け渡し（argv/stdin）の確認事項と、MCP クライアントの差し替え方針を追記 | セキュリティ・互換性リスクの明示 |
+| 1.4 | 2026-11-04 | `ConnectionService.Delete` の順序と失敗時の扱いを ER §4 に合わせて変更 | 孤立 token を残さないため |
+| 1.5 | 2026-11-04 | 下書きの能動的な期限切れ掃除、`Confirm` 後の `Wake`、`Store.Open` の手順を追記 | 未確定の token をメモリに残さない・新規接続の最初の通知を早めるため |
