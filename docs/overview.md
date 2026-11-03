@@ -26,9 +26,11 @@
 - 利用上限パネル（Claude / Codex / Cursor）とホスト負荷表示
 - `attention` / `warnings` のバッジ・バナー表示
 - 初回ペアリング（接続文字列の貼り付け／`swarm-viewer://` ディープリンク）、トークンの OS 秘密領域への保存、**複数接続の保存と切り替え**
-- 10 秒（設定可能）の `report` ポーリングと手動更新
+- 10 秒（設定可能）の `report` ポーリングと手動更新。前回取得分の表示（SQLite に最新 1 件を保存）
+- `asking`（答え待ち）・`stalled`（止まってるかも）への遷移の OS 通知。通知は全接続・全許可セッションが対象（既定 10 分ごとの別ポーリング）、同じ状態の再通知はしない。通知のオン/オフは設定画面で切り替える
+- ウィンドウを閉じてもトレイ（macOS はメニューバー）に常駐し、通知を継続する。単一インスタンス
 - 接続・認証・セッション許可のエラー表示
-- Windows / macOS ネイティブアプリ（Wails）
+- Windows / macOS ネイティブアプリ（Wails v3、フロントは HALT: Gin + Templ + HTMX）
 
 ### 含まないもの
 
@@ -37,7 +39,7 @@
 - `pane_tail` / `ask_card` / `report_read` の詳細ビュー
 - インターネット公開・クラウド経由の中継
 - Android 版（別トラック。同じ `/report` ＋ ペイロードで後続）
-- swarm-console 本体の機能追加の実装（本リポの範囲外。`pair` コマンドの追加要望のみ非機能・API 仕様に記載）
+- swarm-console 本体の機能追加の実装（本リポの範囲外。`pair` コマンドの追加要望のみ API 仕様に記載）
 - 自動更新、コード署名・公証（初版は手動入れ替え・unsigned）
 
 ## ステークホルダー / 想定ユーザー
@@ -67,12 +69,12 @@ graph TD
 
 | ドキュメント | パス | 概要 |
 |------------|------|------|
-| 機能要件 | `docs/requirements/functional.md` | （フェーズ3で確定） |
-| 非機能要件 | `docs/requirements/non-functional.md` | （フェーズ3で確定） |
-| アーキテクチャ設計 | `docs/architecture/overview.md` | （フェーズ3で確定） |
-| ER / データモデル | `docs/architecture/er.md` | （フェーズ3で確定） |
-| API 仕様 | `docs/api/endpoints.md` | （フェーズ3で確定） |
-| コンポーネント設計 | `docs/components/overview.md` | （フェーズ3で確定） |
+| 機能要件 | `docs/requirements/functional.md` | ユースケース、機能一覧（ペアリング・セッション切替・ペイン表示・利用上限・通知・設定）、ペイン `state` の表示ラベル、画面、エラー表示 |
+| 非機能要件 | `docs/requirements/non-functional.md` | 対応環境、性能・リソース目標、セキュリティ（tailnet 範囲の URL 検証・token 保護）、可用性、ストレージ、ログ、配布 |
+| アーキテクチャ設計 | `docs/architecture/overview.md` | HALT（Gin + Huma + Templ + HTMX）× Wails v3 の構成、レイヤー構造、通信フロー、トレイ常駐、セキュリティ境界、未確認事項 |
+| ER / データモデル | `docs/architecture/er.md` | SQLite 4 テーブル（connections・settings・snapshots・notified_states）、秘密領域（token）、マイグレーション |
+| API 仕様 | `docs/api/endpoints.md` | swarm-console `/report` の利用（`sessions_list`・`report`）、ペアリング形式、`pair` コマンドの要望、画面ルート |
+| コンポーネント設計 | `docs/components/overview.md` | 採用ライブラリ、domain/repository/service/web/app の責務・interface、並行性、テスト設計、要件との対応 |
 
 ## 用語集
 
@@ -95,3 +97,5 @@ graph TD
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-11-03 | 新規作成 | 初版 |
+| 1.1 | 2026-11-03 | ドキュメントマップを確定 | 全仕様書の作成完了 |
+| 1.2 | 2026-11-03 | スコープに通知・トレイ常駐・前回表示・技術構成を反映 | 各仕様書との整合 |

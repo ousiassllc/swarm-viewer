@@ -204,7 +204,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | ページルート | `HX-Request` ヘッダで分岐する。ヘッダなし（`SetURL` による直接遷移・リロード）= レイアウト込みフルページ、あり = フラグメント |
 | アクションルート | 常にフラグメント（または 303）を返す。`HX-Request` で分岐しない |
 | ID | `{cid}` = `connections.id`（ULID）、`{sid}` = tmux セッション名（URL エンコード）、`{did}` = ペアリング下書き ID（ランダム 128 bit、base64url） |
-| CSRF | 状態変更ルート（`POST`・`PUT`・`DELETE`）は `X-CSRF-Token` を要求する。値はレイアウトの `<meta name="csrf-token">` から HTMX が付ける。プロセス起動ごとに生成。不一致は 403 |
+| CSRF | 状態変更ルート（`POST`・`PUT`・`DELETE`）は `X-CSRF-Token` を要求する。値はレイアウトが `<body hx-headers='{"X-CSRF-Token":"…"}'>` で配り、HTMX が全リクエストに付ける（JSON 属性のため eval 不要）。プロセス起動ごとに生成。不一致は 403 |
 | `Cache-Control` | 全ルート `no-store`（スナップショットがキャッシュされないように） |
 | ステータス | アプリ内の取得失敗（swarm-console の不達・認証エラー）は **200** のまま、状態を HTML で表現する（§4.4）。入力検証エラーは 422（フォームを再描画）。不正な `{cid}`・`{did}` は 404 |
 | トースト | ビジネスエラー・保存成功は `hx-swap-oob` でトースト atom を返す |
@@ -227,7 +227,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | GET | `/connections/{cid}/sessions/{sid}/snapshot` | ページ（部分） | フラグメント | スナップショット領域（要対応バー・ペイングリッド・利用上限・ホスト負荷）。`report` を呼ぶ（同一 `(cid, sid)` は single-flight）。画面更新ポーリングと手動更新が叩く |
 | GET | `/settings` | ページ | フルページ / フラグメント | 設定画面。通知の OS 許可状態も表示する |
 | PUT | `/settings` | アクション | フラグメント（設定フォーム）+ トースト OOB / 422 | 設定を保存する。許容値は[ER §3.2](../architecture/er.md)。許容外は 422 でフォームを再描画 |
-| GET | `/static/*` | — | 埋め込みアセット | `htmx.min.js`・`app.css`。外部ホストは参照しない |
+| GET | `/static/*` | — | 埋め込みアセット | `htmx.min.js`・`app.js`（§4.5 の可視性制御）・`app.css`。外部ホストは参照しない |
 
 - Go 側から起動するルート遷移（`SetURL`）: ディープリンク受信 → `/pairing/drafts/{did}`（下書き作成後）、通知クリック → `/connections/{cid}/sessions/{sid}`、トレイ「開く」→ 直前の URL（なければ `/`）
 - `GET /connections/{cid}/sessions/{sid}` と snapshot は読み取りだけでなく、副作用として `last_session` の更新とスナップショットの保存（`snapshots`）を行う。冪等で、再送しても結果は同じ
@@ -257,13 +257,21 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 
 | 画面 | 属性 | 意味 |
 |------|------|------|
-| スナップショット領域 | `hx-get=".../snapshot"` `hx-trigger="load, every Ns [document.visibilityState === 'visible'], refresh from:body"` `hx-sync="this:drop"` | 画面更新ポーリング。`N` は `settings.screen_poll_seconds` をサーバーがレンダリング。前のリクエスト中は破棄（NFR-PERF-5） |
+| スナップショット領域 | `hx-get=".../snapshot"` `hx-trigger="load, every Ns, refresh from:body"` `hx-sync="this:drop"` | 画面更新ポーリング。`N` は `settings.screen_poll_seconds` をサーバーがレンダリング。前のリクエスト中は破棄（NFR-PERF-5）。**フィルタ式 `[…]` は使わない**（htmx が eval で評価するため、`unsafe-eval` なしの CSP で動かない） |
 | 更新ボタン | `hx-get="/connections/{cid}/sessions/{sid}"` `hx-target="#main"` | タブも再取得して全体を再描画（FR-POLL-2） |
 | セッションタブ | `hx-get="/connections/{cid}/sessions/{sid}"` `hx-target="#main"` | 切り替え（FR-SESS-2） |
 | 接続切替 | `hx-get="/connections/{cid}"`（302 追従） | 切り替え |
+| 非表示中の停止・復帰時の即時取得 | 同梱の静的 `app.js`（下記） | フィルタ式の代わりにクライアントで制御する |
 | 設定フォーム | `hx-put="/settings"` `hx-target="#settings-form"` `hx-target-422="#settings-form"` | `response-targets` 拡張で 422 のとき再描画先を分ける |
 | 接続削除 | `hx-delete="/connections/{cid}"` `hx-confirm` | アクション |
 | 共通 | `hx-disabled-elt="this"`、`hx-indicator` | 二重送信防止・ローディング表示。Optimistic UI とスケルトンは使わない |
+
+`static/dist/js/app.js`（外部ファイル。CSP の `script-src 'self'` で許可される。インラインではない）は次の 2 つだけを行う。
+
+- `htmx:beforeRequest` で、`document.hidden` のあいだ `…/snapshot` へのリクエストを `preventDefault()` で取り消す（FR-POLL-3）
+- `visibilitychange` で `document.hidden` が `false` になったら `htmx.trigger(document.body, 'refresh')` を発火し、即時取得する（NFR-AVL-4）
+
+HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>` をレイアウトの `<head>` に置く。`allowEval:false` で eval を使う機能（トリガーフィルタ、`hx-on:`・`js:` 構文）を無効にし、`includeIndicatorStyles:false` で htmx が注入するインライン `<style>` を止める（`style-src 'self'` に反するため）。`.htmx-indicator` の表示切替は `app.css`（Tailwind）に書く。
 
 - Lit コンポーネントは使わないため、HTMX ↔ Lit 境界ルールは適用しない（[アーキテクチャ設計 §8](../architecture/overview.md)）
 - 通信障害（`htmx:responseError`）の汎用トーストのみクライアントで処理する（HALT 標準）。アプリ内通信のため通常は起きない
@@ -281,3 +289,4 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-11-03 | 新規作成 | 初版 |
+| 1.1 | 2026-11-03 | トリガーフィルタ `[document.visibilityState…]` を廃止し、静的 `app.js` で非表示中の停止・復帰時の即時取得を行う方式に変更。CSRF 配布を `hx-headers` に訂正。htmx-config を明記 | CSP（`unsafe-eval` なし）で htmx のフィルタ式が動かないため |

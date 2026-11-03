@@ -301,7 +301,7 @@ func (s *SnapshotService) Get(ctx context.Context, connID, session string) Snaps
 ```
 
 - `Get` は `singleflight`（キー `connID + "\x00" + session`）で包む。同じキーの同時呼び出しは `report` 1 本にまとまる
-- 成功: ①メモリキャッシュ更新 ②`SaveSnapshot` ③`NotificationService.Observe` を呼ぶ（通知有効のときのみ）
+- 成功: ①メモリキャッシュ更新 ②`SaveSnapshot` ③`NotificationService.Observe` を呼ぶ（通知のオン/オフに関わらず呼ぶ。オフのときは `Observe` が通知の送出だけを抑止し、記録は更新する）
 - 失敗: `Err` に分類済みエラーを入れ、`Snapshot` は直前値（`Stale: true`）を返す。401/403 は `ConnectionService` の `needs_repair` を立てる
 - `needs_repair` の接続は `Get` が **取得せず**即座に `Err`（`ErrUnauthorized`）を返す（自動ポーリングの停止）。再ペアリングで `MarkRepaired` される
 
@@ -325,7 +325,7 @@ func (s *NotificationService) Run(ctx context.Context)
 1. 接続の mutex を取得
 2. `NotifiedKeys(conn, session)` を読み、`domain.Detect(known, r.Panes, baselining = conn.BaselinedAt == nil)`
 3. `ApplyNotified` で Diff を適用し、実際に挿入できたキー（`inserted`）を得る
-4. `baselining` でなければ、`inserted` に対応する各ペインについて `Notifier.Notify`（通知がオンのときのみ）。失敗は警告ログ（記録は戻さない。再通知しないことを優先）
+4. `baselining` でなく、かつ通知がオンのとき、`inserted` に対応する各ペインについて `Notifier.Notify`。通知がオフの間は記録だけ更新する（オン復帰後に、オフの間に入った状態が一斉に通知されるのを防ぐ）。通知の失敗は警告ログ（記録は戻さない。再通知しないことを優先）
 
 `Run` の手順（通知用ポーリング）:
 
@@ -406,7 +406,7 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 | organisms | `ConnectionList` | `[]Connection` | |
 | pages | `MainPage` | 接続・タブ・スナップショット | |
 | pages | `PairingPage` / `PairingDraftPage` / `ConnectionsPage` / `SettingsPage` / `NoSessionsPage` / `DraftExpiredPage` / `RecoveryPage`（DB 破損時） | | |
-| layout | `Base` | `Title`・`CSRFToken` | `<head>`（CSP は HTTP ヘッダで付与）、`htmx.min.js`・`app.css` を読み込む |
+| layout | `Base` | `Title`・`CSRFToken` | `<head>`（CSP は HTTP ヘッダで付与。`htmx-config` の meta を含む）、`<body hx-headers='{"X-CSRF-Token":"…"}'>`、`htmx.min.js`・`app.js`・`app.css` を読み込む |
 
 - 状態の表示ラベル・色（`StateLabel`・`StateTone`、`UsageTone` の結果から Tailwind クラスへの対応）は **web 層**に置く（presentation。domain は意味だけを持つ）。ラベルは[機能要件 §3](../requirements/functional.md)の表に一致させる
 - 時刻・相対時間の整形（`elapsed` は文字列のまま、`resets_at` は「あと N 時間」）も web 層のヘルパー（`web/format`）。`Clock.Now()` を引数に取り、テストを固定時刻で行う
@@ -427,6 +427,7 @@ Wails に依存する唯一の層。`service/` を呼び、service の interface
 | `app/id.go` | `IDGenerator` の ULID 実装（`oklog/ulid/v2`、`crypto/rand`） |
 
 - ウィンドウを閉じて非表示のとき、WebView が `visibilityState === 'hidden'` になるかは実機で確認する（[アーキテクチャ設計 §11](../architecture/overview.md) の未確認事項 5）。`hidden` にならない場合、非表示中の画面更新ポーリングを止めるため、`window.go` が非表示/表示の遷移時に `refresh`/停止用のイベントを発行する設計に変更する
+- **可視性制御**: 非表示中のポーリング停止と復帰時の即時取得は、静的 `static/src/js/app.js`（`htmx:beforeRequest` で `…/snapshot` を取り消し、`visibilitychange` で `refresh` を発火）が行う。`SnapshotView` の `hx-trigger` にフィルタ式 `[…]` は使わない（CSP が `unsafe-eval` を許さず、htmx の `allowEval:false` と矛盾するため）
 
 ## 8. 配線（main.go）
 
@@ -494,3 +495,5 @@ func main() {
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-11-03 | 新規作成 | 初版 |
+| 1.1 | 2026-11-03 | 通知オフ中も記録は更新する規則を明記 | 機能要件 §8.3 の補足 |
+| 1.2 | 2026-11-03 | `Base` に htmx-config・`hx-headers`・`app.js` を追加。可視性制御の方式を明記 | CSP と htmx のトリガーフィルタ式の不整合の解消 |
