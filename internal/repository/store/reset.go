@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -28,14 +29,11 @@ func moveAside(path string, now time.Time) (string, error) {
 		return "", err
 	}
 
-	if old, err := filepath.Glob(escapeGlob(path) + backupInfix + "*"); err == nil {
-		for _, f := range old {
-			if err := os.Remove(f); err != nil && !errors.Is(err, fs.ErrNotExist) {
-				return "", fmt.Errorf("store: remove old backup: %w", err)
-			}
-		}
+	// 新しい退避を先に作る。改名に失敗したときは直前の退避を残す。
+	var old []string
+	if m, err := filepath.Glob(escapeGlob(path) + backupInfix + "*"); err == nil {
+		old = m
 	}
-
 	backup := path + backupInfix + now.UTC().Format("20060102T150405Z")
 	if err := os.Rename(path, backup); err != nil {
 		return "", fmt.Errorf("store: move database aside: %w", err)
@@ -43,6 +41,15 @@ func moveAside(path string, now time.Time) (string, error) {
 	for _, suffix := range []string{"-wal", "-shm"} {
 		if err := os.Rename(path+suffix, backup+suffix); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return "", fmt.Errorf("store: move database sidecar aside: %w", err)
+		}
+	}
+	// 平文のペイン本文が積み上がらないよう、新しい退避を作れてから古い世代を消す。
+	for _, f := range old {
+		if strings.HasPrefix(f, backup) { // 同じ世代（同一秒の再退避）は今作ったものなので消さない
+			continue
+		}
+		if err := os.Remove(f); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return "", fmt.Errorf("store: remove old backup: %w", err)
 		}
 	}
 	return backup, nil

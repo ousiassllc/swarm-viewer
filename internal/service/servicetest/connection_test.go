@@ -10,19 +10,13 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/service"
 )
 
-func TestConnectionDeleteOrderStoreThenSecret(t *testing.T) {
+func TestConnectionDeleteRemovesRowAndSecret(t *testing.T) {
 	e := NewEnv(t)
 	e.AddConn("c1", "devbox", URL1, true)
 	e.Secrets.Tokens["c1"] = Token
 
 	if err := e.Conns.Delete(context.Background(), "c1"); err != nil {
 		t.Fatal(err)
-	}
-
-	calls := e.Rec.List()
-	want := []string{"store.DeleteConnection", "secret.Delete:c1"}
-	if strings.Join(calls, ",") != strings.Join(want, ",") {
-		t.Fatalf("calls = %v, want %v", calls, want)
 	}
 	if _, ok := e.Store.Conn("c1"); ok {
 		t.Fatal("connection still stored")
@@ -32,7 +26,37 @@ func TestConnectionDeleteOrderStoreThenSecret(t *testing.T) {
 	}
 }
 
-func TestConnectionDeleteStoreFailureKeepsSecret(t *testing.T) {
+// 秘密領域の削除に失敗したら接続を残し、利用者が再試行できる（token だけが孤立して残らない）。
+func TestConnectionDeleteSecretFailureKeepsConnectionAndAllowsRetry(t *testing.T) {
+	e := NewEnv(t)
+	e.AddConn("c1", "devbox", URL1, true)
+	e.Secrets.Tokens["c1"] = Token
+	e.Secrets.ErrDelete = ErrInjected
+
+	if err := e.Conns.Delete(context.Background(), "c1"); !errors.Is(err, ErrInjected) {
+		t.Fatalf("err = %v, want the secret error", err)
+	}
+	if _, ok := e.Store.Conn("c1"); !ok {
+		t.Fatal("connection must stay when the secret could not be deleted")
+	}
+	if logs := e.Logs.String(); strings.Contains(logs, Token) {
+		t.Fatal("token leaked into log")
+	}
+
+	e.Secrets.ErrDelete = nil
+	if err := e.Conns.Delete(context.Background(), "c1"); err != nil {
+		t.Fatalf("retry: %v", err)
+	}
+	if _, ok := e.Store.Conn("c1"); ok {
+		t.Fatal("connection still stored after retry")
+	}
+	if _, ok := e.Secrets.Token("c1"); ok {
+		t.Fatal("token still stored after retry")
+	}
+}
+
+// 行の削除に失敗した場合 token は既に消えているので、接続は needs_repair になり、再削除で片付けられる。
+func TestConnectionDeleteStoreFailureLeavesNeedsRepairAndAllowsRetry(t *testing.T) {
 	e := NewEnv(t)
 	e.AddConn("c1", "devbox", URL1, true)
 	e.Secrets.Tokens["c1"] = Token
@@ -41,26 +65,25 @@ func TestConnectionDeleteStoreFailureKeepsSecret(t *testing.T) {
 	if err := e.Conns.Delete(context.Background(), "c1"); !errors.Is(err, ErrInjected) {
 		t.Fatalf("err = %v", err)
 	}
-	if _, ok := e.Secrets.Token("c1"); !ok {
-		t.Fatal("secret must not be deleted when the row delete failed")
+	if _, ok := e.Store.Conn("c1"); !ok {
+		t.Fatal("connection must stay when the row delete failed")
 	}
-}
+	if _, ok := e.Secrets.Token("c1"); ok {
+		t.Fatal("token must not linger once the delete was attempted")
+	}
+	if !e.Conns.NeedsRepair("c1") {
+		t.Fatal("a connection without its token must be shown as needs_repair")
+	}
 
-func TestConnectionDeleteSecretFailureOnlyWarns(t *testing.T) {
-	e := NewEnv(t)
-	e.AddConn("c1", "devbox", URL1, true)
-	e.Secrets.Tokens["c1"] = Token
-	e.Secrets.ErrDelete = ErrInjected
-
+	e.Store.SetErr("DeleteConnection", nil)
 	if err := e.Conns.Delete(context.Background(), "c1"); err != nil {
-		t.Fatalf("secret failure must not fail Delete: %v", err)
+		t.Fatalf("retry: %v", err)
 	}
-	logs := e.Logs.String()
-	if !strings.Contains(logs, "level=WARN") || !strings.Contains(logs, "c1") {
-		t.Fatalf("expected a warning with the connection id, got %q", logs)
+	if _, ok := e.Store.Conn("c1"); ok {
+		t.Fatal("connection still stored after retry")
 	}
-	if strings.Contains(logs, Token) {
-		t.Fatal("token leaked into log")
+	if e.Conns.NeedsRepair("c1") {
+		t.Fatal("needs_repair must be released after deletion")
 	}
 }
 

@@ -26,6 +26,9 @@ type DraftView struct {
 	ExpiresAt    time.Time
 }
 
+// PollTrigger は接続の通知用ポーリングを直ちに回すよう促す（*NotificationService が満たす）。
+type PollTrigger interface{ Wake(connID string) }
+
 type draft struct {
 	id      DraftID
 	payload domain.PairingPayload
@@ -45,13 +48,23 @@ type PairingService struct {
 
 	confirmMu sync.Mutex // Confirm を直列化する（同じ下書きの二重確定・接続の二重作成を防ぐ）
 
-	mu    sync.Mutex // draft を守る
-	draft *draft
+	mu       sync.Mutex // draft・sweeping・trigger を守る
+	draft    *draft
+	sweeping bool // 期限切れの下書きを消す goroutine が動いている
+	trigger  PollTrigger
 }
 
 // NewPairingService は PairingService を作る。conns は再ペアリング後の MarkRepaired に使う。
 func NewPairingService(report ReportClient, store Store, secrets SecretStore, ids IDGenerator, clock Clock, conns *ConnectionService, log *slog.Logger) *PairingService {
 	return &PairingService{report: report, store: store, secrets: secrets, ids: ids, clock: clock, conns: conns, log: log}
+}
+
+// SetPollTrigger は Confirm の成功後に、その接続の通知用ポーリングを直ちに回す依頼先を設定する。
+// 配線時（Confirm を呼ぶ前）に 1 度だけ呼ぶ。未設定なら次の周期まで待つ。
+func (s *PairingService) SetPollTrigger(t PollTrigger) {
+	s.mu.Lock()
+	s.trigger = t
+	s.mu.Unlock()
 }
 
 // Parse は接続文字列を検証して下書きを作る。古い下書きは破棄する。
@@ -67,8 +80,41 @@ func (s *PairingService) Parse(raw string) (DraftID, error) {
 	}
 	s.mu.Lock()
 	s.draft = &draft{id: id, payload: payload, expires: s.clock.Now().Add(DraftTTL)}
+	startSweep := !s.sweeping
+	s.sweeping = true
 	s.mu.Unlock()
+	if startSweep {
+		go s.sweep()
+	}
 	return id, nil
+}
+
+// sweep は下書きの期限が切れたら（token ごと）メモリから消す。下書きが無くなったら終わる（次の Parse が再び起動する）。
+// 呼び出しを待たずに消すための goroutine で、周期は下書きの期限に合わせる（Clock の ticker）。
+func (s *PairingService) sweep() {
+	t := s.clock.NewTicker(DraftTTL)
+	defer t.Stop()
+	for range t.C() {
+		wait, done := s.expireDraft()
+		if done {
+			return
+		}
+		t.Reset(wait)
+	}
+}
+
+// expireDraft は期限切れの下書きを消す。下書きが無い（消えた）なら done=true。まだ有効なら期限までの待ち時間を返す。
+func (s *PairingService) expireDraft() (wait time.Duration, done bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.draft != nil {
+		if remaining := s.draft.expires.Sub(s.clock.Now()); remaining > 0 {
+			return remaining, false
+		}
+		s.draft = nil
+	}
+	s.sweeping = false
+	return 0, true
 }
 
 // Draft は確認画面用の表示情報を返す。期限切れ・破棄済み・未知の ID は ErrDraftExpired。
@@ -135,7 +181,18 @@ func (s *PairingService) Confirm(ctx context.Context, id DraftID) (domain.Connec
 	}
 	s.conns.MarkRepaired(conn.ID)
 	s.Discard(id)
+	s.wakePoll(conn.ID)
 	return conn, nil
+}
+
+// wakePoll は新しい接続の最初の通知用ポーリングを次の周期まで待たせない。
+func (s *PairingService) wakePoll(connID string) {
+	s.mu.Lock()
+	t := s.trigger
+	s.mu.Unlock()
+	if t != nil {
+		t.Wake(connID)
+	}
 }
 
 // save は URL で接続を引き、あれば更新（id・baselined_at 維持）、無ければ新規に保存する。

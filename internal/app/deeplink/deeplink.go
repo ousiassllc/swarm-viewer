@@ -3,7 +3,7 @@
 // Wails に依存しない。
 //
 // ディープリンクには token が含まれる。この package は URL を WebView に渡さず（遷移先は下書き ID のみ）、
-// ログにも host 以外を出さない。
+// ログにも種別（pair か other）以外を出さない。
 package deeplink
 
 import (
@@ -46,9 +46,9 @@ func Extract(args []string) (string, bool) {
 	return "", false
 }
 
-// HostOf はログ用に、ディープリンクの host 部分（"pair" など）だけを返す。
-// 区切り（/ ? #）より前を取るだけで URL 全体は返さない。
-func HostOf(link string) string {
+// logKind はログ用に、ディープリンクの種別だけを返す。認識できるペアリングリンク（host が pair）なら "pair"、
+// それ以外は固定の "other"。入力の断片（host 部分を含む）はログに出さない（区切りが欠けた不正なリンクは全体が host に見えるため）。
+func logKind(link string) string {
 	rest := link
 	if len(rest) >= len(prefix) && strings.EqualFold(rest[:len(prefix)], prefix) {
 		rest = rest[len(prefix):]
@@ -56,5 +56,8 @@ func HostOf(link string) string {
 	if i := strings.IndexAny(rest, "/?#"); i >= 0 {
 		rest = rest[:i]
 	}
-	return rest
+	if strings.EqualFold(rest, "pair") {
+		return "pair"
+	}
+	return "other"
 }

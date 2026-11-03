@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -88,6 +89,10 @@ func prepare(ctx context.Context, db *sql.DB) error {
 	if err := db.PingContext(ctx); err != nil { // PRAGMA は接続ごとに DSN で適用される
 		return err
 	}
+	// 版は WAL への切り替えや整合性チェックより先に読む。新しい版の DB は一切変更せず、壊れているとも誤報しない。
+	if err := checkSchemaNotNewer(ctx, db); err != nil {
+		return err
+	}
 	var check string
 	if err := db.QueryRowContext(ctx, "PRAGMA quick_check(1)").Scan(&check); err != nil {
 		return err
@@ -95,11 +100,16 @@ func prepare(ctx context.Context, db *sql.DB) error {
 	if check != "ok" {
 		return errors.New("store: integrity check failed")
 	}
+	// WAL への切り替えはファイルを書き換えるため、版と整合性の確認が済んでから行う（以後の接続は DB ファイルの設定を引き継ぐ）。
+	var mode string
+	if err := db.QueryRowContext(ctx, "PRAGMA journal_mode(WAL)").Scan(&mode); err != nil {
+		return err
+	}
 	return migrate(ctx, db)
 }
 
 // ensureFile は DB ファイルとその親ディレクトリを（無ければ）所有者のみの権限で作る。
-// 既存ファイルの権限は変えない。
+// 既存ファイルの権限が 0600 より緩ければ 0600 に締める（Windows を除く。ペイン本文を含むため）。
 func ensureFile(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
 		return err
@@ -108,7 +118,18 @@ func ensureFile(path string) error {
 	if err != nil {
 		return err
 	}
-	return f.Close()
+	defer func() { _ = f.Close() }()
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if fi.Mode().Perm()&^filePerm != 0 {
+		return f.Chmod(filePerm)
+	}
+	return nil
 }
 
 // restrictSidecars は WAL の -wal・-shm を 0600 にする（SQLite は通常 DB ファイルの権限を引き継ぐ）。
@@ -131,7 +152,6 @@ func dsnFor(path string) (string, error) {
 	}
 	q := url.Values{}
 	q.Add("_pragma", fmt.Sprintf("busy_timeout(%d)", busyTimeoutMillis))
-	q.Add("_pragma", "journal_mode(WAL)")
 	q.Add("_pragma", "foreign_keys(1)")
 	// 書き込みトランザクションは開始時にロックを取る（読み→書きの昇格による SQLITE_BUSY を避ける）。
 	q.Set("_txlock", "immediate")

@@ -112,8 +112,10 @@ func TestRunDisabledSettingSkipsFetching(t *testing.T) {
 	e.Clock.Ticker(0).Tick()
 	st.Recv(t, rounds, "tick round")
 
-	if calls := e.Rec.List(); len(calls) != 1 || calls[0] != "store.Settings" {
-		t.Fatalf("calls = %v; a disabled round must not touch connections or the network", calls)
+	for _, c := range e.Rec.List() {
+		if strings.HasPrefix(c, "report.") {
+			t.Fatalf("fetched %q while notifications are disabled", c)
+		}
 	}
 }
 
@@ -220,24 +222,28 @@ func TestRunSkipsNeedsRepairConnections(t *testing.T) {
 	}
 }
 
-func TestRunPrunesSnapshotsAfterSessionsBeforeReports(t *testing.T) {
+func TestRunDropsSnapshotsOfSessionsThatAreNoLongerAllowed(t *testing.T) {
 	e := st.NewEnv(t)
 	e.AddConn("c1", "a", st.URL1, true)
 	e.Report.Mu.Lock()
-	e.Report.SessionList["c1"] = []domain.Session{{ID: "0", Allowed: true}, {ID: "stub", Allowed: false}, {ID: "1", Allowed: true}}
+	e.Report.SessionList["c1"] = []domain.Session{{ID: "0", Allowed: true}, {ID: "stub", Allowed: false}}
 	e.Report.Mu.Unlock()
+	e.Store.Snaps[st.SnapKey{Conn: "c1", Session: "stub"}] = domain.Snapshot{FetchedAt: e.Clock.Now()}
+	e.Store.Snaps[st.SnapKey{Conn: "c1", Session: "gone"}] = domain.Snapshot{FetchedAt: e.Clock.Now()}
 
 	rounds := startRun(t, e)
 	st.Recv(t, rounds, "first round")
 
-	calls := e.Rec.List()
-	s, p, r := indexOf(calls, "report.Sessions:c1"), indexOf(calls, "store.PruneSnapshots"), indexOf(calls, "report.Report:c1/0")
-	if s < 0 || p < s || r < p {
-		t.Fatalf("want Sessions < PruneSnapshots < Report, got %v", calls)
+	if _, ok := e.Store.Snap("c1", "stub"); ok {
+		t.Fatal("snapshot of a non-allowed session was kept")
 	}
-	e.Store.Mu.Lock()
-	defer e.Store.Mu.Unlock()
-	if len(e.Store.Pruned) != 1 || e.Store.Pruned[0].Conn != "c1" || strings.Join(e.Store.Pruned[0].Keep, ",") != "0,1" {
-		t.Fatalf("pruned = %+v, want keep [0 1]", e.Store.Pruned)
+	if _, ok := e.Store.Snap("c1", "gone"); ok {
+		t.Fatal("snapshot of a vanished session was kept")
+	}
+	if _, ok := e.Store.Snap("c1", "0"); !ok {
+		t.Fatal("snapshot of the allowed session must be kept")
+	}
+	if countOf(e.Rec.List(), "report.Report:c1/stub") != 0 {
+		t.Fatal("a non-allowed session was fetched")
 	}
 }

@@ -76,8 +76,10 @@ func run() error {
 		Notifications: notifSvc,
 		Links:         links,
 		OnReady: func() {
-			notifier.RequestPermission()
+			// 通知スケジューラを先に起動する。macOS の許可ダイアログは応答まで数分ブロックしうるため、
+			// 待ってからだと許可の有無に関わらず通知用ポーリングが止まる（OnReady は別 goroutine）。
 			rt.Ready()
+			notifier.RequestPermission()
 		},
 		BeforeQuit: cancel,
 		OnShutdown: func() { cancel(); rt.Close() },

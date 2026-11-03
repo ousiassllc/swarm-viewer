@@ -60,6 +60,22 @@ func userVersion(ctx context.Context, q interface {
 	return v, nil
 }
 
+// checkSchemaNotNewer は DB の版がこのアプリの知る最新より新しければ ErrSchemaTooNew を返す（DB は変更しない）。
+func checkSchemaNotNewer(ctx context.Context, db *sql.DB) error {
+	ms, err := loadMigrations()
+	if err != nil {
+		return err
+	}
+	current, err := userVersion(ctx, db)
+	if err != nil {
+		return err
+	}
+	if current > len(ms) {
+		return ErrSchemaTooNew
+	}
+	return nil
+}
+
 // migrate は user_version より新しい版を順に適用する。各版は 1 つのトランザクションで、
 // 最後に user_version を更新する（途中で失敗すれば版ごと巻き戻る）。
 // DB の版がアプリの知る最新より新しければ何も変更せず ErrSchemaTooNew を返す。

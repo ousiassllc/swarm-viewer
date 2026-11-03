@@ -205,6 +205,7 @@ func (r *Runtime) build(st *store.Store) (http.Handler, services, error) {
 	notif := service.NewNotificationService(rep, st, c.Notifier, c.Clock, settings, conns, r.log)
 	snaps := service.NewSnapshotService(rep, st, notif, conns, c.Clock, r.log)
 	pairing := service.NewPairingService(rep, st, c.Secrets, c.IDs, c.Clock, conns, r.log)
+	pairing.SetPollTrigger(notif)
 
 	h, err := router.New(router.Deps{
 		Logger:      r.log,
