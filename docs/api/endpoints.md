@@ -215,7 +215,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | メソッド | パス | 種別 | 返却 | 説明 |
 |---------|------|------|------|------|
 | GET | `/` | ページ | 302 | 接続が 0 件なら `/pairing`。1 件以上なら `/connections/{last}`（`settings.last_connection_id`、なければ先頭） |
-| GET | `/pairing` | ページ | フルページ | 接続文字列の貼り付けフォーム |
+| GET | `/pairing` | ページ | フルページ / フラグメント | 接続文字列の貼り付けフォーム。`?link=invalid` を付けると、ディープリンクを解析できなかった旨の固定文言を出す（受け取った文字列は URL にも画面にも載せない。app が失敗時に `SetURL` する） |
 | POST | `/pairing` | アクション | 303 `/pairing/drafts/{did}` / 422 フォーム | 貼り付けた接続文字列を 1 回だけ受け取り、解析・検証して下書きを作る（§2.1）。フォーム値は破棄し、応答に token を含めない |
 | GET | `/pairing/drafts/{did}` | ページ | フルページ | 確認画面。表示: 表示名、接続先ホスト（`url` の host のみ）、ホストが申告した許可セッション。**token は出さない** |
 | POST | `/pairing/drafts/{did}/confirm` | アクション | 303 `/connections/{cid}` / 200 エラーフラグメント | `sessions_list` で疎通確認（FR-PAIR-2）。成功したら秘密領域に token、SQLite に接続を保存し、下書きを削除する（§4.3）。失敗は保存せず、下書きは残す（再試行可。期限は §4.3） |
@@ -228,6 +228,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | GET | `/settings` | ページ | フルページ / フラグメント | 設定画面。通知の OS 許可状態も表示する |
 | PUT | `/settings` | アクション | フラグメント（設定フォーム）+ トースト OOB / 422 | 設定を保存する。許容値は[ER §3.2](../architecture/er.md)。許容外は 422 でフォームを再描画 |
 | GET | `/static/*` | — | 埋め込みアセット | `htmx.min.js`・`app.js`（§4.5 の可視性制御）・`app.css`。外部ホストは参照しない |
+| GET / POST | `/`・`/recovery/reset` | ページ / アクション | フルページ / フラグメント | **recovery モードのみ**（DB が開けない・スキーマが新しすぎる。上記の画面ルートは登録しない）。`/` は初期化導線、`POST /recovery/reset` は保存データを退避して作り直し、成功したら `HX-Redirect: /`。それ以外の GET は `/` へ 302、その他のメソッドは 404 |
 
 - Go 側から起動するルート遷移（`SetURL`）: ディープリンク受信 → `/pairing/drafts/{did}`（下書き作成後）、通知クリック → `/connections/{cid}/sessions/{sid}`、トレイ「開く」→ 直前の URL（なければ `/`）
 - `GET /connections/{cid}/sessions/{sid}` と snapshot は読み取りだけでなく、副作用として `last_session` の更新とスナップショットの保存（`snapshots`）を行う。冪等で、再送しても結果は同じ
