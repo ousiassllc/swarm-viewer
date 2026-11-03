@@ -43,6 +43,11 @@ func (h *Handler) pairingPage(c *gin.Context) {
 	if c.Query(paths.PairingLinkParam) == paths.PairingLinkInvalid {
 		form.Error = invalidLinkMessage
 	}
+	h.pairingView(c, form)
+}
+
+// pairingView は貼り付けフォームの画面（フルページ / フラグメント）。
+func (h *Handler) pairingView(c *gin.Context, form organisms.PairingFormProps) {
 	p := h.pairingProps(c, form)
 	h.view(c, "接続を追加", func(s layout.BaseProps) templ.Component { return pages.PairingPage(s, p) }, pages.PairingContent(p))
 }
@@ -65,12 +70,27 @@ func (h *Handler) pairingPaste(c *gin.Context) {
 		h.render(c, http.StatusUnprocessableEntity, organisms.PairingForm(organisms.PairingFormProps{Error: format.PairingErrorMessage(err)}))
 		return
 	}
-	c.Redirect(http.StatusSeeOther, paths.Draft(string(id)))
+	h.navigate(c, paths.Draft(string(id)), func() { h.draftView(c, string(id)) })
+}
+
+// navigate は HX-Request なら HX-Redirect で target へ移し、そうでなければ render で移動先をその場に描画する。
+// WebKit の WebView が http.Redirect を扱えないため、3xx は使わない（docs/architecture/overview.md §11）。
+func (h *Handler) navigate(c *gin.Context, target string, render func()) {
+	if isHX(c) {
+		c.Header(htmxRedirect, target)
+		c.Status(http.StatusOK)
+		return
+	}
+	render()
 }
 
 // draftPage は `GET /pairing/drafts/{did}`。期限切れ・未知の ID は 404 でなく「もう一度ペアリングしてください」。
 func (h *Handler) draftPage(c *gin.Context) {
-	p, ok := h.draftProps(c, "")
+	h.draftView(c, c.Param("did"))
+}
+
+func (h *Handler) draftView(c *gin.Context, did string) {
+	p, ok := h.draftProps(c, did, "")
 	if !ok {
 		return
 	}
@@ -78,8 +98,7 @@ func (h *Handler) draftPage(c *gin.Context) {
 }
 
 // draftProps は確認画面の入力。下書きが無ければ「もう一度ペアリングしてください」を返して false。
-func (h *Handler) draftProps(c *gin.Context, errMsg string) (pages.DraftProps, bool) {
-	did := c.Param("did")
+func (h *Handler) draftProps(c *gin.Context, did, errMsg string) (pages.DraftProps, bool) {
 	v, err := h.pairing.Draft(service.DraftID(did))
 	if err != nil {
 		if errors.Is(err, service.ErrDraftExpired) {
@@ -105,13 +124,13 @@ func (h *Handler) draftExpired(c *gin.Context) {
 		pages.DraftExpiredContent())
 }
 
-// draftConfirm は `POST …/confirm`。疎通確認に成功したときだけ保存して 303 でメイン画面へ。
+// draftConfirm は `POST …/confirm`。疎通確認に成功したときだけ保存してメイン画面へ移す。
 // 失敗は保存せず、下書きを残したまま確認画面のフラグメントに固定文言を出す（再試行できる）。
 func (h *Handler) draftConfirm(c *gin.Context) {
 	did := c.Param("did")
 	conn, err := h.pairing.Confirm(c.Request.Context(), service.DraftID(did))
 	if err == nil {
-		c.Redirect(http.StatusSeeOther, paths.Connection(conn.ID))
+		h.navigate(c, paths.Connection(conn.ID), func() { h.showConnection(c, conn) })
 		return
 	}
 	if errors.Is(err, service.ErrDraftExpired) {
@@ -124,19 +143,19 @@ func (h *Handler) draftConfirm(c *gin.Context) {
 	} else {
 		h.log.Error("confirming pairing failed", "err", err)
 	}
-	p, ok := h.draftProps(c, msg)
+	p, ok := h.draftProps(c, did, msg)
 	if !ok {
 		return
 	}
 	h.render(c, http.StatusOK, pages.PairingDraftContent(p))
 }
 
-// draftDiscard は `POST …/discard`。下書きを即時に破棄し、303 で /（接続があるとき）か /pairing へ。
+// draftDiscard は `POST …/discard`。下書きを即時に破棄し、/（接続があるとき）か /pairing へ移す。
 func (h *Handler) draftDiscard(c *gin.Context) {
 	h.pairing.Discard(service.DraftID(c.Param("did")))
-	target := paths.Pairing
 	if conns, err := h.conns.List(c.Request.Context()); err == nil && len(conns) > 0 {
-		target = paths.Home
+		h.navigate(c, paths.Home, func() { h.home(c) })
+		return
 	}
-	c.Redirect(http.StatusSeeOther, target)
+	h.navigate(c, paths.Pairing, func() { h.pairingView(c, organisms.PairingFormProps{}) })
 }

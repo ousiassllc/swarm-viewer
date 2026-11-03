@@ -370,12 +370,14 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 
 | ファイル | ルート（[API 仕様 §4.2](../api/endpoints.md)） | 主な呼び出し |
 |---------|---------------------------------------------|-------------|
-| `main.go` | `GET /`、`GET /connections/{cid}`、`GET /connections/{cid}/sessions/{sid}`、`GET …/snapshot` | `ConnectionService.ResolveSession/Tabs`、`SnapshotService.Get` |
+| `main.go`・`tabs.go`・`snapshot.go` | `GET /`、`GET /connections/{cid}`、`GET /connections/{cid}/sessions/{sid}`、`GET …/snapshot` | `ConnectionService.CachedTabs/Tabs`、`SnapshotService.Last/Get` |
 | `connection.go` | `GET /connections`、`DELETE /connections/{cid}` | `ConnectionService.List/Delete` |
 | `pairing.go` | `GET/POST /pairing`、`GET /pairing/drafts/{did}`、`POST …/confirm`、`POST …/discard` | `PairingService` |
 | `settings.go` | `GET /settings`、`PUT /settings` | `SettingsService` |
 
 - ページルートは `HX-Request` でフルページ / フラグメントを分岐する（[API 仕様 §4.1](../api/endpoints.md)）
+- 通常モードのルートは 3xx を返さない（WebKit の WebView が `http.Redirect` を扱えないため）。フルページはその場に描画し、HX の移動は `HX-Redirect`（[API 仕様 §4.1](../api/endpoints.md)、[アーキテクチャ設計 §11](../architecture/overview.md) #7）
+- メイン画面の初回描画はホストと通信しない（保存済みスナップショットと直近のタブで描画し、最新のタブは snapshot 応答の `#session-tabs` OOB が反映する。[API 仕様 §4.2](../api/endpoints.md)）
 - snapshot ハンドラは `SnapshotResult` を `organisms.SnapshotView` に渡す。`Fresh == false` のときは直前値のグレーアウトと失敗バナー（[API 仕様 §4.4](../api/endpoints.md)）。`needs_repair` のときはポーリング属性を出さない
 
 ### 6.2 middleware
@@ -485,7 +487,7 @@ func main() {
 | 要件 | コンポーネント |
 |------|---------------|
 | FR-PAIR-1〜4 | `PairingService`、`handler/pairing.go`、`app/protocol.go`、`secret.Store` |
-| FR-SESS-1〜3 | `ConnectionService.Tabs/ResolveSession`、`store.SetLastSession`、`organisms.SessionTabs` |
+| FR-SESS-1〜3 | `ConnectionService.Tabs/CachedTabs`、`store.SetLastSession`、`organisms.SessionTabs` |
 | FR-PANE-1〜3 | `organisms.PaneGrid`、`molecules.PaneCard`、`web` の `StateLabel`/`StateTone` |
 | FR-USE-1・2 | `organisms.UsagePanel`/`HostPanel`、`domain.UsageTone` |
 | FR-ATT-1 | `organisms.AttentionBar` |

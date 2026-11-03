@@ -69,7 +69,8 @@ func TestDeleteConnection(t *testing.T) {
 	if last != "" {
 		t.Fatalf("last_connection_id = %q", last)
 	}
-	wantRedirect(t, a.get("/"), http.StatusFound, "/connections/c2")
+	a.env.Report.SetSessions("c2", "0")
+	webtest.MustContain(t, wantStatus(t, a.get("/"), http.StatusOK), "接続: buildbox")
 }
 
 func TestDeleteOtherConnectionKeepsLastConnection(t *testing.T) {

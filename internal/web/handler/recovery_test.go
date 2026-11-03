@@ -52,7 +52,12 @@ func TestRecoveryResetSuccess(t *testing.T) {
 	if got := w.Header().Get("HX-Redirect"); got != "/" {
 		t.Fatalf("HX-Redirect = %q", got)
 	}
-	wantRedirect(t, recoveryDo(h, http.MethodPost, "/recovery/reset", nil), http.StatusSeeOther, "/")
+	// HX でない送信は 3xx にせず、案内だけを返す。
+	plain := recoveryDo(h, http.MethodPost, "/recovery/reset", nil)
+	webtest.MustContain(t, wantStatus(t, plain, http.StatusOK), "初期化しました")
+	if plain.Header().Get("Location") != "" {
+		t.Fatal("リダイレクト（Location）を使ってはいけない")
+	}
 	if calls != 2 {
 		t.Fatalf("Reset calls = %d", calls)
 	}
@@ -79,7 +84,14 @@ func TestRecoveryResetRequiresCSRF(t *testing.T) {
 
 func TestRecoveryOtherRoutes(t *testing.T) {
 	h := recoveryApp(func(context.Context) error { return nil }, pages.RecoveryCorrupt)
-	wantRedirect(t, recoveryDo(h, http.MethodGet, "/connections", nil), http.StatusFound, "/")
-	wantRedirect(t, recoveryDo(h, http.MethodGet, "/settings", nil), http.StatusFound, "/")
+	// ページ遷移は 3xx にせず、初期化導線をその場に描画する。
+	for _, target := range []string{"/connections", "/settings"} {
+		w := recoveryDo(h, http.MethodGet, target, nil)
+		body := wantStatus(t, w, http.StatusOK)
+		webtest.MustContain(t, body, "<html", "保存データを開けません", `hx-post="/recovery/reset"`)
+		if w.Header().Get("Location") != "" {
+			t.Fatal("リダイレクト（Location）を使ってはいけない")
+		}
+	}
 	wantStatus(t, recoveryDo(h, http.MethodPost, "/pairing", nil), http.StatusNotFound)
 }

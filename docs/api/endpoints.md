@@ -202,7 +202,8 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | 項目 | 内容 |
 |------|------|
 | ページルート | `HX-Request` ヘッダで分岐する。ヘッダなし（`SetURL` による直接遷移・リロード）= レイアウト込みフルページ、あり = フラグメント |
-| アクションルート | 常にフラグメント（または 303）を返す。`HX-Request` で分岐しない |
+| アクションルート | 常にフラグメント（または `HX-Redirect` ヘッダ）を返す。ただし、移動先が画面になるルート（`POST /pairing`・`confirm`・`discard`・`/recovery/reset`）は、`HX-Request` のない送信に限り移動先の画面をその場に描画する（下記「リダイレクトを使わない」） |
+| リダイレクトを使わない | `http.Redirect`（302・303）は WebKit の WebView（macOS）で動かない（Wails のアセットサーバー `internal/assetserver/asset_fileserver.go` のコメント）。通常モードのルートは 3xx を返さない。ページ遷移（ヘッダなしのフルページ）は解決した画面をその場に 200 で描画し、HX リクエストの移動は `HX-Redirect` ヘッダ（htmx がクライアントで遷移する）で指示する。ポーリング URL・リンクは、要求された URL によらず正規のパス `/connections/{cid}/sessions/{sid}/snapshot` を使う（[アーキテクチャ設計 §11](../architecture/overview.md) #7） |
 | ID | `{cid}` = `connections.id`（ULID）、`{sid}` = tmux セッション名（URL エンコード）、`{did}` = ペアリング下書き ID（ランダム 128 bit、base64url） |
 | CSRF | 状態変更ルート（`POST`・`PUT`・`DELETE`）は `X-CSRF-Token` を要求する。値はレイアウトが `<body hx-headers='{"X-CSRF-Token":"…"}'>` で配り、HTMX が全リクエストに付ける（JSON 属性のため eval 不要）。プロセス起動ごとに生成。不一致は 403 |
 | `Cache-Control` | 全ルート `no-store`（スナップショットがキャッシュされないように） |
@@ -214,21 +215,31 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 
 | メソッド | パス | 種別 | 返却 | 説明 |
 |---------|------|------|------|------|
-| GET | `/` | ページ | 302 | 接続が 0 件なら `/pairing`。1 件以上なら `/connections/{last}`（`settings.last_connection_id`、なければ先頭） |
+| GET | `/` | ページ | フルページ / フラグメント（200） | 接続が 0 件なら `/pairing` と同じ画面（貼り付けフォーム）。1 件以上なら `/connections/{last}`（`settings.last_connection_id`、なければ先頭）と同じ画面。リダイレクトしない |
 | GET | `/pairing` | ページ | フルページ / フラグメント | 接続文字列の貼り付けフォーム。`?link=invalid` を付けると、ディープリンクを解析できなかった旨の固定文言を出す（受け取った文字列は URL にも画面にも載せない。app が失敗時に `SetURL` する） |
-| POST | `/pairing` | アクション | 303 `/pairing/drafts/{did}` / 422 フォーム | 貼り付けた接続文字列を 1 回だけ受け取り、解析・検証して下書きを作る（§2.1）。フォーム値は破棄し、応答に token を含めない |
+| POST | `/pairing` | アクション | `HX-Redirect: /pairing/drafts/{did}`（`HX-Request` なしなら確認画面を描画）/ 422 フォーム | 貼り付けた接続文字列を 1 回だけ受け取り、解析・検証して下書きを作る（§2.1）。フォーム値は破棄し、応答に token を含めない |
 | GET | `/pairing/drafts/{did}` | ページ | フルページ | 確認画面。表示: 表示名、接続先ホスト（`url` の host のみ）、ホストが申告した許可セッション。**token は出さない** |
-| POST | `/pairing/drafts/{did}/confirm` | アクション | 303 `/connections/{cid}` / 200 エラーフラグメント | `sessions_list` で疎通確認（FR-PAIR-2）。成功したら秘密領域に token、SQLite に接続を保存し、下書きを削除する（§4.3）。失敗は保存せず、下書きは残す（再試行可。期限は §4.3） |
-| POST | `/pairing/drafts/{did}/discard` | アクション | 303 `/pairing` または `/` | 下書きを即時削除する |
+| POST | `/pairing/drafts/{did}/confirm` | アクション | `HX-Redirect: /connections/{cid}`（`HX-Request` なしならメイン画面を描画）/ 200 エラーフラグメント | `sessions_list` で疎通確認（FR-PAIR-2）。成功したら秘密領域に token、SQLite に接続を保存し、下書きを削除する（§4.3）。失敗は保存せず、下書きは残す（再試行可。期限は §4.3） |
+| POST | `/pairing/drafts/{did}/discard` | アクション | `HX-Redirect: /pairing` または `/`（`HX-Request` なしならその画面を描画） | 下書きを即時削除する |
 | GET | `/connections` | ページ | フルページ / フラグメント | 保存済み接続の一覧。表示名・URL の host のみ・「切替」・「削除」 |
 | DELETE | `/connections/{cid}` | アクション | フラグメント（一覧）+ トースト OOB | 接続を削除する（SQLite 行を先に削除し、秘密領域を削除。[ER §4](../architecture/er.md)） |
-| GET | `/connections/{cid}` | ページ | 302 | その接続の `last_session`（なければ先頭の許可セッション）へ。許可セッションが 0 件なら「許可されたセッションがありません」ページ |
-| GET | `/connections/{cid}/sessions/{sid}` | ページ | フルページ / フラグメント | メイン画面。接続切替・セッションタブ・スナップショット領域を含む。`sessions_list` を取得してタブを描画し、`last_session` を `{sid}` に更新する。`{sid}` が許可外・存在しないときは先頭の許可セッションへ 302 |
-| GET | `/connections/{cid}/sessions/{sid}/snapshot` | ページ（部分） | フラグメント | スナップショット領域（要対応バー・ペイングリッド・利用上限・ホスト負荷）。`report` を呼ぶ（同一 `(cid, sid)` は single-flight）。画面更新ポーリングと手動更新が叩く |
+| GET | `/connections/{cid}` | ページ | フルページ / フラグメント（200） | その接続の `last_session`（なければ先頭の許可セッション）のメイン画面をその場に描画する（リダイレクトしない）。初回描画の規則は下記「メイン画面の初回描画」。許可セッションが 0 件なら「許可されたセッションがありません」ページ |
+| GET | `/connections/{cid}/sessions/{sid}` | ページ | フルページ / フラグメント | メイン画面。接続切替・セッションタブ・スナップショット領域を含む。`last_session` を表示するセッションに更新する。ホストとは通信しない（下記「メイン画面の初回描画」）。`{sid}` が許可外と分かっている（直近のタブに無い）ときは先頭の許可セッションを描画する |
+| GET | `/connections/{cid}/sessions/{sid}/snapshot` | ページ（部分） | フラグメント | スナップショット領域（要対応バー・ペイングリッド・利用上限・ホスト負荷）。`report` を呼ぶ（同一 `(cid, sid)` は single-flight）。直近の `sessions_list` が無い・古い（30 秒超）ときは並行して引き直し、`#session-tabs` の OOB を返す。画面更新ポーリングと手動更新が叩く |
 | GET | `/settings` | ページ | フルページ / フラグメント | 設定画面。通知の OS 許可状態も表示する |
 | PUT | `/settings` | アクション | フラグメント（設定フォーム）+ トースト OOB / 422 | 設定を保存する。許容値は[ER §3.2](../architecture/er.md)。許容外は 422 でフォームを再描画 |
 | GET | `/static/*` | — | 埋め込みアセット | `htmx.min.js`・`app.js`（§4.5 の可視性制御）・`app.css`。外部ホストは参照しない |
-| GET / POST | `/`・`/recovery/reset` | ページ / アクション | フルページ / フラグメント | **recovery モードのみ**（DB が開けない・スキーマが新しすぎる。上記の画面ルートは登録しない）。`/` は初期化導線、`POST /recovery/reset` は保存データを退避して作り直し、成功したら `HX-Redirect: /`。それ以外の GET は `/` へ 302、その他のメソッドは 404 |
+| GET / POST | `/`・`/recovery/reset` | ページ / アクション | フルページ / フラグメント | **recovery モードのみ**（DB が開けない・スキーマが新しすぎる。上記の画面ルートは登録しない）。`/` は初期化導線、`POST /recovery/reset` は保存データを退避して作り直し、成功したら `HX-Redirect: /`（`HX-Request` なしなら案内のみ）。それ以外の GET は初期化導線を 200 で描画し、その他のメソッドは 404 |
+
+#### メイン画面の初回描画
+
+`/`・`/connections/{cid}`・`/connections/{cid}/sessions/{sid}` は `sessions_list` や `report` を待たずに描画する。到達不能なホストで初回表示が数十秒遅れないようにするため（FR-POLL-4、NFR-PERF-1・2）。
+
+1. 表示するセッション: `{sid}`（`/connections/{cid}` は `last_session`、無ければ先頭の許可セッション）。直近のタブ（`ConnectionService` のキャッシュ）があり、そこに無く、取得が 30 秒以内なら先頭の許可セッション
+2. タブ: 直近のタブ。無ければ表示するセッション 1 件だけ
+3. スナップショット領域: 保存済みの直前値をグレーアウトして描画し（無ければ空状態）、`hx-trigger` の `load` で直ちに取得する
+4. 手掛かりが全く無い（保存値も `last_session` も直近のタブも無い初回）ときだけ、3 秒の上限付きで `sessions_list` を 1 回呼ぶ。失敗は「接続できません」画面（再試行の導線つき）
+5. 最初の `…/snapshot` 応答が `#session-tabs` を OOB で差し替え、タブが最新になる。その後は 30 秒ごとに引き直す
 
 - Go 側から起動するルート遷移（`SetURL`）: ディープリンク受信 → `/pairing/drafts/{did}`（下書き作成後）、通知クリック → `/connections/{cid}/sessions/{sid}`、トレイ「開く」→ 直前の URL（なければ `/`）
 - `GET /connections/{cid}/sessions/{sid}` と snapshot は読み取りだけでなく、副作用として `last_session` の更新とスナップショットの保存（`snapshots`）を行う。冪等で、再送しても結果は同じ
@@ -251,7 +262,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 - 直前のスナップショット（メモリ → なければ `snapshots` の保存分）をグレーアウトして返す。何も無ければ空状態の画面
 - 失敗種別（§1.5）に応じた固定文言のバナーを `#snapshot-status` へ OOB で返す。「最終更新 HH:MM」「次回再試行 N 秒後」を併記する
 - `unauthorized` / `forbidden_scope`: バナーに「再ペアリング」リンク（`/pairing`）を出し、`hx-trigger` のポーリング属性は出さない（ポーリングを止める。HATEOAS: 取得できない間は取得の導線そのものを出さない）
-- `session_forbidden` / `session_missing`: `HX-Redirect` で `/connections/{cid}`（`sessions_list` を再取得して先頭の許可セッションへ）
+- `session_forbidden` / `session_missing` / `session_required`: `sessions_list` を引き直し、許可セッションに無ければ `HX-Redirect` で先頭の許可セッション（許可セッションが 0 件なら `/connections/{cid}`）へ。タブに有る・タブを取得できないときは移動せず、バナーのまま次のポーリングで再試行する（同じ失敗の繰り返しを避ける）
 - 成功したら通常のフラグメント（ポーリング属性つき）を返し、バナーを消す
 
 ### 4.5 HTMX パターン
@@ -261,7 +272,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | スナップショット領域 | `hx-get=".../snapshot"` `hx-trigger="load, every Ns, refresh from:body"` `hx-sync="this:drop"` | 画面更新ポーリング。`N` は `settings.screen_poll_seconds` をサーバーがレンダリング。前のリクエスト中は破棄（NFR-PERF-5）。**フィルタ式 `[…]` は使わない**（htmx が eval で評価するため、`unsafe-eval` なしの CSP で動かない） |
 | 更新ボタン | `hx-get="/connections/{cid}/sessions/{sid}"` `hx-target="#main"` | タブも再取得して全体を再描画（FR-POLL-2） |
 | セッションタブ | `hx-get="/connections/{cid}/sessions/{sid}"` `hx-target="#main"` | 切り替え（FR-SESS-2） |
-| 接続切替 | `hx-get="/connections/{cid}"`（302 追従） | 切り替え |
+| 接続切替 | `hx-get="/connections/{cid}"` `hx-target="#main"` | 切り替え（`last_session` のメイン画面フラグメントを返す） |
 | 非表示中の停止・復帰時の即時取得 | 同梱の静的 `app.js`（下記） | フィルタ式の代わりにクライアントで制御する |
 | 設定フォーム | `hx-put="/settings"` `hx-target="#settings-form"` `hx-target-422="#settings-form"` | `response-targets` 拡張で 422 のとき再描画先を分ける |
 | 接続削除 | `hx-delete="/connections/{cid}"` `hx-confirm` | アクション |
@@ -291,3 +302,4 @@ HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"include
 |----|------|---------|---------|
 | 1.0 | 2026-11-03 | 新規作成 | 初版 |
 | 1.1 | 2026-11-03 | トリガーフィルタ `[document.visibilityState…]` を廃止し、静的 `app.js` で非表示中の停止・復帰時の即時取得を行う方式に変更。CSRF 配布を `hx-headers` に訂正。htmx-config を明記 | CSP（`unsafe-eval` なし）で htmx のフィルタ式が動かないため |
+| 1.2 | 2026-11-04 | 通常モードのルートから 302・303 を撤去（フルページはその場に描画、HX は `HX-Redirect`）。メイン画面の初回描画をホストへの通信なしにし、タブを snapshot 応答の OOB で更新する | WebKit の WebView が `http.Redirect` を扱えないため。到達不能なホストで初回表示が遅れるため |

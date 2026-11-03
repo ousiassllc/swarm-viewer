@@ -174,10 +174,10 @@ func TestRecoveryRouter(t *testing.T) {
 	if w.Code != http.StatusOK || w.Header().Get("HX-Redirect") != "/" || calls != 1 {
 		t.Fatalf("status = %d redirect = %q calls = %d", w.Code, w.Header().Get("HX-Redirect"), calls)
 	}
-	// 他のページは初期化導線へ。静的ファイルは配る。
+	// 他のページは（リダイレクトせず）初期化導線をその場に描画する。静的ファイルは配る。
 	w = httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/connections", nil))
-	if w.Code != http.StatusFound || w.Header().Get("Location") != "/" {
+	if w.Code != http.StatusOK || w.Header().Get("Location") != "" || !strings.Contains(w.Body.String(), `data-recovery-reason="schema_too_new"`) {
 		t.Fatalf("GET /connections = %d %q", w.Code, w.Header().Get("Location"))
 	}
 	w = httptest.NewRecorder()

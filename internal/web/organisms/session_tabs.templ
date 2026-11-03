@@ -5,6 +5,9 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
 )
 
+// SessionTabsID はセッションタブの id（snapshot 応答の OOB の差し替え先）。
+const SessionTabsID = "session-tabs"
+
 // SessionTabsProps は SessionTabs の入力。
 type SessionTabsProps struct {
 	// ConnectionID は接続 ID。
@@ -13,11 +16,20 @@ type SessionTabsProps struct {
 	Sessions []domain.Session
 	// Selected は選択中のセッション名。
 	Selected string
+	// OOB が true なら hx-swap-oob で既存の #session-tabs を差し替える（snapshot 応答用）。
+	OOB bool
 }
 
 // SessionTabs は上段のセッションタブ。セッションが 1 つだけでもタブを出す（機能要件 §4.3）。
 templ SessionTabs(p SessionTabsProps) {
-	<nav class="flex flex-wrap gap-1 border-b border-slate-700" aria-label="セッション">
+	<nav
+		id={ SessionTabsID }
+		class="flex flex-wrap gap-1 border-b border-slate-700"
+		aria-label="セッション"
+		if p.OOB {
+			hx-swap-oob="true"
+		}
+	>
 		for _, s := range p.Sessions {
 			if s.Allowed {
 				@molecules.SessionTab(molecules.SessionTabProps{ConnectionID: p.ConnectionID, Session: s.ID, Selected: s.ID == p.Selected})

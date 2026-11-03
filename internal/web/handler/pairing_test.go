@@ -19,8 +19,11 @@ func paste(raw string) reqOpt { return form(url.Values{"pairing": {raw}}) }
 func pasteDraft(t *testing.T, a *app) string {
 	t.Helper()
 	w := a.do(http.MethodPost, "/pairing", hx(), paste(servicetest.PairingStr))
-	wantStatus(t, w, http.StatusSeeOther)
-	loc := w.Header().Get("Location")
+	wantStatus(t, w, http.StatusOK)
+	loc := w.Header().Get("HX-Redirect")
+	if w.Header().Get("Location") != "" {
+		t.Fatal("リダイレクト（Location）を使ってはいけない")
+	}
 	id, ok := strings.CutPrefix(loc, "/pairing/drafts/")
 	if !ok || id == "" {
 		t.Fatalf("Location = %q", loc)
@@ -115,9 +118,11 @@ func TestDraftConfirm(t *testing.T) {
 	a := newApp(t)
 	id := pasteDraft(t, a)
 	w := a.do(http.MethodPost, "/pairing/drafts/"+id+"/confirm", hx())
-	wantStatus(t, w, http.StatusSeeOther)
-
-	loc := w.Header().Get("Location")
+	wantStatus(t, w, http.StatusOK)
+	if w.Header().Get("Location") != "" {
+		t.Fatal("リダイレクト（Location）を使ってはいけない")
+	}
+	loc := w.Header().Get("HX-Redirect")
 	cid, ok := strings.CutPrefix(loc, "/connections/")
 	if !ok || cid == "" {
 		t.Fatalf("Location = %q", loc)
@@ -146,7 +151,7 @@ func TestDraftConfirmFailureKeepsDraft(t *testing.T) {
 	}
 	// 再試行できる。
 	a.env.Report.ProbeErr = nil
-	wantStatus(t, a.do(http.MethodPost, "/pairing/drafts/"+id+"/confirm", hx()), http.StatusSeeOther)
+	wantStatus(t, a.do(http.MethodPost, "/pairing/drafts/"+id+"/confirm", hx()), http.StatusOK)
 	if a.env.Store.ConnCount() != 1 {
 		t.Fatal("再試行で保存されない")
 	}
@@ -155,11 +160,44 @@ func TestDraftConfirmFailureKeepsDraft(t *testing.T) {
 func TestDraftDiscard(t *testing.T) {
 	a := newApp(t)
 	id := pasteDraft(t, a)
-	wantRedirect(t, a.do(http.MethodPost, "/pairing/drafts/"+id+"/discard", hx()), http.StatusSeeOther, "/pairing")
+	wantHXRedirect(t, a.do(http.MethodPost, "/pairing/drafts/"+id+"/discard", hx()), "/pairing")
 	webtest.MustContain(t, wantStatus(t, a.get("/pairing/drafts/"+id), http.StatusOK), "もう一度ペアリングしてください")
 
 	// 接続があるときは / へ。
 	a.env.AddConn("c1", "devbox", servicetest.URL1, true)
 	id = pasteDraft(t, a)
-	wantRedirect(t, a.do(http.MethodPost, "/pairing/drafts/"+id+"/discard", hx()), http.StatusSeeOther, "/")
+	wantHXRedirect(t, a.do(http.MethodPost, "/pairing/drafts/"+id+"/discard", hx()), "/")
+}
+
+// HX でないフォーム送信は、移動先をその場に描画する（3xx を使わない）。
+func TestPairingFormWithoutHXRendersTargetInPlace(t *testing.T) {
+	a := newApp(t)
+	draft := a.do(http.MethodPost, "/pairing", paste(servicetest.PairingStr))
+	body := wantStatus(t, draft, http.StatusOK)
+	webtest.MustContain(t, body, "<html", "devbox", "接続の確認")
+	webtest.MustNotContain(t, body, servicetest.Token)
+	id := draftID(t, body)
+
+	w := a.do(http.MethodPost, "/pairing/drafts/"+id+"/confirm")
+	confirmed := wantStatus(t, w, http.StatusOK)
+	if w.Header().Get("Location") != "" {
+		t.Fatal("リダイレクト（Location）を使ってはいけない")
+	}
+	webtest.MustContain(t, confirmed, "<html", "devbox")
+
+	id = pasteDraft(t, a)
+	discarded := wantStatus(t, a.do(http.MethodPost, "/pairing/drafts/"+id+"/discard"), http.StatusOK)
+	webtest.MustContain(t, discarded, "<html", "devbox")
+}
+
+// draftID は確認画面の本文から下書き ID を取り出す。
+func draftID(t *testing.T, body string) string {
+	t.Helper()
+	const prefix = `hx-post="/pairing/drafts/`
+	i := strings.Index(body, prefix)
+	if i < 0 {
+		t.Fatalf("確認画面に下書きの操作が無い:\n%s", body)
+	}
+	rest := body[i+len(prefix):]
+	return rest[:strings.Index(rest, "/")]
 }

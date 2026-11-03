@@ -34,6 +34,9 @@ type SnapshotViewProps struct {
 	// Initial はメイン画面の初回描画のとき true。hx-trigger に load を加えて直ちに取得する。
 	// ストア済みの直前値を渡し、Fresh=false・Err=nil にすれば、グレーアウトの前回値を先に見せられる（FR-POLL-4）。
 	Initial bool
+	// Tabs が空でなければ、SnapshotView がタブバーを OOB で差し替える（初回描画は保存値で出し、
+	// 取得できたセッション一覧をここで反映する。API 仕様 §4.4）。
+	Tabs []domain.Session
 }
 
 // polling はポーリング属性を出すか。needs_repair、または再ペアリングが必要な失敗（401・403）のときは止める。
@@ -100,9 +103,12 @@ templ SnapshotRegion(p SnapshotViewProps) {
 }
 
 // SnapshotView は `GET …/snapshot` が返すフラグメント。領域本体と、取得失敗バナーの OOB（#snapshot-status）。
-// 成功時はバナーを空にして消す（API 仕様 §4.4）。
+// 成功時はバナーを空にして消す（API 仕様 §4.4）。Tabs があればタブバーの OOB（#session-tabs）も返す。
 templ SnapshotView(p SnapshotViewProps) {
 	@SnapshotRegion(p)
+	if len(p.Tabs) > 0 {
+		@SessionTabs(SessionTabsProps{ConnectionID: p.ConnectionID, Sessions: p.Tabs, Selected: p.Session, OOB: true})
+	}
 	<div id={ SnapshotStatusID } hx-swap-oob="true">
 		@SnapshotBanner(p)
 	</div>

@@ -8,10 +8,13 @@ import (
 	"github.com/a-h/templ"
 	"github.com/gin-gonic/gin"
 
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/layout"
 	"github.com/ousiassllc/swarm-viewer/internal/web/pages"
 	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
 )
+
+const resetDoneMessage = "保存データを初期化しました。アプリを開き直してください"
 
 const resetFailedMessage = "保存データを初期化できませんでした。アプリを再起動して、もう一度お試しください"
 
@@ -42,10 +45,11 @@ func (r *Recovery) Register(g gin.IRoutes) {
 	g.POST(paths.RecoveryReset, r.resetData)
 }
 
-// NotFound は recovery モードの未定義ルート。ページ遷移は `/` の初期化導線へ戻し、それ以外は 404。
+// NotFound は recovery モードの未定義ルート。ページ遷移（GET）は初期化導線をその場に描画し（WebKit の WebView が
+// http.Redirect を扱えないため 3xx は使わない）、それ以外は 404。
 func (r *Recovery) NotFound(c *gin.Context) {
 	if c.Request.Method == http.MethodGet {
-		c.Redirect(http.StatusFound, paths.Home)
+		r.page(c)
 		return
 	}
 	r.notFound(c)
@@ -69,5 +73,6 @@ func (r *Recovery) resetData(c *gin.Context) {
 		c.Status(http.StatusOK)
 		return
 	}
-	c.Redirect(http.StatusSeeOther, paths.Home)
+	// 通常モードへの切替後のルートはこのハンドラの外にあるため、案内だけを返す（HX 以外の経路は実画面には無い）。
+	r.render(c, http.StatusOK, inLayout(r.shell(appTitle), atoms.Alert(resetDoneMessage)))
 }
