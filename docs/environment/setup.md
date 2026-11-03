@@ -14,9 +14,9 @@ swarm-viewer の開発環境・CI/CD・lint・format・Git Hooks を定める。
 | Lint / Format | Go: golangci-lint（gofmt・goimports を含む）、Templ: `templ fmt`、JS/CSS: Biome |
 | 行数管理 | linterly |
 | Git Hooks | Lefthook |
-| CI | GitHub Actions（ubuntu のみ） |
+| CI | GitHub Actions（セルフホステッドランナー: Linux） |
 | Swagger / OpenAPI | 対象外（§10） |
-| 対応 OS（開発・配布） | Windows 11 / 最新 2 世代の macOS。CI だけ Ubuntu（§5.4 の制約参照） |
+| 対応 OS（開発・配布） | Windows 11 / 最新 2 世代の macOS。CI のランナーは Linux のみ（§5.4 の制約と、Windows / macOS 向けの `go vet` による穴埋めを参照） |
 
 - 生成物（Templ の `*_templ.go`、Tailwind の `static/dist/css/app.css`、`static/dist/js/*.js`）は**コミットしない**。clone 後・変更後は `task generate` で生成する（§3.2・§3.3）
 - 生成物をコミットしない方針は、[アーキテクチャ設計 §9](../architecture/overview.md) の持ち越し事項（`_templ.go` をコミットするか）の確定である
@@ -62,7 +62,7 @@ swarm-viewer/
 |----|------|
 | macOS | Xcode Command Line Tools（`xcode-select --install`）。ビルドの対象は macOS 12.0 以降 |
 | Windows | WebView2 Runtime（ほとんどの Windows 11 に導入済み） |
-| Linux（CI 用） | `gcc` などの標準ビルドツールと、`gtk4`・`webkitgtk-6.0` の開発パッケージ（Ubuntu 24.04 が対象）。必要なパッケージ名は `wails3 doctor` の出力に従う |
+| Linux（CI ランナー用） | `gcc` などの標準ビルドツールと、`gtk4`・`webkitgtk-6.0` の開発パッケージ（Ubuntu 24.04 が対象）。必要なパッケージ名は `wails3 doctor` の出力に従う。**ランナーのホストに事前に導入しておく**（ジョブ内で `apt` は実行しない。§5.1） |
 
 ### 3.2 タスク一覧（`Taskfile.yml`）
 
@@ -118,9 +118,12 @@ lint で機械的に守らせるアーキテクチャ上のルール（§6.1 の
 | 項目 | 内容 |
 |------|------|
 | プラットフォーム | GitHub Actions（`.github/workflows/ci.yml`） |
-| ランナー | `ubuntu-latest` のみ（Wails の Linux 依存を `apt` で導入する） |
+| ランナー | **セルフホステッドランナー**。全ジョブに `runs-on: [self-hosted, linux, x64]` を指定する（ラベルは登録するランナーに合わせて実装時に確定する） |
+| ランナーの前提 | Linux ホストに Wails の依存（`gcc`・`gtk4`・`webkitgtk-6.0` の開発パッケージ、§3.1）を**事前に導入済み**とする。ジョブは `apt` や `sudo` を使わない。Go と bun は `actions/setup-go`・`oven-sh/setup-bun` でジョブごとに準備する |
+| 実行の制限 | リポジトリは private。セルフホステッドランナーで信頼できないコードを実行しないよう、`pull_request` は同一リポジトリのブランチ（`github.event.pull_request.head.repo.full_name == github.repository`）のときだけジョブを実行する。リポジトリを public にする場合は、ランナーの利用を見直す |
 | トリガー | `push`（`main` と `feat/**`）、`pull_request`（`main` 向け） |
-| 並行実行 | 同じ ref の古い実行を `concurrency` でキャンセルする |
+| 並行実行 | 同じ ref の古い実行を `concurrency` でキャンセルする。ランナーが 1 台のときはジョブが直列に実行される |
+| 作業ディレクトリ | ジョブの最初に `actions/checkout`（`clean: true`）で作業ツリーを初期化する。ランナーの `_work` に前回の生成物が残っていても、`task generate` が毎回作り直す |
 | 権限 | `permissions: contents: read` のみ |
 
 ### 5.2 ジョブ構成（lint → test → build）
@@ -133,11 +136,15 @@ graph LR
 
 | ジョブ | 内容 |
 |--------|------|
-| `lint` | チェックアウト → Go（`actions/setup-go`、`go-version-file: go.mod`）・bun（`oven-sh/setup-bun`）の準備 → Wails の Linux 依存を `apt` で導入 → `bun install --frozen-lockfile` → `task generate` → `golangci-lint`（`golangci/golangci-lint-action`）→ `go tool templ fmt -fail .` → `bunx biome check .` → `bunx linterly check` |
-| `test` | 同じ準備 → `task generate` → `go vet ./...` → `go test ./...`（テストは固定時間の待ちに頼らない。[NFR-QLT-3](../requirements/non-functional.md)） |
+| `lint` | チェックアウト → Go（`actions/setup-go`、`go-version-file: go.mod`）・bun（`oven-sh/setup-bun`）の準備 → `bun install --frozen-lockfile` → **`task generate`（最初の検査より前に必ず実行）** → `golangci-lint`（`golangci/golangci-lint-action`）→ `go tool templ fmt -fail .` → `bunx biome check .` → `bunx linterly check` |
+| `test` | 同じ準備 → **`task generate`** → `go vet ./...` → Windows / macOS 向けの `go vet`（下記）→ `go test ./...`（テストは固定時間の待ちに頼らない。[NFR-QLT-3](../requirements/non-functional.md)） |
 | `build` | `lint`・`test` が成功したときだけ。同じ準備 → `task generate` → `wails3 build`（Linux 向けのコンパイル確認。成果物は配布しない） |
 
-- Go のモジュールキャッシュと bun のキャッシュを `actions/setup-go`・`oven-sh/setup-bun` のキャッシュ機能で保存する
+- Windows / macOS 向けの `go vet`（`test` ジョブ内）: OS 別のビルドタグを持つコード（`go-keyring`・SQLite ドライバ・`filepath` まわりなど）を、Linux のランナーでもコンパイルして検査する安価な穴埋め。`internal/app`（Wails 依存）は対象外。
+  - `CGO_ENABLED=0 GOOS=windows go vet ./internal/domain/... ./internal/repository/... ./internal/service/... ./internal/web/...`
+  - `CGO_ENABLED=0 GOOS=darwin go vet ./internal/domain/... ./internal/repository/... ./internal/service/... ./internal/web/...`
+- `wails3 build` の実ビルド（Windows の NSIS インストーラ・macOS の `.app` を含む）は CI では行わない。**配布前の手動確認項目**とする（§5.4）
+- Go のモジュールキャッシュと bun のキャッシュは `actions/setup-go`・`oven-sh/setup-bun` のキャッシュ機能で保存する（セルフホステッドではランナーのローカルに残る）
 - 生成物をコミットしないため、生成物の差分検知ステップ（`git diff --exit-code`）は置かない
 - リリース用のワークフロー（Windows の NSIS インストーラ・macOS の `.app` を Releases へ配布）は、このドキュメントの範囲外。[NFR-DST-1](../requirements/non-functional.md) に従い別途定める
 
@@ -145,17 +152,18 @@ graph LR
 
 デプロイ設定は持たない（ネイティブアプリで、配布は GitHub Releases の手動リリース。[NFR-DST-3](../requirements/non-functional.md) のとおり自動更新もない）。
 
-### 5.4 既知の制約（Ubuntu のみの CI）
+### 5.4 既知の制約（Linux ランナーのみの CI）
 
-配布対象は Windows 11 / macOS だが、CI は Ubuntu でしか動かない。次は**CI で検知できない**。
+配布対象は Windows 11 / macOS だが、CI は Linux のランナーでしか動かない。次は**CI で検知できない**。
 
 | 検知できないもの | 補完 |
 |------------------|------|
-| Windows / macOS 固有のビルド失敗（`internal/app` の OS 依存コード、`wails3 build` のパッケージング） | 開発者本人の Windows / macOS 環境で、pre-push（`go test ./...`）と `task build` を実行する。リリース前にそれぞれの OS で `wails3 build` と実機確認（[アーキテクチャ設計 §11](../architecture/overview.md)）を行う |
+| `internal/app`（Wails 依存）の Windows / macOS 固有のビルド失敗、`wails3 build` のパッケージング | 開発者本人の Windows / macOS 環境で、pre-push（`go test ./...`）と `task build` を実行する。**配布前に、それぞれの OS で `wails3 build` を実行し、実機確認（[アーキテクチャ設計 §11](../architecture/overview.md)）を行う**（手動確認項目） |
+| `app` 以外の Windows / macOS 固有のコンパイルエラー | §5.2 の `GOOS=windows`・`GOOS=darwin` の `go vet` で拾う（ただし実行時の挙動は拾えない） |
 | トレイ・OS 通知・URL スキームの動作 | 自動テスト対象外。実機で確認する |
 | Windows のパス・改行（CRLF）に依存する不具合 | `.gitattributes` で `* text=auto eol=lf` を指定し、パス処理は `path/filepath` を使う |
 
-OS 別のマトリクス（`windows-latest`・`macos-latest`）への拡張は、Windows / macOS 固有の破損が実際に見つかった時点で検討する。
+OS 別のマトリクス（Windows / macOS のセルフホステッドランナーの追加）は、Windows / macOS 固有の破損が実際に見つかった時点で検討する。
 
 ## 6. Lint
 
@@ -239,7 +247,7 @@ language: ja
 
 | フック | コマンド | 対象 |
 |--------|---------|------|
-| `pre-commit` | `generate`（`task generate`。`.templ`・`.css`・`.js` が変更されているとき） | 生成物を最新にする（golangci-lint が生成物を必要とするため。最初に実行） |
+| `pre-commit` | `generate`（`task generate`。**常に最初に実行**） | 生成物を最新にする（golangci-lint が `*_templ.go`・`static/dist/` の欠落で失敗しないように。`pull` で `.templ` が変わった直後でも古い生成物で検査しない） |
 | | `go-fmt`（`golangci-lint fmt {staged_files}`、`stage_fixed: true`） | ステージ済みの `*.go` |
 | | `templ-fmt`（`go tool templ fmt {staged_files}`、`stage_fixed: true`） | ステージ済みの `*.templ` |
 | | `golangci-lint`（`golangci-lint run ./...`） | Go 全体 |
@@ -247,7 +255,7 @@ language: ja
 | | `linterly`（`bunx linterly check {staged_files}`） | ステージ済みのファイル |
 | `pre-push` | `test`（`go test ./...`。`task generate` の後） | リポジトリ全体 |
 
-- `go test ./...` は開発者のローカル OS で `internal/app`（Wails 依存）も含めてコンパイル・テストする。Windows / macOS 固有の破損は、ここで初めて拾える（CI は Ubuntu のみ。§5.4）
+- `go test ./...` は開発者のローカル OS で `internal/app`（Wails 依存）も含めてコンパイル・テストする。Windows / macOS 固有の破損は、ここで初めて拾える（CI は Linux のランナーのみ。§5.4）
 - `pre-push` が遅い場合は、まず `go test` のキャッシュに頼る。コマンドの対象を減らす変更は、その理由とともにこの表を更新する
 
 ## 10. Swagger / OpenAPI
@@ -265,3 +273,4 @@ Lit を導入して `/api/v1/...` を Huma に登録する時点で、次を追�
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-11-03 | 新規作成 | 初版 |
+| 1.1 | 2026-11-03 | CI のランナーをセルフホステッド（Linux）に変更。ジョブ内の `apt` を廃止して事前導入前提にした。Windows / macOS 向けの `go vet` を追加。pre-commit の `task generate` を常時実行に変更 | 実行環境の指定と、Linux CI では拾えないビルドタグ依存コードの穴埋め |
