@@ -119,7 +119,7 @@ lint で機械的に守らせるアーキテクチャ上のルール（§6.1 の
 |------|------|
 | プラットフォーム | GitHub Actions（`.github/workflows/ci.yml`） |
 | ランナー | **セルフホステッドランナー**。全ジョブに `runs-on: [self-hosted, linux, x64]` を指定する（ラベルは登録するランナーに合わせて実装時に確定する） |
-| ランナーの前提 | Linux ホストに Wails の依存（`gcc`・`gtk4`・`webkitgtk-6.0` の開発パッケージ、§3.1）を**事前に導入済み**とする。ジョブは `apt` や `sudo` を使わない。Go と bun は `actions/setup-go`・`oven-sh/setup-bun` でジョブごとに準備する |
+| ランナーの前提 | ジョブは `apt` や `sudo` を使わない。Linux 向けの Wails のビルドには `gcc`・`gtk4`・`webkitgtk-6.0`・`libsoup-3.0` の開発パッケージ（§3.1）が要る。**現在のランナーホストにはこれらが未導入**のため、Linux のジョブは `internal/app` 直下と `main.go` を検査対象から外し、Windows 向け（CGO 不要）の検査で補う（§5.2）。開発パッケージをホストに導入したら、この除外と `build` ジョブの Windows 向けビルドを Linux 向けへ戻す。Go と bun は `actions/setup-go`・`oven-sh/setup-bun` でジョブごとに準備する |
 | 実行の制限 | リポジトリは private。セルフホステッドランナーで信頼できないコードを実行しないよう、`pull_request` は同一リポジトリのブランチ（`github.event.pull_request.head.repo.full_name == github.repository`）のときだけジョブを実行する。リポジトリを public にする場合は、ランナーの利用を見直す |
 | トリガー | `push`（`main` と `feat/**`）、`pull_request`（`main` 向け） |
 | 並行実行 | 同じ ref の古い実行を `concurrency` でキャンセルする。ランナーが 1 台のときはジョブが直列に実行される |
@@ -136,15 +136,15 @@ graph LR
 
 | ジョブ | 内容 |
 |--------|------|
-| `lint` | チェックアウト → Go（`actions/setup-go`、`go-version-file: go.mod`）・bun（`oven-sh/setup-bun`）の準備 → `bun install --frozen-lockfile` → **`task generate`（最初の検査より前に必ず実行）** → `golangci-lint`（`golangci/golangci-lint-action`）→ `go tool templ fmt -fail .` → `bunx biome check .` → `bunx linterly check` |
-| `test` | 同じ準備 → **`task generate`** → `go vet ./...` → Windows / macOS 向けの `go vet`（下記）→ `go test ./...`（テストは固定時間の待ちに頼らない。[NFR-QLT-3](../requirements/non-functional.md)） |
-| `build` | `lint`・`test` が成功したときだけ。同じ準備 → `task generate` → `wails3 build`（Linux 向けのコンパイル確認。成果物は配布しない） |
+| `lint` | チェックアウト → Go（`actions/setup-go`、`go-version-file: go.mod`）・bun（`oven-sh/setup-bun`）の準備 → `bun install --frozen-lockfile` → **`task generate`（最初の検査より前に必ず実行）** → `golangci-lint`（`golangci/golangci-lint-action` で導入。Linux では Wails 直下を除いたパッケージ、続けて `GOOS=windows CGO_ENABLED=0` で `./...`）→ `go tool templ fmt -fail .` → `bunx biome check .` → `bunx linterly check` |
+| `test` | 同じ準備 → **`task generate`** → `go vet`（Wails 直下を除く）→ Windows / macOS 向けの `go vet`（下記）→ `go test`（Wails 直下を除く。テストは固定時間の待ちに頼らない。[NFR-QLT-3](../requirements/non-functional.md)） |
+| `build` | `lint`・`test` が成功したときだけ。同じ準備 → `task generate` → `wails3 build GOOS=windows`（Windows 向けのコンパイル確認。Linux 向けは上記の前提により現状行わない。成果物は配布しない） |
 
-- Windows / macOS 向けの `go vet`（`test` ジョブ内）: OS 別のビルドタグを持つコード（`go-keyring`・SQLite ドライバ・`filepath` まわりなど）を、Linux のランナーでもコンパイルして検査する安価な穴埋め。`internal/app`（Wails 依存）は対象外。
-  - `CGO_ENABLED=0 GOOS=windows go vet ./internal/domain/... ./internal/repository/... ./internal/service/... ./internal/web/...`
+- Windows / macOS 向けの `go vet`（`test` ジョブ内）: OS 別のビルドタグを持つコード（`go-keyring`・SQLite ドライバ・`filepath` まわりなど）を、Linux のランナーでもコンパイルして検査する安価な穴埋め。Wails 依存の `internal/app` 直下と `main.go` は、Windows なら CGO なしでコンパイルできるため windows の検査に含める（darwin は CGO が要るため対象外）。
+  - `CGO_ENABLED=0 GOOS=windows go vet ./...`
   - `CGO_ENABLED=0 GOOS=darwin go vet ./internal/domain/... ./internal/repository/... ./internal/service/... ./internal/web/...`
 - `wails3 build` の実ビルド（Windows の NSIS インストーラ・macOS の `.app` を含む）は CI では行わない。**配布前の手動確認項目**とする（§5.4）
-- Go のモジュールキャッシュと bun のキャッシュは `actions/setup-go`・`oven-sh/setup-bun` のキャッシュ機能で保存する（セルフホステッドではランナーのローカルに残る）
+- `actions/setup-go` のキャッシュ保存は無効（`cache: false`）にする。セルフホステッドランナーで post ステップが 20 分以上止まりジョブがタイムアウトしたため。Go のモジュール・ビルドキャッシュはランナーのローカルに残る。bun のキャッシュは `oven-sh/setup-bun` の既定に任せる
 - 生成物をコミットしないため、生成物の差分検知ステップ（`git diff --exit-code`）は置かない
 - リリース用のワークフロー（Windows の NSIS インストーラ・macOS の `.app` を Releases へ配布）は、このドキュメントの範囲外。[NFR-DST-1](../requirements/non-functional.md) に従い別途定める
 
@@ -274,3 +274,4 @@ Lit を導入して `/api/v1/...` を Huma に登録する時点で、次を追�
 |----|------|---------|---------|
 | 1.0 | 2026-11-03 | 新規作成 | 初版 |
 | 1.1 | 2026-11-03 | CI のランナーをセルフホステッド（Linux）に変更。ジョブ内の `apt` を廃止して事前導入前提にした。Windows / macOS 向けの `go vet` を追加。pre-commit の `task generate` を常時実行に変更 | 実行環境の指定と、Linux CI では拾えないビルドタグ依存コードの穴埋め |
+| 1.2 | 2026-11-04 | CI: Linux ランナーに GTK 系の開発パッケージが無いため Linux の検査から Wails 直下を外し Windows 向け検査で補う。`build` を Windows 向けに変更。`setup-go` のキャッシュを無効化 | 実ランナーの環境と、post ステップの停止 |

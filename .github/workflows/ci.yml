@@ -41,6 +41,9 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+          # セルフホステッドでは post ステップのキャッシュ保存が 20 分以上止まったため無効にする。
+          # Go のモジュール・ビルドキャッシュはランナーのローカルに残る。
+          cache: false
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -84,6 +87,9 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+          # セルフホステッドでは post ステップのキャッシュ保存が 20 分以上止まったため無効にする。
+          # Go のモジュール・ビルドキャッシュはランナーのローカルに残る。
+          cache: false
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -131,6 +137,9 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+          # セルフホステッドでは post ステップのキャッシュ保存が 20 分以上止まったため無効にする。
+          # Go のモジュール・ビルドキャッシュはランナーのローカルに残る。
+          cache: false
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
