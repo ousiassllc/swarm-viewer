@@ -79,9 +79,10 @@ jobs:
       - run: task generate
       - run: go vet ./...
       # OS 別のビルドタグを持つコード（go-keyring・SQLite ドライバ・filepath まわり）を
-      # Linux のランナーでもコンパイルして検査する。internal/app（Wails 依存）は対象外。
+      # Linux のランナーでもコンパイルして検査する。Wails（internal/app・main.go）は Windows なら CGO なしで
+      # コンパイルできるので windows の検査に含める。darwin は Wails が CGO を要するため対象外。
       - name: go vet (windows)
-        run: go vet ./internal/domain/... ./internal/repository/... ./internal/service/... ./internal/web/...
+        run: go vet ./internal/domain/... ./internal/repository/... ./internal/service/... ./internal/web/... ./internal/router/... ./internal/app/... .
         env:
           CGO_ENABLED: "0"
           GOOS: windows

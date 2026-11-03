@@ -5,6 +5,7 @@ static/dist/
 # 依存・ビルド成果物
 node_modules/
 bin/
+.task/
 build/**/bin/
 *.exe
 *.test
