@@ -27,10 +27,10 @@ swarm-viewer の全体構成・技術選定・レイヤー構造・通信フロ�
 | スタイリング | Tailwind CSS | ユーティリティクラス。ダークモードは CSS カスタム変数 + Tailwind |
 | MCP クライアント | 公式 Go SDK（`github.com/modelcontextprotocol/go-sdk/mcp`） | swarm-console `/report` へ `tools/call`。HTTP トランスポートに独自の `http.Client` を渡し、Bearer 付与とタイムアウトを制御する |
 | 内部 DB | SQLite（`modernc.org/sqlite`、CGO 不要） | 接続・設定・直近スナップショット・通知済み記録（NFR-DAT-1・2。[ER](er.md)） |
-| 秘密領域 | OS キーストア（macOS Keychain / Windows Credential Manager）を Go ライブラリ経由で利用 | token の保存（NFR-SEC-2）。具体ライブラリはコンポーネント設計で選ぶ |
+| 秘密領域 | OS キーストア（macOS Keychain / Windows Credential Manager）を `github.com/zalando/go-keyring` 経由で利用 | token の保存（NFR-SEC-2）。ライブラリ選定の理由は[コンポーネント設計 §1](../components/overview.md) |
 | ビルド | `wails3 build` + Tailwind CLI | HTMX は `node_modules` から配置。esbuild は Lit 導入時に追加する |
 
-> **Wails v3 について**: 公式ドキュメント（2026-11-03 時点）は v3.0.0 をリリース済みとして記載している。API 差異が大きい領域（トレイ・通知・URL スキーム）は §10 の未確認項目に挙げ、実機で確認してから確定する。
+> **Wails v3 について**: 公式ドキュメント（2026-11-03 時点）は v3.0.0 をリリース済みとして記載している。API 差異が大きい領域（トレイ・通知・URL スキーム）は §11 の未確認項目に挙げ、実機で確認してから確定する。
 
 ## 3. 全体構成
 
@@ -90,17 +90,21 @@ swarm-viewer/
 │   │   ├── notification.go      #   通知スケジューラ・遷移検知・重複抑止
 │   │   └── settings.go
 │   ├── app/                     # Wails シェル（service を呼ぶ・UI 層ではない）
-│   │   ├── window.go            #   メインウィンドウ・SetURL による遷移
+│   │   ├── window.go            #   メインウィンドウ・SetURL による遷移（Navigator 実装）
 │   │   ├── tray.go              #   トレイ常駐・メニュー
 │   │   ├── protocol.go          #   swarm-viewer:// の受信
-│   │   └── notifier.go          #   OS 通知（service が使う interface の実装）
+│   │   ├── notifier.go          #   OS 通知（service が使う interface の実装）
+│   │   ├── logging.go           #   slog + lumberjack のローテーション・マスク
+│   │   ├── clock.go             #   Clock の実装
+│   │   └── id.go                #   IDGenerator（ULID）の実装
 │   ├── router/                  # Gin ルーティング定義（画面ルート + Huma の登録）
 │   └── web/                     # Web 層
 │       ├── handler/             #   画面ハンドラ（機能ドメイン別）
 │       │   ├── main.go          #     メイン画面・ペイン領域
-│       │   ├── connection.go    #     接続管理・ペアリング
+│       │   ├── connection.go    #     接続の一覧・削除
+│       │   ├── pairing.go       #     ペアリング（貼り付け・下書き・確定）
 │       │   └── settings.go
-│       ├── middleware/          #   CSRF・Cache-Control・エラー整形
+│       ├── middleware/          #   CSRF・NoStore・CSP・Recover・RequestLog
 │       ├── atoms/               #   badge / progress_bar / spinner / toast / button / input
 │       ├── molecules/           #   pane_card / usage_row / host_row / session_tab / attention_item
 │       ├── organisms/           #   session_tabs / pane_grid / usage_panel / host_panel / attention_bar / connection_list
@@ -341,3 +345,4 @@ graph LR
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-11-03 | 新規作成。フロントエンドを HALT（Gin + Huma + Templ + HTMX、初版 Lit なし）、Wails v3、公式 Go SDK、SQLite、トレイ常駐で定義 | 初版 |
+| 1.1 | 2026-11-03 | ディレクトリ構成を app・handler・middleware の詳細に合わせて更新。秘密領域ライブラリを確定 | コンポーネント設計との整合 |
