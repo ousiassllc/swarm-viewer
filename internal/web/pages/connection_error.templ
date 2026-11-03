@@ -1,0 +1,39 @@
+package pages
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
+	"github.com/ousiassllc/swarm-viewer/internal/web/layout"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+)
+
+// ConnectionErrorProps は ConnectionErrorPage / ConnectionErrorContent の入力。
+type ConnectionErrorProps struct {
+	// ConnectionID・Name は対象の接続（URL・token は持たない）。
+	ConnectionID string
+	Name         string
+	// Err は sessions_list の失敗の種別。
+	Err *domain.FetchError
+}
+
+// ConnectionErrorPage はセッション一覧を取得できず表示先が決まらないときのフルページ。
+templ ConnectionErrorPage(shell layout.BaseProps, p ConnectionErrorProps) {
+	@layout.Base(shell) {
+		@ConnectionErrorContent(p)
+	}
+}
+
+// ConnectionErrorContent はセッション一覧を取得できないときのフラグメント。
+// 失敗種別の固定文言（swarm-console の message は出さない）と、再試行・再ペアリング・接続管理への導線を出す。
+templ ConnectionErrorContent(p ConnectionErrorProps) {
+	@pageTitle("接続できません")
+	<p class="text-sm text-slate-300">接続「{ p.Name }」: { format.FetchErrorMessage(p.Err) }</p>
+	<div class="flex items-center gap-4">
+		if format.NeedsRepair(p.Err) {
+			@navLink(paths.Pairing, "再ペアリング")
+		} else {
+			@navLink(paths.Connection(p.ConnectionID), "再試行")
+		}
+		@navLink(paths.Connections, "接続管理")
+	</div>
+}

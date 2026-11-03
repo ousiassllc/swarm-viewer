@@ -14,6 +14,13 @@ const (
 	Settings      = "/settings"
 	RecoveryReset = "/recovery/reset"
 
+	// PairingLinkParam・PairingLinkInvalid は、ディープリンクの解析に失敗したことを /pairing へ知らせるクエリ。
+	// 受け取った文字列は載せない（token を URL 履歴に残さない）。
+	PairingLinkParam   = "link"
+	PairingLinkInvalid = "invalid"
+	// PairingInvalidLink は解析に失敗したディープリンクの後に開く `/pairing`（固定文言のエラー付き）。
+	PairingInvalidLink = Pairing + "?" + PairingLinkParam + "=" + PairingLinkInvalid
+
 	StaticCSS            = "/static/css/app.css"
 	StaticHTMX           = "/static/js/htmx.min.js"
 	StaticResponseTarget = "/static/js/response-targets.min.js"

@@ -299,6 +299,7 @@ type SnapshotResult struct {
     Err      *domain.FetchError   // 失敗の種別。Fresh のとき nil
 }
 func (s *SnapshotService) Get(ctx context.Context, connID, session string) SnapshotResult
+func (s *SnapshotService) Last(ctx context.Context, connID, session string) (domain.Snapshot, bool) // 取得せず直前値（Stale）だけ返す。メイン画面の初回描画用（FR-POLL-4）
 ```
 
 - `Get` は `singleflight`（キー `connID + "\x00" + session`）で包む。同じキーの同時呼び出しは `report` 1 本にまとまる
