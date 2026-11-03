@@ -75,6 +75,7 @@ graph TD
 | ER / データモデル | `docs/architecture/er.md` | SQLite 4 テーブル（connections・settings・snapshots・notified_states）、秘密領域（token）、マイグレーション |
 | API 仕様 | `docs/api/endpoints.md` | swarm-console `/report` の利用（`sessions_list`・`report`）、ペアリング形式、`pair` コマンドの要望、画面ルート |
 | コンポーネント設計 | `docs/components/overview.md` | 採用ライブラリ、domain/repository/service/web/app の責務・interface、並行性、テスト設計、要件との対応 |
+| 環境構築 | `docs/environment/setup.md` | 開発環境のセットアップ、Taskfile、CI（GitHub Actions・ubuntu）、lint/format、linterly、Git Hooks（bun 前提） |
 
 ## 用語集
 
@@ -99,3 +100,4 @@ graph TD
 | 1.0 | 2026-11-03 | 新規作成 | 初版 |
 | 1.1 | 2026-11-03 | ドキュメントマップを確定 | 全仕様書の作成完了 |
 | 1.2 | 2026-11-03 | スコープに通知・トレイ常駐・前回表示・技術構成を反映 | 各仕様書との整合 |
+| 1.3 | 2026-11-03 | ドキュメントマップに環境構築を追加 | 環境構築ドキュメントの作成 |
