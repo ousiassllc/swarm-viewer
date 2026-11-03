@@ -1,0 +1,43 @@
+# Git Hooks（docs/environment/setup.md §9）。`task setup` が `bunx lefthook install` で登録する。
+# --no-verify は使わない。フックが失敗したら原因を直す。
+# コマンドは priority の昇順に直列で実行する（generate を常に最初に実行するため）。
+pre-commit:
+  parallel: false
+  commands:
+    # 生成物（*_templ.go・static/dist/）を常に最新にする。
+    # golangci-lint が生成物の欠落で失敗しないように、また pull 直後の古い生成物で検査しないために最初に実行する。
+    generate:
+      priority: 1
+      run: task generate
+    go-fmt:
+      priority: 2
+      glob: "*.go"
+      run: golangci-lint fmt {staged_files}
+      stage_fixed: true
+    templ-fmt:
+      priority: 3
+      glob: "*.templ"
+      run: go tool templ fmt {staged_files}
+      stage_fixed: true
+    golangci-lint:
+      priority: 4
+      run: golangci-lint run ./...
+    biome:
+      priority: 5
+      glob: "static/src/**/*.{js,css}"
+      run: bunx biome check --write {staged_files}
+      stage_fixed: true
+    linterly:
+      priority: 6
+      # linterly check は引数に 1 パスしか取れず、ディレクトリ単位の上限もあるためリポジトリ全体を検査する。
+      run: bunx linterly check
+
+pre-push:
+  parallel: false
+  commands:
+    generate:
+      priority: 1
+      run: task generate
+    test:
+      priority: 2
+      run: go test ./...

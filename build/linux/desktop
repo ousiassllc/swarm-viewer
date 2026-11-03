@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=swarm-viewer
+Comment=swarm-console の read-only ビューア
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/swarm-viewer %u
+Terminal=false
+Type=Application
+Icon=swarm-viewer
+Categories=Utility;
+StartupWMClass=swarm-viewer
+
+MimeType=x-scheme-handler/swarm-viewer; 

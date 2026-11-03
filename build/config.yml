@@ -1,0 +1,58 @@
+# Wails v3 のビルド設定（docs/architecture/overview.md §9・docs/environment/setup.md）。
+# `info` / `protocols` を変えたら `wails3 task common:update:build-assets` でビルドアセット
+# （Info.plist・NSIS・desktop など）を再生成する。生成物の手編集は上書きされる。
+version: '3'
+
+info:
+  companyName: "ousiassllc"
+  productName: "swarm-viewer"
+  productIdentifier: "com.ousiassllc.swarm-viewer"
+  description: "swarm-console の read-only ビューア"
+  copyright: "(c) 2026, ousiassllc"
+  comments: "swarm-console の状態を確認する閲覧専用デスクトップアプリ"
+  version: "0.1.0"
+
+# カスタム URL スキーム（ペアリングのディープリンク swarm-viewer://pair?...）。
+# Windows は NSIS インストーラ、macOS は .app の Info.plist（CFBundleURLTypes）で登録される。
+# `wails3 dev` ではスキームが OS に登録されないため、ディープリンクは配布物で確認する。
+protocols:
+  - scheme: swarm-viewer
+    description: swarm-viewer pairing
+
+# 開発モード: Templ・Tailwind・htmx の生成物は `task generate` が作る。
+# Go と Templ の変更を監視して再ビルドする。
+dev_mode:
+  root_path: .
+  log_level: warn
+  debounce: 1000
+  ignore:
+    dir:
+      - .git
+      - node_modules
+      - bin
+      - dist
+    file:
+      - .DS_Store
+      - .gitignore
+      - .gitkeep
+      - "*_test.go"
+      - "*_templ.go"
+    watched_extension:
+      - "*.go"
+      - "*.templ"
+      - "*.css"
+      - "app.js"
+    git_ignore: true
+  executes:
+    - cmd: wails3 task generate
+      type: blocking
+    - cmd: wails3 build DEV=true
+      type: blocking
+    - cmd: wails3 task run
+      type: primary
+      exit_policy: shutdown
+
+fileAssociations:
+
+other:
+  - name: swarm-viewer

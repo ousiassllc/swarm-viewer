@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+/* Templ（.templ）が使うクラスを走査する。生成コード（*_templ.go）は gitignore 対象のため .templ を見る。 */
+@source "../../../internal/web";
+
+/*
+ * htmx の indicator 切り替え。htmx は includeIndicatorStyles:false でインライン <style> を
+ * 注入しない（CSP の style-src 'self' に反するため）ので、ここで定義する（docs/api/endpoints.md §4.5）。
+ */
+@layer components {
+  .htmx-indicator {
+    opacity: 0;
+    transition: opacity 200ms ease-in;
+  }
+
+  .htmx-request .htmx-indicator,
+  .htmx-request.htmx-indicator {
+    opacity: 1;
+  }
+}

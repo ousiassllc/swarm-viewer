@@ -1,0 +1,14 @@
+{
+  "name": "swarm-viewer",
+  "private": true,
+  "description": "swarm-console の read-only ビューア（開発ツールのみ。実行時の JS 依存はない）",
+  "devDependencies": {
+    "@biomejs/biome": "2.6.4",
+    "@linterly/cli": "0.3.3",
+    "@tailwindcss/cli": "4.3.4",
+    "htmx-ext-response-targets": "2.0.4",
+    "htmx.org": "2.0.11",
+    "lefthook": "2.2.2",
+    "tailwindcss": "4.3.4"
+  }
+}
