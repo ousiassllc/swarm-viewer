@@ -94,9 +94,14 @@ swarm-viewer/
 │   │   ├── tray.go              #   トレイ常駐・メニュー
 │   │   ├── protocol.go          #   swarm-viewer:// の受信
 │   │   ├── notifier.go          #   OS 通知（service が使う interface の実装）
-│   │   ├── logging.go           #   slog + lumberjack のローテーション・マスク
-│   │   ├── clock.go             #   Clock の実装
-│   │   └── id.go                #   IDGenerator（ULID）の実装
+│   │   ├── shell.go             #   Wails アプリの生成・単一インスタンス・終了処理
+│   │   ├── applog/              #   ログのマスク・ローテーション設定（Wails 非依存）
+│   │   ├── compose/             #   SQLite・service・router の組み立てと recovery モードの切替（Wails 非依存）
+│   │   ├── deeplink/            #   swarm-viewer:// の抽出・下書き作成・遷移（Wails 非依存）
+│   │   ├── idgen/               #   IDGenerator（ULID）の実装
+│   │   ├── navpath/             #   遷移先パスの検証
+│   │   ├── notice/              #   OS 通知の中身の組み立てとクリック時の遷移先
+│   │   └── swap/                #   差し替え可能な http.Handler（アセットハンドラ用）
 │   ├── router/                  # Gin ルーティング定義（画面ルート + Huma の登録）
 │   └── web/                     # Web 層
 │       ├── handler/             #   画面ハンドラ（機能ドメイン別）
