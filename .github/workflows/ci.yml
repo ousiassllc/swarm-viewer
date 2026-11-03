@@ -50,10 +50,24 @@ jobs:
       - run: bun install --frozen-lockfile
       # 最初の検査より前に必ず生成する（*_templ.go・static/dist/ が無いと golangci-lint が失敗する）。
       - run: task generate
+      # Wails（internal/app 直下と main.go）は Linux では gtk4・webkitgtk-6.0・libsoup-3.0 の開発パッケージを要する。
+      # このランナーには未導入のため、Linux の検査対象から外し、Windows 向け（CGO 不要）の検査で補う。
+      - name: Linux の検査対象パッケージを決める
+        run: |
+          pkgs="$(go list ./... | grep -vxF -e "$(go list -m)" -e "$(go list -m)/internal/app" | tr '\n' ' ')"
+          echo "LINUX_PKGS=${pkgs}" >> "$GITHUB_ENV"
       - uses: golangci/golangci-lint-action@v9
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
-          args: ./...
+          install-only: true
+      - run: |
+          # shellcheck disable=SC2086 -- 複数パッケージへの分割が目的
+          golangci-lint run ${LINUX_PKGS}
+      - name: golangci-lint (windows)
+        run: golangci-lint run ./...
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows
       - run: go tool templ fmt -fail .
       - run: bunx biome check .
       - run: bunx linterly check
@@ -77,12 +91,20 @@ jobs:
           version: ${{ env.TASK_VERSION }}
       - run: bun install --frozen-lockfile
       - run: task generate
-      - run: go vet ./...
+      # Wails（internal/app 直下と main.go）は Linux では gtk4・webkitgtk-6.0・libsoup-3.0 の開発パッケージを要する。
+      # このランナーには未導入のため、Linux の検査対象から外し、Windows 向け（CGO 不要）の検査で補う。
+      - name: Linux の検査対象パッケージを決める
+        run: |
+          pkgs="$(go list ./... | grep -vxF -e "$(go list -m)" -e "$(go list -m)/internal/app" | tr '\n' ' ')"
+          echo "LINUX_PKGS=${pkgs}" >> "$GITHUB_ENV"
+      - run: |
+          # shellcheck disable=SC2086 -- 複数パッケージへの分割が目的
+          go vet ${LINUX_PKGS}
       # OS 別のビルドタグを持つコード（go-keyring・SQLite ドライバ・filepath まわり）を
       # Linux のランナーでもコンパイルして検査する。Wails（internal/app・main.go）は Windows なら CGO なしで
       # コンパイルできるので windows の検査に含める。darwin は Wails が CGO を要するため対象外。
       - name: go vet (windows)
-        run: go vet ./internal/domain/... ./internal/repository/... ./internal/service/... ./internal/web/... ./internal/router/... ./internal/app/... .
+        run: go vet ./...
         env:
           CGO_ENABLED: "0"
           GOOS: windows
@@ -91,7 +113,9 @@ jobs:
         env:
           CGO_ENABLED: "0"
           GOOS: darwin
-      - run: go test ./...
+      - run: |
+          # shellcheck disable=SC2086 -- 複数パッケージへの分割が目的
+          go test ${LINUX_PKGS}
 
   build:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -117,5 +141,6 @@ jobs:
         run: |
           go install "github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-      # Linux 向けのコンパイル確認。成果物は配布しない。
-      - run: wails3 build
+      # Linux の Wails ビルドは gtk4・webkitgtk-6.0・libsoup-3.0 の開発パッケージ（このランナーには未導入）を要する。
+      # Windows 向けは CGO なしで通るため、Windows 向けのコンパイル確認にする。成果物は配布しない。
+      - run: wails3 build GOOS=windows
