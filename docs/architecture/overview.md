@@ -161,7 +161,7 @@ sequenceDiagram
     alt 接続が 0 件
         H-->>WV: 302 /pairing
     else 接続あり
-        H-->>WV: 302 /connections/{cid}/sessions/{sid}
+        H-->>WV: 302 /connections/{cid}（→ 302 /connections/{cid}/sessions/{sid}）
     end
     WV->>H: GET /connections/{cid}/sessions/{sid}
     H-->>WV: フルページ（レイアウト + 上段タブ + ペイン領域のプレースホルダ）
