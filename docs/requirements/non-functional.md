@@ -7,7 +7,7 @@
 | ID | 要件 |
 |----|------|
 | NFR-ENV-1 | Windows 11、および最新 2 世代の macOS（Intel / Apple Silicon）で動作する。それより古い OS はサポートしない |
-| NFR-ENV-2 | 実装は Wails（Go + Web フロント）。Windows は WebView2、macOS は WKWebView を使う |
+| NFR-ENV-2 | 実装は Wails v3（Go）。フロントは HALT（Templ + HTMX + Tailwind、SSR。SPA は作らない。初版は Lit なし）。Windows は WebView2、macOS は WKWebView を使う。詳細は[アーキテクチャ設計](../architecture/overview.md) |
 | NFR-ENV-3 | 接続先は swarm-console v0.1.11 以降。`sessions_list` とセッション引数（v0.1.11 で追加）に依存するため、それ未満は対象外 |
 | NFR-ENV-4 | 端末が swarm-console と同一の tailnet に参加していることを前提とする。viewer 自体は Tailscale を同梱・制御しない |
 
@@ -29,13 +29,13 @@
 |----|------|
 | NFR-SEC-1 | 接続先は **`/report` のみ**。`/ops` および `/ops` 専用ツールを呼ぶコードパスを持たない。許可リストにあるツール以外の呼び出しはコード上できない |
 | NFR-SEC-2 | token は OS 秘密領域（macOS Keychain、Windows Credential Manager）にのみ保存する。SQLite・設定ファイル・ログ・クラッシュ出力・画面・URL 履歴に平文で出さない |
-| NFR-SEC-3 | HTTP 通信は Go（バックエンド）側だけで行い、token をフロント（WebView の JS）に渡さない。フロントは接続 ID だけを扱う |
+| NFR-SEC-3 | HTTP 通信は Go（バックエンド）側だけで行い、token をフロント（WebView の JS）に渡さない。画面と Go の間の HTTP は Wails のアセットハンドラ経由（in-process）で、TCP ポートを開かない。フロントは接続 ID・セッション ID・ペアリング下書き ID だけを扱う |
 | NFR-SEC-4 | 接続先 URL の host は tailnet 範囲（IPv4 `100.64.0.0/10`、IPv6 `fd7a:115c:a1e0::/48`）またはループバック（`127.0.0.0/8`、`::1`）の IP リテラルに限る。範囲外の URL はペアリングを拒否する。MagicDNS 名などのホスト名は受け付けない |
 | NFR-SEC-5 | URL の scheme は `http`、path は `/report`、port は `48120`（ループバックのみ任意のポート）に限る。それ以外はペアリングを拒否する |
 | NFR-SEC-6 | HTTP は平文だが、tailnet（WireGuard）の暗号化を前提とする。tailnet 外への送信を許すと token が平文で流れるため NFR-SEC-4 で防ぐ |
 | NFR-SEC-7 | ペアリング用の接続文字列・ディープリンクは token を含む。解析後はメモリ上の値をすぐ破棄し、貼り付け欄の内容を保存・ログ出力しない。ディープリンクは OS のプロセス引数・履歴に残りうるため、README で「発行した接続文字列は再利用しない」ことを案内する |
 | NFR-SEC-8 | トークン削除（切断）時は、秘密領域のエントリと、その接続に紐づく SQLite のレコードを削除する |
-| NFR-SEC-9 | フロントのコンテンツは同梱のローカルアセットのみ。外部 URL の読み込み・リモートスクリプトを許さず、CSP で `connect-src` を絞る |
+| NFR-SEC-9 | フロントのコンテンツは同梱のローカルアセットのみ。外部 URL の読み込み・リモートスクリプト・インラインスクリプトを許さず、CSP（`default-src 'self'`、`connect-src 'self'`）で絞る。状態変更ルートには CSRF トークンを要求する |
 | NFR-SEC-10 | ツール応答の表示は常にテキストとして描画し、HTML としては解釈しない（`title`・`activity`・`note` は信頼できない入力として扱う） |
 | NFR-SEC-11 | ログに token を出さない。URL は host のみを記録し、完全な URL・クエリは出さない |
 
@@ -80,10 +80,10 @@
 
 | ID | 要件 |
 |----|------|
-| NFR-DST-1 | `wails build` で Windows / macOS のバイナリを生成し、GitHub Releases で配布する |
+| NFR-DST-1 | `wails3 build` で Windows / macOS 向けに生成し、GitHub Releases で配布する。Windows は NSIS インストーラ、macOS は `.app` |
 | NFR-DST-2 | コード署名・公証は初版では行わない（unsigned。macOS の Gatekeeper 警告は許容し、README に回避手順を書く） |
 | NFR-DST-3 | 自動更新は初版では持たない（手動入れ替え） |
-| NFR-DST-4 | カスタム URI スキーム `swarm-viewer://` は、インストール／初回起動時に OS へ登録する |
+| NFR-DST-4 | カスタム URI スキーム `swarm-viewer://` は、`build/config.yml` の `protocols:` で宣言し、インストーラ（NSIS）／`.app`（`Info.plist`）によって OS へ登録する。インストールしていない実行ファイル単体ではディープリンクは使えず、貼り付けでペアリングする |
 | NFR-DST-5 | UI の言語は日本語のみ。`report` の `lang` は指定せず、言語に依存しない `format: "json"` を使う |
 
 ## 9. 品質（テスト）
@@ -99,3 +99,4 @@
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-11-03 | 新規作成 | 初版 |
+| 1.1 | 2026-11-03 | フロントを HALT・Wails v3 に更新（NFR-ENV-2、NFR-SEC-3・9、NFR-DST-1・4） | アーキテクチャ設計との整合。URL スキーム登録がインストーラ前提のため配布形態を明記 |
