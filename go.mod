@@ -4,6 +4,8 @@ go 1.26.5
 
 tool github.com/a-h/templ/cmd/templ
 
+require golang.org/x/sync v0.23.0
+
 require (
 	github.com/a-h/parse v0.0.0-20250122154542-74294addb73e // indirect
 	github.com/a-h/templ v0.3.1100 // indirect
@@ -17,7 +19,6 @@ require (
 	github.com/natefinch/atomic v1.0.1 // indirect
 	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/net v0.59.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/tools v0.51.0 // indirect
 )
