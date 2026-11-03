@@ -22,7 +22,8 @@ import (
 const smokeToken = "test-token-not-secret"
 
 const smokeSessionsJSON = `{"sessions":[` +
-	`{"id":"0","allowed":true},{"id":"hidden","allowed":false},{"id":"work","allowed":true}]}`
+	`{"id":"0","allowed":true},{"id":"hidden","allowed":false},{"id":"work","allowed":true},` +
+	`{"id":"feature/x","allowed":true},{"id":"my session","allowed":true},{"id":"100%","allowed":true}]}`
 
 // smokeReportJSON は session ごとに title を変えた report（usage・host 付き）。
 func smokeReportJSON(session string) string {
@@ -126,6 +127,14 @@ func (c *client) expect(w *httptest.ResponseRecorder, status int) string {
 		c.t.Fatalf("status = %d, want %d\n%s", w.Code, status, w.Body.String())
 	}
 	return w.Body.String()
+}
+
+// noLocation はリダイレクト（Location）を使っていないことを確認する。WebKit の WebView は http.Redirect を扱えない。
+func (c *client) noLocation(w *httptest.ResponseRecorder) {
+	c.t.Helper()
+	if loc := w.Header().Get("Location"); loc != "" {
+		c.t.Fatalf("Location = %q。リダイレクトを使ってはいけない", loc)
+	}
 }
 
 func mustContain(t *testing.T, body string, want ...string) {

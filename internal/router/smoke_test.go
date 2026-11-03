@@ -23,33 +23,9 @@ import (
 var csrfRe = regexp.MustCompile(`X-CSRF-Token&#34;:&#34;([^&]+)&#34;|X-CSRF-Token":"([^"]+)"`)
 
 func TestSmokeEndToEnd(t *testing.T) {
-	keyring.MockInit()
 	ctx := t.Context()
 	console := newStubConsole(t)
-
-	db, err := store.Open(filepath.Join(t.TempDir(), "viewer.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	secrets := secret.NewStore()
-	log := slog.New(slog.DiscardHandler)
-	clock := service.SystemClock{}
-	reportClient := report.NewClient(secrets, log)
-
-	settings := service.NewSettingsService(db)
-	conns := service.NewConnectionService(reportClient, db, secrets, clock, log)
-	notif := service.NewNotificationService(reportClient, db, grantedNotifier{}, clock, settings, conns, log)
-	snaps := service.NewSnapshotService(reportClient, db, notif, conns, clock, log)
-	pairing := service.NewPairingService(reportClient, db, secrets, &seqIDs{}, clock, conns, log)
-
-	h, err := router.New(router.Deps{
-		Logger: log, Settings: settings, Connections: conns, Snapshots: snaps, Pairing: pairing,
-		Notifier: grantedNotifier{}, Clock: clock, Static: static.FS(),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	h, db, secrets := newSmokeHandler(t)
 	c := &client{t: t, h: h}
 	hx := map[string]string{"HX-Request": "true"}
 
@@ -65,12 +41,12 @@ func TestSmokeEndToEnd(t *testing.T) {
 		t.Fatalf("openapi paths = %v err=%v", doc.Paths, err)
 	}
 
-	// 接続 0 件: / → /pairing。レイアウトが配る CSRF トークンを読む。
+	// 接続 0 件: / はリダイレクトせず（WebKit の WebView 対策）ペアリング画面をその場に描画する。
+	// レイアウトが配る CSRF トークンを読む。
 	w := c.do(http.MethodGet, "/", nil, nil)
-	c.expect(w, http.StatusFound)
-	if loc := w.Header().Get("Location"); loc != "/pairing" {
-		t.Fatalf("Location = %q", loc)
-	}
+	home := c.expect(w, http.StatusOK)
+	mustContain(t, home, "<html", `id="pairing-form"`)
+	c.noLocation(w)
 	page := c.expect(c.do(http.MethodGet, "/pairing", nil, nil), http.StatusOK)
 	m := csrfRe.FindStringSubmatch(page)
 	if m == nil {
@@ -86,8 +62,9 @@ func TestSmokeEndToEnd(t *testing.T) {
 	pairStr := "swarm-viewer://pair?v=1&url=" + url.QueryEscape(console.URL+"/report") +
 		"&token=" + smokeToken + "&name=stubbox&sessions=0%2Cwork"
 	w = c.do(http.MethodPost, "/pairing", hx, url.Values{"pairing": {pairStr}})
-	c.expect(w, http.StatusSeeOther)
-	draftPath := w.Header().Get("Location")
+	c.expect(w, http.StatusOK)
+	c.noLocation(w)
+	draftPath := w.Header().Get("HX-Redirect")
 	if !strings.HasPrefix(draftPath, "/pairing/drafts/") {
 		t.Fatalf("Location = %q", draftPath)
 	}
@@ -95,10 +72,11 @@ func TestSmokeEndToEnd(t *testing.T) {
 	mustContain(t, draft, "stubbox", "127.0.0.1", "0, work", draftPath+"/confirm")
 	mustNotContain(t, draft, smokeToken)
 
-	// 確定 → 303 /connections/{cid}。
+	// 確定 → HX-Redirect /connections/{cid}。
 	w = c.do(http.MethodPost, draftPath+"/confirm", hx, nil)
-	c.expect(w, http.StatusSeeOther)
-	connPath := w.Header().Get("Location")
+	c.expect(w, http.StatusOK)
+	c.noLocation(w)
+	connPath := w.Header().Get("HX-Redirect")
 	cid := strings.TrimPrefix(connPath, "/connections/")
 	if cid == "" || cid == connPath {
 		t.Fatalf("Location = %q", connPath)
@@ -107,19 +85,16 @@ func TestSmokeEndToEnd(t *testing.T) {
 		t.Fatalf("秘密領域の token が保存されていない: %v", err)
 	}
 
-	// / → 接続 → 先頭の許可セッション → メイン画面（フルページ）。
+	// / も接続も、リダイレクトせずに先頭の許可セッションのメイン画面（フルページ）をその場に描画する。
+	sessionPath := connPath + "/sessions/0"
 	w = c.do(http.MethodGet, "/", nil, nil)
-	c.expect(w, http.StatusFound)
-	if loc := w.Header().Get("Location"); loc != connPath {
-		t.Fatalf("/ の Location = %q, want %q", loc, connPath)
-	}
+	main0 := c.expect(w, http.StatusOK)
+	c.noLocation(w)
 	w = c.do(http.MethodGet, connPath, nil, nil)
-	c.expect(w, http.StatusFound)
-	sessionPath := w.Header().Get("Location")
-	if sessionPath != connPath+"/sessions/0" {
-		t.Fatalf("Location = %q", sessionPath)
-	}
-	main0 := c.expect(c.do(http.MethodGet, sessionPath, nil, nil), http.StatusOK)
+	c.expect(w, http.StatusOK)
+	c.noLocation(w)
+	main0Conn := c.expect(c.do(http.MethodGet, connPath, nil, nil), http.StatusOK)
+	mustContain(t, main0Conn, `hx-get="`+sessionPath+`/snapshot"`)
 	mustContain(t, main0, "<html", "stubbox", `hx-get="`+sessionPath+`/snapshot"`, "every 10s",
 		`hx-get="`+connPath+`/sessions/work"`) // 許可セッションだけがタブになる
 	mustNotContain(t, main0, "hidden")
@@ -146,12 +121,11 @@ func TestSmokeEndToEnd(t *testing.T) {
 	if st, err := db.Settings(ctx); err != nil || st.LastConnectionID != cid {
 		t.Fatalf("last_connection_id = %q err=%v", st.LastConnectionID, err)
 	}
-	// 接続を選び直すと last_session へ。
+	// 接続を選び直すと last_session をその場に描画する（ポーリング URL は正規のパス）。
 	w = c.do(http.MethodGet, connPath, nil, nil)
-	c.expect(w, http.StatusFound)
-	if loc := w.Header().Get("Location"); loc != workPath {
-		t.Fatalf("Location = %q, want %q", loc, workPath)
-	}
+	again := c.expect(w, http.StatusOK)
+	c.noLocation(w)
+	mustContain(t, again, `hx-get="`+workPath+`/snapshot"`)
 
 	// 設定の保存。
 	body := c.expect(c.do(http.MethodPut, "/settings", hx, url.Values{
@@ -186,10 +160,8 @@ func TestSmokeEndToEnd(t *testing.T) {
 		t.Fatalf("connections = %v err=%v", got, err)
 	}
 	w = c.do(http.MethodGet, "/", nil, nil)
-	c.expect(w, http.StatusFound)
-	if loc := w.Header().Get("Location"); loc != "/pairing" {
-		t.Fatalf("Location = %q", loc)
-	}
+	mustContain(t, c.expect(w, http.StatusOK), `id="pairing-form"`)
+	c.noLocation(w)
 
 	// どの応答にも token を含めない。
 	c.mu.Lock()
@@ -199,4 +171,34 @@ func TestSmokeEndToEnd(t *testing.T) {
 			t.Errorf("応答 #%d に token が含まれている", i)
 		}
 	}
+}
+
+// newSmokeHandler は本物の service・SQLite・秘密領域（keyring のモック）でルーターを組む。
+func newSmokeHandler(t *testing.T) (http.Handler, *store.Store, *secret.Store) {
+	t.Helper()
+	keyring.MockInit()
+	db, err := store.Open(filepath.Join(t.TempDir(), "viewer.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	secrets := secret.NewStore()
+	log := slog.New(slog.DiscardHandler)
+	clock := service.SystemClock{}
+	reportClient := report.NewClient(secrets, log)
+
+	settings := service.NewSettingsService(db)
+	conns := service.NewConnectionService(reportClient, db, secrets, clock, log)
+	notif := service.NewNotificationService(reportClient, db, grantedNotifier{}, clock, settings, conns, log)
+	snaps := service.NewSnapshotService(reportClient, db, notif, conns, clock, log)
+	pairing := service.NewPairingService(reportClient, db, secrets, &seqIDs{}, clock, conns, log)
+
+	h, err := router.New(router.Deps{
+		Logger: log, Settings: settings, Connections: conns, Snapshots: snaps, Pairing: pairing,
+		Notifier: grantedNotifier{}, Clock: clock, Static: static.FS(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h, db, secrets
 }

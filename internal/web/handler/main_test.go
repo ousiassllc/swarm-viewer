@@ -17,95 +17,6 @@ func setLastConnection(a *app, id string) {
 	a.env.Store.Mu.Unlock()
 }
 
-func TestHome(t *testing.T) {
-	t.Run("接続が 0 件なら /pairing", func(t *testing.T) {
-		a := newApp(t)
-		wantRedirect(t, a.get("/"), http.StatusFound, "/pairing")
-	})
-	t.Run("最後に使った接続へ", func(t *testing.T) {
-		a := newApp(t)
-		a.env.AddConn("c1", "one", servicetest.URL1, true)
-		a.env.AddConn("c2", "two", servicetest.URL2, true)
-		setLastConnection(a, "c2")
-		wantRedirect(t, a.get("/"), http.StatusFound, "/connections/c2")
-	})
-	t.Run("記録が無い・消えた接続なら先頭", func(t *testing.T) {
-		a := newApp(t)
-		a.env.AddConn("c1", "one", servicetest.URL1, true)
-		a.env.AddConn("c2", "two", servicetest.URL2, true)
-		setLastConnection(a, "gone")
-		wantRedirect(t, a.get("/"), http.StatusFound, "/connections/c1")
-	})
-}
-
-func TestConnectionRedirect(t *testing.T) {
-	t.Run("last_session へ", func(t *testing.T) {
-		a := newApp(t)
-		c := a.env.AddConn("c1", "one", servicetest.URL1, true)
-		c.LastSession = "1"
-		a.env.Store.Mu.Lock()
-		a.env.Store.Conns[0] = c
-		a.env.Store.Mu.Unlock()
-		a.env.Report.SetSessions("c1", "0", "1")
-		wantRedirect(t, a.get("/connections/c1"), http.StatusFound, "/connections/c1/sessions/1")
-	})
-	t.Run("許可外・未記録は先頭の許可セッションへ", func(t *testing.T) {
-		a := newApp(t)
-		a.env.AddConn("c1", "one", servicetest.URL1, true)
-		a.env.Report.SetSessions("c1", "0", "1")
-		wantRedirect(t, a.get("/connections/c1"), http.StatusFound, "/connections/c1/sessions/0")
-	})
-	t.Run("未知の cid は 404", func(t *testing.T) {
-		a := newApp(t)
-		body := wantStatus(t, a.get("/connections/nope"), http.StatusNotFound)
-		webtest.MustContain(t, body, "ページが見つかりません")
-		if !isFullPage(body) {
-			t.Fatal("HX なしの 404 はフルページ")
-		}
-		if hxBody := wantStatus(t, a.get("/connections/nope", hx()), http.StatusNotFound); isFullPage(hxBody) {
-			t.Fatal("HX の 404 はフラグメント")
-		}
-	})
-	t.Run("許可セッション 0 件は専用ページ", func(t *testing.T) {
-		a := newApp(t)
-		a.env.AddConn("c1", "devbox", servicetest.URL1, true)
-		a.env.Report.SetSessions("c1")
-		full := wantStatus(t, a.get("/connections/c1"), http.StatusOK)
-		webtest.MustContain(t, full, "許可されたセッションがありません", "devbox", "<html")
-		frag := wantStatus(t, a.get("/connections/c1", hx()), http.StatusOK)
-		webtest.MustContain(t, frag, "許可されたセッションがありません")
-		webtest.MustNotContain(t, frag, "<html")
-	})
-	t.Run("401 は再ペアリングへ誘導", func(t *testing.T) {
-		a := newApp(t)
-		a.env.AddConn("c1", "devbox", servicetest.URL1, true)
-		a.env.Report.SessionsErr["c1"] = &domain.FetchError{Kind: domain.ErrUnauthorized, Code: "unauthorized"}
-		body := wantStatus(t, a.get("/connections/c1"), http.StatusOK)
-		webtest.MustContain(t, body, "再ペアリング", `href="/pairing"`)
-		if !a.env.Conns.NeedsRepair("c1") {
-			t.Fatal("needs_repair が立っていない")
-		}
-	})
-	t.Run("不達でも前回のセッションがあれば表示先へ", func(t *testing.T) {
-		a := newApp(t)
-		c := a.env.AddConn("c1", "devbox", servicetest.URL1, true)
-		c.LastSession = "0"
-		a.env.Store.Mu.Lock()
-		a.env.Store.Conns[0] = c
-		a.env.Store.Mu.Unlock()
-		a.env.Report.SessionsErr["c1"] = &domain.FetchError{Kind: domain.ErrUnreachable}
-		wantRedirect(t, a.get("/connections/c1"), http.StatusFound, "/connections/c1/sessions/0")
-	})
-	t.Run("不達で前回も無ければ再試行の導線", func(t *testing.T) {
-		a := newApp(t)
-		a.env.AddConn("c1", "devbox", servicetest.URL1, true)
-		a.env.Report.SessionsErr["c1"] = &domain.FetchError{Kind: domain.ErrUnreachable}
-		body := wantStatus(t, a.get("/connections/c1", hx()), http.StatusOK)
-		webtest.MustContain(t, body, "再試行", `hx-get="/connections/c1"`)
-		webtest.MustNotContain(t, body, "<html")
-	})
-}
-
 func TestSessionPage(t *testing.T) {
 	setup := func(t *testing.T) *app {
 		a := newApp(t)
@@ -118,6 +29,10 @@ func TestSessionPage(t *testing.T) {
 
 	t.Run("フルページ: タブ・接続切替・ポーリング属性", func(t *testing.T) {
 		a := setup(t)
+		if _, err := a.env.Conns.Tabs(t.Context(), "c1"); err != nil { // 直近のタブがある状態
+			t.Fatal(err)
+		}
+		before := sessionsListCalls(a, "c1")
 		body := wantStatus(t, a.get("/connections/c1/sessions/0"), http.StatusOK)
 		webtest.MustContain(t, body, "<html", `<main id="main"`, "接続: devbox",
 			`hx-get="/connections/c1/sessions/1"`, // タブ
@@ -132,6 +47,18 @@ func TestSessionPage(t *testing.T) {
 		// 画面の描画では取得しない（取得は領域の load が行う）。
 		if n := a.env.Report.ReportCount(); n != 0 {
 			t.Fatalf("report を %d 回呼んだ。初回描画では呼ばない", n)
+		}
+		if n := sessionsListCalls(a, "c1"); n != before {
+			t.Fatalf("初回描画で sessions_list を呼んだ（%d 回 → %d 回）", before, n)
+		}
+	})
+	t.Run("直近のタブが無ければ選択中の 1 件だけで描画し、取得しない", func(t *testing.T) {
+		a := setup(t)
+		body := wantStatus(t, a.get("/connections/c1/sessions/0"), http.StatusOK)
+		webtest.MustContain(t, body, `id="session-tabs"`, `hx-get="/connections/c1/sessions/0"`, `hx-get="/connections/c1/sessions/0/snapshot"`)
+		webtest.MustNotContain(t, body, `hx-get="/connections/c1/sessions/1"`)
+		if n := sessionsListCalls(a, "c1"); n != 0 {
+			t.Fatalf("初回描画で sessions_list を呼んだ（%d 回）", n)
 		}
 	})
 	t.Run("フラグメント: レイアウトなし", func(t *testing.T) {
@@ -160,14 +87,32 @@ func TestSessionPage(t *testing.T) {
 			t.Fatalf("last_connection_id = %q", got)
 		}
 	})
-	t.Run("許可外のセッションは先頭へ 302（記録しない）", func(t *testing.T) {
+	t.Run("許可外と分かっているセッションは先頭を描画する（ポーリング URL は正規のパス）", func(t *testing.T) {
 		a := setup(t)
-		wantRedirect(t, a.get("/connections/c1/sessions/zzz"), http.StatusFound, "/connections/c1/sessions/0")
+		if _, err := a.env.Conns.Tabs(t.Context(), "c1"); err != nil {
+			t.Fatal(err)
+		}
+		w := a.get("/connections/c1/sessions/zzz")
+		body := wantStatus(t, w, http.StatusOK)
+		webtest.MustContain(t, body, `hx-get="/connections/c1/sessions/0/snapshot"`)
+		webtest.MustNotContain(t, body, "/sessions/zzz")
+		if loc := w.Header().Get("Location"); loc != "" {
+			t.Fatalf("Location = %q", loc)
+		}
 		a.env.Store.Mu.Lock()
 		defer a.env.Store.Mu.Unlock()
-		if got := a.env.Store.Conns[0].LastSession; got != "" {
+		if got := a.env.Store.Conns[0].LastSession; got != "0" {
 			t.Fatalf("last_session = %q", got)
 		}
+	})
+	t.Run("タブの取得が古ければ、新しいセッションを信じて描画する（snapshot が確かめる）", func(t *testing.T) {
+		a := setup(t)
+		if _, err := a.env.Conns.Tabs(t.Context(), "c1"); err != nil {
+			t.Fatal(err)
+		}
+		a.env.Clock.Advance(time.Minute)
+		body := wantStatus(t, a.get("/connections/c1/sessions/new"), http.StatusOK)
+		webtest.MustContain(t, body, `hx-get="/connections/c1/sessions/new/snapshot"`, `hx-get="/connections/c1/sessions/0"`)
 	})
 	t.Run("セッション名は URL エンコードを復元する", func(t *testing.T) {
 		a := newApp(t)
@@ -176,9 +121,12 @@ func TestSessionPage(t *testing.T) {
 		body := wantStatus(t, a.get("/connections/c1/sessions/my%20session", hx()), http.StatusOK)
 		webtest.MustContain(t, body, `hx-get="/connections/c1/sessions/my%20session/snapshot"`)
 	})
-	t.Run("許可セッション 0 件", func(t *testing.T) {
+	t.Run("許可セッション 0 件（取得済み）は引き直して専用ページ", func(t *testing.T) {
 		a := setup(t)
 		a.env.Report.SetSessions("c1")
+		if _, err := a.env.Conns.Tabs(t.Context(), "c1"); err != nil {
+			t.Fatal(err)
+		}
 		body := wantStatus(t, a.get("/connections/c1/sessions/0"), http.StatusOK)
 		webtest.MustContain(t, body, "許可されたセッションがありません")
 	})
@@ -186,17 +134,15 @@ func TestSessionPage(t *testing.T) {
 		a := setup(t)
 		wantStatus(t, a.get("/connections/nope/sessions/0"), http.StatusNotFound)
 	})
-	t.Run("タブを取得できなくても 200 で前回値と失敗バナー", func(t *testing.T) {
+	t.Run("ホストに届かなくても待たずに 200 で前回値とバナー（FR-POLL-4）", func(t *testing.T) {
 		a := setup(t)
-		a.env.Store.Mu.Lock()
-		a.env.Store.Snaps[servicetest.SnapKey{Conn: "c1", Session: "0"}] = domain.Snapshot{
-			Report:    servicetest.ReportOf(servicetest.Pane("%1", "T1", domain.StateWorking)),
-			FetchedAt: a.env.Clock.Now().Add(-time.Minute),
-		}
-		a.env.Store.Mu.Unlock()
+		saveSnapshot(a, "c1", "0")
 		a.env.Report.SessionsErr["c1"] = &domain.FetchError{Kind: domain.ErrUnreachable}
 		body := wantStatus(t, a.get("/connections/c1/sessions/0"), http.StatusOK)
-		webtest.MustContain(t, body, "opacity-50", `data-error-kind="`, "前回取得", `hx-get="/connections/c1/sessions/0/snapshot"`)
+		webtest.MustContain(t, body, "opacity-50", `role="alert"`, "前回取得", `hx-get="/connections/c1/sessions/0/snapshot"`)
+		if n := sessionsListCalls(a, "c1") + a.env.Report.ReportCount(); n != 0 {
+			t.Fatalf("初回描画でホストを %d 回呼んだ", n)
+		}
 	})
 	t.Run("needs_repair ではポーリング属性を出さない", func(t *testing.T) {
 		a := setup(t)

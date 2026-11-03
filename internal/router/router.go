@@ -112,6 +112,9 @@ func newEngine(logger *slog.Logger, csrfToken string) *gin.Engine {
 		}
 	})
 	e := gin.New()
+	// セッション名に `/` を含められるよう、エスケープ済みのパス（%2F）でルーティングし、パラメータは復号する。
+	e.UseRawPath = true
+	e.UnescapePathValues = true
 	e.Use(
 		middleware.Recover(logger),
 		middleware.RequestLog(logger),

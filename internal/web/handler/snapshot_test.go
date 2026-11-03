@@ -109,15 +109,90 @@ func TestSnapshotUnauthorizedStopsPolling(t *testing.T) {
 	}
 }
 
-func TestSnapshotSessionErrorsRedirectToConnection(t *testing.T) {
-	for _, kind := range []domain.ErrKind{domain.ErrSessionForbidden, domain.ErrSessionMissing, domain.ErrSessionRequired} {
+const goneURL = "/connections/c1/sessions/gone/snapshot"
+
+var sessionErrKinds = []domain.ErrKind{domain.ErrSessionForbidden, domain.ErrSessionMissing, domain.ErrSessionRequired}
+
+// 許可セッションに無いと分かったら HX-Redirect（3xx にしない）で先頭の許可セッションへ。
+func TestSnapshotSessionErrorsRedirectToFirstAllowedSession(t *testing.T) {
+	for _, kind := range sessionErrKinds {
 		a := snapshotApp(t)
-		a.env.Report.SetReportErr("c1", "0", &domain.FetchError{Kind: kind})
+		a.env.Report.SetReportErr("c1", "gone", &domain.FetchError{Kind: kind})
+		wantHXRedirect(t, a.get(goneURL, hx()), "/connections/c1/sessions/0")
+	}
+}
+
+func TestSnapshotSessionErrorWithNoAllowedSessionsRedirectsToConnection(t *testing.T) {
+	a := snapshotApp(t)
+	a.env.Report.SetSessions("c1")
+	a.env.Report.SetReportErr("c1", "gone", &domain.FetchError{Kind: domain.ErrSessionMissing})
+	wantHXRedirect(t, a.get(goneURL, hx()), "/connections/c1")
+}
+
+// 移動しても同じ失敗を繰り返すとき（タブにあるセッション・タブを取得できない）は移動せず、バナーを出す。
+func TestSnapshotSessionErrorDoesNotLoopRedirect(t *testing.T) {
+	t.Run("セッションはタブにある", func(t *testing.T) {
+		a := snapshotApp(t)
+		a.env.Report.SetReportErr("c1", "0", &domain.FetchError{Kind: domain.ErrSessionForbidden})
 		w := a.get(snapshotURL, hx())
-		wantStatus(t, w, http.StatusOK)
-		if got := w.Header().Get("HX-Redirect"); got != "/connections/c1" {
-			t.Fatalf("HX-Redirect = %q", got)
+		body := wantStatus(t, w, http.StatusOK)
+		if w.Header().Get("HX-Redirect") != "" {
+			t.Fatal("HX-Redirect を返した")
 		}
+		webtest.MustContain(t, body, `role="alert"`, `hx-trigger="every 10s, refresh from:body"`)
+	})
+	t.Run("タブを取得できない", func(t *testing.T) {
+		a := snapshotApp(t)
+		a.env.Report.SessionsErr["c1"] = &domain.FetchError{Kind: domain.ErrUnreachable}
+		a.env.Report.SetReportErr("c1", "gone", &domain.FetchError{Kind: domain.ErrSessionMissing})
+		w := a.get(goneURL, hx())
+		body := wantStatus(t, w, http.StatusOK)
+		if w.Header().Get("HX-Redirect") != "" {
+			t.Fatal("HX-Redirect を返した")
+		}
+		webtest.MustContain(t, body, `role="alert"`)
+	})
+}
+
+// 初回描画は保存値のタブ（1 件）で出すため、最初の snapshot 応答がタブバーを OOB で差し替える。
+func TestSnapshotRefreshesTabsByOOB(t *testing.T) {
+	a := snapshotApp(t)
+	body := wantStatus(t, a.get(snapshotURL, hx()), http.StatusOK)
+	webtest.MustContain(t, body, `id="session-tabs"`, `hx-swap-oob="true"`,
+		`hx-get="/connections/c1/sessions/0"`, `hx-get="/connections/c1/sessions/1"`)
+	if n := sessionsListCalls(a, "c1"); n != 1 {
+		t.Fatalf("sessions_list = %d, want 1", n)
+	}
+
+	// 直近の取得が新しいあいだは引き直さず、タブバーも返さない（ポーリングのたびに sessions_list を呼ばない）。
+	a.env.Clock.Advance(10 * time.Second)
+	again := wantStatus(t, a.get(snapshotURL, hx()), http.StatusOK)
+	webtest.MustNotContain(t, again, `id="session-tabs"`)
+	if n := sessionsListCalls(a, "c1"); n != 1 {
+		t.Fatalf("sessions_list = %d, want 1", n)
+	}
+
+	// 古くなったら引き直す。
+	a.env.Report.SetSessions("c1", "0", "1", "2")
+	a.env.Clock.Advance(time.Minute)
+	later := wantStatus(t, a.get(snapshotURL, hx()), http.StatusOK)
+	webtest.MustContain(t, later, `id="session-tabs"`, `hx-get="/connections/c1/sessions/2"`)
+}
+
+func TestSnapshotTabsFailureStillRendersRegion(t *testing.T) {
+	a := snapshotApp(t)
+	a.env.Report.SessionsErr["c1"] = &domain.FetchError{Kind: domain.ErrUnreachable}
+	body := wantStatus(t, a.get(snapshotURL, hx()), http.StatusOK)
+	webtest.MustContain(t, body, "fix-the-build", `id="snapshot"`)
+	webtest.MustNotContain(t, body, `id="session-tabs"`)
+}
+
+func TestSnapshotNeedsRepairDoesNotFetchTabs(t *testing.T) {
+	a := snapshotApp(t)
+	a.env.Conns.MarkNeedsRepair("c1")
+	wantStatus(t, a.get(snapshotURL, hx()), http.StatusOK)
+	if n := sessionsListCalls(a, "c1"); n != 0 {
+		t.Fatalf("sessions_list = %d, want 0", n)
 	}
 }
 

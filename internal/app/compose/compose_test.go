@@ -29,8 +29,8 @@ func TestNormalStart_ServesAppAndRunsSchedulerOnlyAfterReady(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec := e.get("/")
-	if rec.Code != http.StatusFound || rec.Header().Get("Location") != "/pairing" {
-		t.Fatalf("GET / = %d %q, want 302 /pairing (no connections)", rec.Code, rec.Header().Get("Location"))
+	if rec.Code != http.StatusOK || rec.Header().Get("Location") != "" || !strings.Contains(rec.Body.String(), `id="pairing-form"`) {
+		t.Fatalf("GET / = %d %q, want 200 pairing page without redirect (no connections)", rec.Code, rec.Header().Get("Location"))
 	}
 	// Wails の準備前（Ready 前）はスケジューラを起動しない。
 	if tickerStarted(e.clock) {
@@ -121,8 +121,8 @@ func TestRecoveryResetSwitchesToNormalMode(t *testing.T) {
 			if rec.Code != http.StatusOK || rec.Header().Get("HX-Redirect") != "/" {
 				t.Fatalf("reset = %d HX-Redirect=%q", rec.Code, rec.Header().Get("HX-Redirect"))
 			}
-			// 通常モードに切り替わった: / は /pairing へ、設定を保存でき、スケジューラが動く。
-			if rec := e.get("/"); rec.Code != http.StatusFound || rec.Header().Get("Location") != "/pairing" {
+			// 通常モードに切り替わった: / はペアリング画面を描画し、設定を保存でき、スケジューラが動く。
+			if rec := e.get("/"); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `id="pairing-form"`) {
 				t.Fatalf("after reset GET / = %d %q", rec.Code, rec.Header().Get("Location"))
 			}
 			waitFor(t, "scheduler after reset", func() bool { return tickerStarted(e.clock) })

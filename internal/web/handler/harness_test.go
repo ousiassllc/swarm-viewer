@@ -89,11 +89,16 @@ func wantStatus(t *testing.T, w *httptest.ResponseRecorder, status int) string {
 	return w.Body.String()
 }
 
-func wantRedirect(t *testing.T, w *httptest.ResponseRecorder, status int, location string) {
+// wantHXRedirect は 200 と HX-Redirect だけで移動を指示していること（3xx・Location を使わない）を確認する。
+// WebKit の WebView は http.Redirect を扱えない。
+func wantHXRedirect(t *testing.T, w *httptest.ResponseRecorder, target string) {
 	t.Helper()
-	wantStatus(t, w, status)
-	if got := w.Header().Get("Location"); got != location {
-		t.Fatalf("Location = %q, want %q", got, location)
+	wantStatus(t, w, http.StatusOK)
+	if got := w.Header().Get("HX-Redirect"); got != target {
+		t.Fatalf("HX-Redirect = %q, want %q", got, target)
+	}
+	if got := w.Header().Get("Location"); got != "" {
+		t.Fatalf("Location = %q, want none", got)
 	}
 }
 
