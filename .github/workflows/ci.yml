@@ -54,7 +54,8 @@ jobs:
       # このランナーには未導入のため、Linux の検査対象から外し、Windows 向け（CGO 不要）の検査で補う。
       - name: Linux の検査対象パッケージを決める
         run: |
-          pkgs="$(go list ./... | grep -vxF -e "$(go list -m)" -e "$(go list -m)/internal/app" | tr '\n' ' ')"
+          mod="$(go list -m)"
+          pkgs="$(go list ./... | grep -vxF -e "${mod}" -e "${mod}/internal/app" | sed "s|^${mod}|.|" | tr '\n' ' ')"
           echo "LINUX_PKGS=${pkgs}" >> "$GITHUB_ENV"
       - uses: golangci/golangci-lint-action@v9
         with:
@@ -95,7 +96,8 @@ jobs:
       # このランナーには未導入のため、Linux の検査対象から外し、Windows 向け（CGO 不要）の検査で補う。
       - name: Linux の検査対象パッケージを決める
         run: |
-          pkgs="$(go list ./... | grep -vxF -e "$(go list -m)" -e "$(go list -m)/internal/app" | tr '\n' ' ')"
+          mod="$(go list -m)"
+          pkgs="$(go list ./... | grep -vxF -e "${mod}" -e "${mod}/internal/app" | sed "s|^${mod}|.|" | tr '\n' ' ')"
           echo "LINUX_PKGS=${pkgs}" >> "$GITHUB_ENV"
       - run: |
           # shellcheck disable=SC2086
