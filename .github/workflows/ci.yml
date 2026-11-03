@@ -25,7 +25,6 @@ env:
   GOLANGCI_LINT_VERSION: v2.12.2
   TASK_VERSION: 3.x
   BUN_VERSION: 1.3.14
-  WAILS_VERSION: v3.0.0
 
 jobs:
   lint:
@@ -148,10 +147,10 @@ jobs:
           version: ${{ env.TASK_VERSION }}
       - run: bun install --frozen-lockfile
       - run: task generate
-      - name: Wails CLI を導入
-        run: |
-          go install "github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}"
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-      # Linux の Wails ビルドは gtk4・webkitgtk-6.0・libsoup-3.0 の開発パッケージ（このランナーには未導入）を要する。
-      # Windows 向けは CGO なしで通るため、Windows 向けのコンパイル確認にする。成果物は配布しない。
-      - run: wails3 build GOOS=windows
+      # wails3 CLI 自体が Linux では gtk4・webkitgtk-6.0 の開発パッケージ（このランナーには未導入）を要するため、
+      # CLI は使わず Windows 向け（CGO 不要）に直接ビルドして、コンパイルできることだけを確認する。成果物は配布しない。
+      - name: go build (windows)
+        run: go build -tags production -o "${RUNNER_TEMP}/swarm-viewer.exe" .
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows
