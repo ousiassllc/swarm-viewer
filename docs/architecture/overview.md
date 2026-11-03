@@ -26,7 +26,7 @@ swarm-viewer の全体構成・技術選定・レイヤー構造・通信フロ�
 | リッチ UI | Lit | **初版は使わない**（使用基準に該当する画面がない）。導入時の規約は §8 |
 | スタイリング | Tailwind CSS | ユーティリティクラス。ダークモードは CSS カスタム変数 + Tailwind |
 | MCP クライアント | 公式 Go SDK（`github.com/modelcontextprotocol/go-sdk/mcp`） | swarm-console `/report` へ `tools/call`。HTTP トランスポートに独自の `http.Client` を渡し、Bearer 付与とタイムアウトを制御する |
-| 内部 DB | SQLite（`modernc.org/sqlite`、CGO 不要） | 接続・設定・通知済み記録（NFR-DAT-1・2） |
+| 内部 DB | SQLite（`modernc.org/sqlite`、CGO 不要） | 接続・設定・直近スナップショット・通知済み記録（NFR-DAT-1・2。[ER](er.md)） |
 | 秘密領域 | OS キーストア（macOS Keychain / Windows Credential Manager）を Go ライブラリ経由で利用 | token の保存（NFR-SEC-2）。具体ライブラリはコンポーネント設計で選ぶ |
 | ビルド | `wails3 build` + Tailwind CLI | HTMX は `node_modules` から配置。esbuild は Lit 導入時に追加する |
 
@@ -45,7 +45,7 @@ graph TD
             Sched[通知スケジューラ<br/>（goroutine）]
             Tray[システムトレイ / 単一インスタンス / URL スキーム受信]
         end
-        SQLite[(SQLite<br/>接続・設定・通知済み記録)]
+        SQLite[(SQLite<br/>接続・設定・スナップショット・通知済み記録)]
         Keystore[(OS 秘密領域<br/>token)]
         OSN[OS 通知]
     end
@@ -263,7 +263,7 @@ sequenceDiagram
 
 - 画面更新（選択中セッション）で取得した結果も同じ `Detect` に流す。ペインの同一性は `id`（tmux ペイン ID）、記録のキーは `(接続, セッション, ペイン ID, 状態)`
 - 通知がオフの間は取得しない（[機能要件 §8.3](../requirements/functional.md)）
-- 接続の新規ペアリング直後の最初の取得は、通知せず現在の状態の記録だけを行う
+- 接続の新規ペアリング後、全許可セッションの一巡（`connections.baselined_at` が埋まるまで）は、通知せず現在の状態の記録だけを行う
 - 通知のクリックは `app/notifier.go` がウィンドウを前面に出し、`SetURL(/connections/{cid}/sessions/{sid})` で該当タブへ遷移する
 
 ## 6. ウィンドウ・プロセスの挙動
