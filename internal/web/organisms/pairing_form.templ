@@ -1,0 +1,47 @@
+package organisms
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+)
+
+// FieldPairing はペアリングフォームの接続文字列欄の name。ハンドラはこの値を 1 回だけ読んで破棄する（NFR-SEC-7）。
+const FieldPairing = "pairing"
+
+// PairingFormID はペアリングフォームを包む要素の id（422 の再描画先）。
+const PairingFormID = "pairing-form"
+
+// PairingFormProps は PairingForm の入力。
+type PairingFormProps struct {
+	// Error は検証失敗の固定文言（format.PairingErrorMessage）。空なら出さない。
+	// 貼り付けられた値（token を含みうる）は再描画で戻さない。
+	Error string
+}
+
+// PairingForm は接続文字列の貼り付けフォーム。成功（303）は #main へ、検証失敗（422）は #pairing-form へ描画する。
+templ PairingForm(p PairingFormProps) {
+	<form
+		hx-post={ paths.Pairing }
+		hx-target="#main"
+		hx-target-422={ "#" + PairingFormID }
+		hx-disabled-elt="find button"
+		class="flex flex-col gap-3"
+	>
+		<label for="pairing-input" class="text-sm text-slate-300">接続文字列（swarm-viewer://pair?…）</label>
+		<textarea
+			id="pairing-input"
+			name={ FieldPairing }
+			rows="4"
+			required
+			autocomplete="off"
+			spellcheck="false"
+			class="w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100"
+		></textarea>
+		if p.Error != "" {
+			<p role="alert" class="text-sm text-red-300">{ p.Error }</p>
+		}
+		<div>
+			@atoms.Button(atoms.ButtonProps{Label: "接続", Type: "submit", Variant: atoms.ButtonPrimary})
+		</div>
+	</form>
+}

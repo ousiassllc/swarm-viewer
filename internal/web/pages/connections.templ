@@ -1,0 +1,52 @@
+package pages
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/web/layout"
+	"github.com/ousiassllc/swarm-viewer/internal/web/organisms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+)
+
+// ConnectionsProps は ConnectionsPage / ConnectionsContent の入力。
+type ConnectionsProps struct {
+	// List は接続一覧の入力。
+	List organisms.ConnectionListProps
+}
+
+// ConnectionsPage は接続管理画面のフルページ。
+templ ConnectionsPage(shell layout.BaseProps, p ConnectionsProps) {
+	@layout.Base(shell) {
+		@ConnectionsContent(p)
+	}
+}
+
+// ConnectionsContent は接続管理画面のフラグメント。
+templ ConnectionsContent(p ConnectionsProps) {
+	@pageTitle("接続管理")
+	@organisms.ConnectionList(p.List)
+	<div class="flex items-center gap-4">
+		@navLink(paths.Pairing, "接続を追加")
+		@homeLink("メイン画面へ")
+	</div>
+}
+
+// NoSessionsPage は許可されたセッションが 0 件のときのフルページ。
+templ NoSessionsPage(shell layout.BaseProps, connectionName string) {
+	@layout.Base(shell) {
+		@NoSessionsContent(connectionName)
+	}
+}
+
+// NoSessionsContent は「許可されたセッションがありません」のフラグメント。
+templ NoSessionsContent(connectionName string) {
+	@pageTitle("許可されたセッションがありません")
+	<p class="text-sm text-slate-400">
+		if connectionName != "" {
+			接続「{ connectionName }」には、このトークンで見られるセッションがありません。
+		}
+		ホスト側でトークンの許可セッションを確認してください。
+	</p>
+	<div class="flex items-center gap-4">
+		@navLink(paths.Connections, "接続管理")
+		@navLink(paths.Pairing, "接続を追加")
+	</div>
+}

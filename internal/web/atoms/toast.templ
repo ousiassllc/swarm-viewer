@@ -1,0 +1,52 @@
+package atoms
+
+import "github.com/ousiassllc/swarm-viewer/internal/web/format"
+
+// ToastKind はトーストの種類。
+type ToastKind string
+
+// ToastKind の値。
+const (
+	ToastSuccess ToastKind = "success"
+	ToastError   ToastKind = "error"
+	ToastInfo    ToastKind = "info"
+)
+
+// ToastProps は Toast の入力。
+type ToastProps struct {
+	// Kind は種類。未知の値は info。
+	Kind ToastKind
+	// Message は表示する文言。
+	Message string
+}
+
+func toastTone(k ToastKind) format.Tone {
+	switch k {
+	case ToastSuccess:
+		return format.ToneSuccess
+	case ToastError:
+		return format.ToneError
+	default:
+		return format.ToneAccent
+	}
+}
+
+// ToastContainerID はトーストの表示先（レイアウトの空コンテナ）の id。
+const ToastContainerID = "toasts"
+
+// Toast はトースト 1 件を OOB（hx-swap-oob）で返す。レイアウトの #toasts を置き換える。
+templ Toast(p ToastProps) {
+	<div id={ ToastContainerID } hx-swap-oob="true" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2" aria-live="polite">
+		<div role="status" class={ "rounded-md border bg-slate-900 px-4 py-2 text-sm shadow-lg", format.BorderClass(toastTone(p.Kind)) }>
+			{ p.Message }
+		</div>
+	</div>
+}
+
+// Alert は汎用のエラー通知（OOB ではない）。Recover・CSRF の応答など、
+// 対象を限定せずレイアウトの #toasts へ入れるフラグメントに使う。
+templ Alert(message string) {
+	<div role="alert" class="rounded-md border border-red-500/60 bg-slate-900 px-4 py-2 text-sm text-red-300 shadow-lg">
+		{ message }
+	</div>
+}

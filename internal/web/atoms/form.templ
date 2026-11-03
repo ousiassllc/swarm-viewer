@@ -1,0 +1,90 @@
+package atoms
+
+// ButtonVariant はボタンの見た目。
+type ButtonVariant string
+
+// ButtonVariant の値。
+const (
+	ButtonPrimary   ButtonVariant = "primary"
+	ButtonSecondary ButtonVariant = "secondary"
+	ButtonDanger    ButtonVariant = "danger"
+)
+
+// ButtonProps は Button の入力。
+type ButtonProps struct {
+	// Label は表示文字列。
+	Label string
+	// Type は button の type。空なら "button"（意図せず submit しない）。
+	Type string
+	// Variant は見た目。未知の値は secondary。
+	Variant ButtonVariant
+	// Attrs は hx-* など追加の属性。値は Templ がエスケープする。
+	Attrs templ.Attributes
+}
+
+func buttonClass(v ButtonVariant) string {
+	switch v {
+	case ButtonPrimary:
+		return "bg-sky-600 text-white hover:bg-sky-500"
+	case ButtonDanger:
+		return "bg-red-700 text-white hover:bg-red-600"
+	default:
+		return "bg-slate-700 text-slate-100 hover:bg-slate-600"
+	}
+}
+
+func buttonType(t string) string {
+	if t == "" {
+		return "button"
+	}
+	return t
+}
+
+// Button は共通ボタン。ペインカードでは使わない（読み取り専用）。
+templ Button(p ButtonProps) {
+	<button
+		type={ buttonType(p.Type) }
+		class={ "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-50", buttonClass(p.Variant) }
+		{ p.Attrs... }
+	>
+		{ p.Label }
+	</button>
+}
+
+// InputProps は Input の入力。
+type InputProps struct {
+	// ID・Name・Type は input の属性。Type が空なら "text"。
+	ID   string
+	Name string
+	Type string
+	// Value は初期値。ペアリング欄など秘密を含みうる入力には渡さない。
+	Value string
+	// Placeholder は入力例。
+	Placeholder string
+	// Required は必須入力か。
+	Required bool
+	// Attrs は追加の属性。
+	Attrs templ.Attributes
+}
+
+func inputType(t string) string {
+	if t == "" {
+		return "text"
+	}
+	return t
+}
+
+// Input は共通の 1 行入力。
+templ Input(p InputProps) {
+	<input
+		id={ p.ID }
+		name={ p.Name }
+		type={ inputType(p.Type) }
+		value={ p.Value }
+		placeholder={ p.Placeholder }
+		required?={ p.Required }
+		autocomplete="off"
+		class="w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500"
+		{ p.Attrs... }
+	/>
+}

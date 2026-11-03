@@ -1,0 +1,56 @@
+package molecules
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
+	"time"
+)
+
+// UsageRowProps は UsageRow の入力。
+type UsageRowProps struct {
+	// Label は枠の名前（「5 時間枠」「7 日枠」「月間」など）。
+	Label string
+	// Slot は利用上限の 1 枠。
+	Slot domain.Slot
+	// Now は相対時間（「あと N 時間」）の基準。呼び出し側が Clock.Now() を渡す。
+	Now time.Time
+}
+
+// valueClass は数値・金額の文字色。しきい値に達していない（accent）ときは通常色にする。
+func valueClass(t format.Tone) string {
+	if t == format.ToneAccent {
+		return "text-slate-100"
+	}
+	return format.TextClass(t)
+}
+
+// UsageRow は利用上限の 1 枠。unit が percent ならバー＋数値、usd なら金額のみ。
+// available: false は「—」（バー・数値なし）。
+templ UsageRow(p UsageRowProps) {
+	<div class="flex flex-col gap-1 text-xs">
+		<div class="flex items-center gap-2">
+			<span class="w-16 shrink-0 text-slate-400">{ p.Label }</span>
+			if !p.Slot.Available {
+				<span class="text-slate-500" aria-label="取得できません">{ format.Dash }</span>
+			} else if p.Slot.Unit == domain.UnitPercent && p.Slot.Used != nil {
+				<div class="min-w-0 flex-1">
+					@atoms.ProgressBar(atoms.ProgressBarProps{Percent: *p.Slot.Used, Tone: format.SlotTone(p.Slot), Label: p.Label})
+				</div>
+				<span class={ "w-12 shrink-0 text-right font-mono", valueClass(format.SlotTone(p.Slot)) }>{ format.Percent(*p.Slot.Used) }</span>
+			} else if p.Slot.Unit == domain.UnitUSD && p.Slot.Used != nil {
+				<span class={ "font-mono", valueClass(format.SlotTone(p.Slot)) }>{ format.USD(*p.Slot.Used) }</span>
+			} else {
+				<span class="text-slate-500">{ format.Dash }</span>
+			}
+			if p.Slot.Available && p.Slot.Status == domain.SlotStatusExhausted {
+				@atoms.Badge(atoms.BadgeProps{Text: "上限到達", Tone: format.ToneError})
+			}
+		</div>
+		if p.Slot.Available && p.Slot.ResetsAt != nil {
+			<p class="pl-[4.5rem] text-slate-500">
+				{ "リセット " + format.DateTime(*p.Slot.ResetsAt) + "（" + format.Until(*p.Slot.ResetsAt, p.Now) + "）" }
+			</p>
+		}
+	</div>
+}

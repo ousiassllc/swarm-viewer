@@ -1,0 +1,41 @@
+package molecules
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
+	"time"
+)
+
+// AttentionItemProps は AttentionItem の入力。
+type AttentionItemProps struct {
+	// Attention は要対応 1 件。未知の kind は文字列のまま表示する（NFR-CMP-1）。
+	Attention domain.Attention
+	// AuthExpiresAt は auth.agents[].expires_at。ログイン期限（auth_expired / auth_expiring）の併記用で、零値なら出さない。
+	AuthExpiresAt time.Time
+}
+
+// attentionDetail は kind ごとに表示する detail を返す。
+// report_waiting の detail はサーバー上のファイルパスなので表示しない（機能要件 §7）。
+func attentionDetail(a domain.Attention) string {
+	if a.Kind == "report_waiting" {
+		return ""
+	}
+	return a.Detail
+}
+
+// AttentionItem は要対応バーの 1 件（kind バッジ・ペイン位置・detail）。
+templ AttentionItem(p AttentionItemProps) {
+	<li class="flex min-w-0 items-center gap-2 text-sm">
+		@atoms.Badge(atoms.BadgeProps{Text: format.AttentionLabel(p.Attention.Kind), Tone: format.AttentionTone(p.Attention.Kind)})
+		if p.Attention.Pane != "" {
+			<span class="font-mono text-xs text-slate-300">{ p.Attention.Pane }</span>
+		}
+		if d := attentionDetail(p.Attention); d != "" {
+			<span class="truncate text-slate-300" title={ d }>{ d }</span>
+		}
+		if !p.AuthExpiresAt.IsZero() {
+			<span class="text-xs text-slate-400">{ "期限 " + format.DateTime(p.AuthExpiresAt) }</span>
+		}
+	</li>
+}

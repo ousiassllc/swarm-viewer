@@ -1,0 +1,26 @@
+package atoms
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
+	"strconv"
+)
+
+// ProgressBarProps は ProgressBar の入力。
+type ProgressBarProps struct {
+	// Percent は使用率（%）。0〜100 に丸めて描画する。
+	Percent float64
+	// Tone は塗りの色。しきい値色は呼び出し側が format.SlotTone / format.PercentTone で決める。
+	Tone format.Tone
+	// Label はスクリーンリーダー向けの名前（例: 「5 時間枠」）。
+	Label string
+}
+
+// ProgressBar は使用率のバー。幅は <progress> の value で表し、style 属性は使わない（CSP）。
+templ ProgressBar(p ProgressBarProps) {
+	<progress
+		class={ "h-2 w-full appearance-none overflow-hidden rounded-full [&::-webkit-progress-bar]:bg-slate-700", format.BarClass(p.Tone) }
+		max="100"
+		value={ strconv.FormatFloat(format.BarValue(p.Percent), 'f', -1, 64) }
+		aria-label={ p.Label }
+	></progress>
+}

@@ -1,0 +1,27 @@
+package organisms
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
+)
+
+// SessionTabsProps は SessionTabs の入力。
+type SessionTabsProps struct {
+	// ConnectionID は接続 ID。
+	ConnectionID string
+	// Sessions は許可されたセッション（sessions_list の順）。Allowed が false のものは描画しない。
+	Sessions []domain.Session
+	// Selected は選択中のセッション名。
+	Selected string
+}
+
+// SessionTabs は上段のセッションタブ。セッションが 1 つだけでもタブを出す（機能要件 §4.3）。
+templ SessionTabs(p SessionTabsProps) {
+	<nav class="flex flex-wrap gap-1 border-b border-slate-700" aria-label="セッション">
+		for _, s := range p.Sessions {
+			if s.Allowed {
+				@molecules.SessionTab(molecules.SessionTabProps{ConnectionID: p.ConnectionID, Session: s.ID, Selected: s.ID == p.Selected})
+			}
+		}
+	</nav>
+}
