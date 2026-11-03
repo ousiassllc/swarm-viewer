@@ -61,7 +61,7 @@ jobs:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
           install-only: true
       - run: |
-          # shellcheck disable=SC2086 -- 複数パッケージへの分割が目的
+          # shellcheck disable=SC2086
           golangci-lint run ${LINUX_PKGS}
       - name: golangci-lint (windows)
         run: golangci-lint run ./...
@@ -98,7 +98,7 @@ jobs:
           pkgs="$(go list ./... | grep -vxF -e "$(go list -m)" -e "$(go list -m)/internal/app" | tr '\n' ' ')"
           echo "LINUX_PKGS=${pkgs}" >> "$GITHUB_ENV"
       - run: |
-          # shellcheck disable=SC2086 -- 複数パッケージへの分割が目的
+          # shellcheck disable=SC2086
           go vet ${LINUX_PKGS}
       # OS 別のビルドタグを持つコード（go-keyring・SQLite ドライバ・filepath まわり）を
       # Linux のランナーでもコンパイルして検査する。Wails（internal/app・main.go）は Windows なら CGO なしで
@@ -114,7 +114,7 @@ jobs:
           CGO_ENABLED: "0"
           GOOS: darwin
       - run: |
-          # shellcheck disable=SC2086 -- 複数パッケージへの分割が目的
+          # shellcheck disable=SC2086
           go test ${LINUX_PKGS}
 
   build:
