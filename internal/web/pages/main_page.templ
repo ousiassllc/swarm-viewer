@@ -1,0 +1,75 @@
+package pages
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/layout"
+	"github.com/ousiassllc/swarm-viewer/internal/web/organisms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+)
+
+// MainProps は MainPage / MainContent の入力。ハンドラが service の結果を解決して渡す。
+type MainProps struct {
+	// Connection は表示中の接続（名前・ID だけ使う。token は持たない）。
+	Connection domain.Connection
+	// Connections は保存済み接続の全件。2 件以上のときだけ接続切替を出す（機能要件 §4.3）。
+	Connections []domain.Connection
+	// Sessions は sessions_list の結果（許可セッション）。
+	Sessions []domain.Session
+	// Selected は選択中のセッション名。
+	Selected string
+	// Snapshot はスナップショット領域の入力。ConnectionID・Session・Initial はここで補う。
+	Snapshot organisms.SnapshotViewProps
+}
+
+// snapshotProps は接続・セッション・初回描画を補ったスナップショット領域の入力。
+func (p MainProps) snapshotProps() organisms.SnapshotViewProps {
+	s := p.Snapshot
+	s.ConnectionID = p.Connection.ID
+	s.Session = p.Selected
+	s.Initial = true
+	return s
+}
+
+// MainPage はメイン画面 S2 のフルページ（レイアウト込み）。
+templ MainPage(shell layout.BaseProps, p MainProps) {
+	@layout.Base(shell) {
+		@MainContent(p)
+	}
+}
+
+// MainContent はメイン画面のフラグメント（#main に入る）。
+// 接続切替（複数時のみ）・更新・設定、セッションタブ、スナップショット領域。
+templ MainContent(p MainProps) {
+	<header class="flex flex-wrap items-center gap-3">
+		<h1 class="text-base font-semibold" title={ p.Connection.Name }>接続: { p.Connection.Name }</h1>
+		if len(p.Connections) > 1 {
+			<nav class="flex flex-wrap gap-1" aria-label="接続の切替">
+				for _, c := range p.Connections {
+					<a
+						href={ templ.SafeURL(paths.Connection(c.ID)) }
+						hx-get={ paths.Connection(c.ID) }
+						hx-target="#main"
+						class="rounded-md bg-slate-800 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700"
+						if c.ID == p.Connection.ID {
+							aria-current="true"
+						}
+					>{ c.Name }</a>
+				}
+			</nav>
+		}
+		<div class="ml-auto flex items-center gap-2">
+			@atoms.Spinner(atoms.SpinnerProps{ID: "main-spinner", Size: atoms.SpinnerSmall})
+			@atoms.Button(atoms.ButtonProps{Label: "更新", Attrs: templ.Attributes{
+				"hx-get":       paths.Session(p.Connection.ID, p.Selected),
+				"hx-target":    "#main",
+				"hx-indicator": "#main-spinner",
+			}})
+			@navLink(paths.Connections, "接続管理")
+			@navLink(paths.Settings, "設定")
+		</div>
+	</header>
+	@organisms.SessionTabs(organisms.SessionTabsProps{ConnectionID: p.Connection.ID, Sessions: p.Sessions, Selected: p.Selected})
+	@organisms.SnapshotStatus(p.snapshotProps())
+	@organisms.SnapshotRegion(p.snapshotProps())
+}

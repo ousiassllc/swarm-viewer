@@ -1,0 +1,57 @@
+package organisms
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+)
+
+// ConnectionListID は接続一覧の id（削除の応答で outerHTML を差し替える先）。
+const ConnectionListID = "connection-list"
+
+// ConnectionListProps は ConnectionList の入力。
+type ConnectionListProps struct {
+	// Connections は保存済みの接続。token は持たない。表示は表示名と URL の host のみ。
+	Connections []domain.Connection
+	// CurrentID は表示中の接続 ID。空なら印を付けない。
+	CurrentID string
+}
+
+func deleteConfirm(name string) string {
+	return "接続「" + name + "」を削除します。保存した token も消えます。よろしいですか？"
+}
+
+// ConnectionList は保存済み接続の一覧（表示名・host・切替・削除）。削除は hx-confirm で確認する。
+templ ConnectionList(p ConnectionListProps) {
+	<div id={ ConnectionListID }>
+		if len(p.Connections) == 0 {
+			<p class="text-sm text-slate-400">保存済みの接続はありません</p>
+		} else {
+			<ul class="flex flex-col divide-y divide-slate-700 rounded-lg border border-slate-700 bg-slate-900">
+				for _, c := range p.Connections {
+					<li class="flex items-center gap-3 px-3 py-2">
+						<div class="min-w-0 flex-1">
+							<p class="truncate text-sm font-medium text-slate-100" title={ c.Name }>{ c.Name }</p>
+							<p class="truncate font-mono text-xs text-slate-400">{ c.Host() }</p>
+						</div>
+						if c.ID == p.CurrentID {
+							@atoms.Badge(atoms.BadgeProps{Text: "表示中", Tone: format.ToneAccent})
+						}
+						@atoms.Button(atoms.ButtonProps{Label: "切替", Attrs: templ.Attributes{
+							"hx-get":    paths.Connection(c.ID),
+							"hx-target": "#main",
+						}})
+						@atoms.Button(atoms.ButtonProps{Label: "削除", Variant: atoms.ButtonDanger, Attrs: templ.Attributes{
+							"hx-delete":       paths.Connection(c.ID),
+							"hx-confirm":      deleteConfirm(c.Name),
+							"hx-target":       "#" + ConnectionListID,
+							"hx-swap":         "outerHTML",
+							"hx-disabled-elt": "this",
+						}})
+					</li>
+				}
+			</ul>
+		}
+	</div>
+}

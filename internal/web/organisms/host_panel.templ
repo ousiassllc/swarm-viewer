@@ -1,0 +1,44 @@
+package organisms
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
+	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
+)
+
+// HostPanelProps は HostPanel の入力。
+type HostPanelProps struct {
+	// Host は report の host（ホスト全体の値）。load1・mem_free_gb は使わない。
+	Host domain.Host
+}
+
+func swapRow(s domain.Swap) molecules.HostRowProps {
+	row := molecules.HostRowProps{Label: "スワップ", Percent: s.UsedPercent, Available: s.Available}
+	if s.Available && s.TotalGB == 0 {
+		row.NoBar = true
+		row.Detail = "なし"
+	} else if s.Available {
+		row.Detail = format.GB(s.UsedGB) + " / " + format.GB(s.TotalGB)
+	}
+	return row
+}
+
+func diskRow(d domain.Disk) molecules.HostRowProps {
+	row := molecules.HostRowProps{Label: d.Mount, Percent: d.UsedPercent, Available: d.Available}
+	if d.Available {
+		row.Detail = format.GB(d.FreeGB) + " 空き"
+	}
+	return row
+}
+
+// HostPanel はホスト負荷（CPU・スワップ・ディスク）。しきい値色は利用上限と同じ規則（80 / 95）。
+templ HostPanel(p HostPanelProps) {
+	<section class="flex flex-col gap-2 rounded-lg border border-slate-700 bg-slate-900 p-3" aria-labelledby="host-heading">
+		<h2 id="host-heading" class="text-sm font-semibold text-slate-200">ホスト</h2>
+		@molecules.HostRow(molecules.HostRowProps{Label: "CPU", Percent: p.Host.CPU.UsedPercent, Available: p.Host.CPU.Available})
+		@molecules.HostRow(swapRow(p.Host.Swap))
+		for _, d := range p.Host.Disk {
+			@molecules.HostRow(diskRow(d))
+		}
+	</section>
+}
