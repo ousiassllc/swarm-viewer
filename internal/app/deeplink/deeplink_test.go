@@ -69,18 +69,18 @@ func TestExtract(t *testing.T) {
 	}
 }
 
-func TestHostOfNeverReturnsTokenOrQuery(t *testing.T) {
+func TestLogKindNeverReturnsLinkFragments(t *testing.T) {
 	cases := map[string]string{
 		pairLink:                          "pair",
 		"swarm-viewer://pair/?token=abc":  "pair",
 		"SWARM-VIEWER://pair#frag":        "pair",
-		"swarm-viewer://":                 "",
-		"swarm-viewer://evil?token=zzzzz": "evil",
-		"pair?token=abc":                  "pair",
+		"swarm-viewer://":                 "other",
+		"swarm-viewer://evil?token=zzzzz": "other",
+		"swarm-viewer://pair&v=1&token=x": "other",
 	}
 	for in, want := range cases {
-		if got := HostOf(in); got != want {
-			t.Errorf("HostOf(%q) = %q, want %q", in, got, want)
+		if got := logKind(in); got != want {
+			t.Errorf("logKind(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

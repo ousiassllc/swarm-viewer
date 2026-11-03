@@ -67,8 +67,21 @@ func TestHandle_ParseErrorGoesToPasteWithoutLeaking(t *testing.T) {
 	if strings.Contains(logged, "test-token-not-secret") || strings.Contains(logged, "100.64.0.1") || strings.Contains(logged, "v=1") {
 		t.Fatalf("log leaks link content: %s", logged)
 	}
-	if !strings.Contains(logged, "host=pair") {
-		t.Fatalf("log should name only the link host: %s", logged)
+	if !strings.Contains(logged, "kind=pair") {
+		t.Fatalf("log should name only the link kind: %s", logged)
+	}
+}
+
+func TestHandle_MalformedLinkWithoutSeparatorDoesNotLogToken(t *testing.T) {
+	const sentinel = "SENTINEL"
+	p, n, buf := &fakeParser{err: errors.New("pairing: invalid")}, &fakeNav{}, &bytes.Buffer{}
+	newHandler(p, n, buf).Handle("swarm-viewer://pair&v=1&url=x&token=" + sentinel)
+
+	if len(n.paths) != 1 || n.paths[0] != paths.PairingInvalidLink {
+		t.Fatalf("navigated to %v, want the paste page", n.paths)
+	}
+	if logged := buf.String(); strings.Contains(logged, sentinel) || strings.Contains(logged, "url=x") {
+		t.Fatalf("log leaks link content: %s", logged)
 	}
 }
 

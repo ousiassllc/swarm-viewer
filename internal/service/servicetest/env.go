@@ -79,6 +79,7 @@ func NewEnv(t *testing.T) *Env {
 	e.Notif = service.NewNotificationService(e.Report, e.Store, e.Notifier, e.Clock, e.Settings, e.Conns, log)
 	e.Snap = service.NewSnapshotService(e.Report, e.Store, e.Notif, e.Conns, e.Clock, log)
 	e.Pairing = service.NewPairingService(e.Report, e.Store, e.Secrets, &IDs{}, e.Clock, e.Conns, log)
+	e.Pairing.SetPollTrigger(e.Notif)
 	return e
 }
 

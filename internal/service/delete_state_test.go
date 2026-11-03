@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
-	"github.com/ousiassllc/swarm-viewer/internal/service"
 	st "github.com/ousiassllc/swarm-viewer/internal/service/servicetest"
 )
 
-func TestConnectionDeleteReleasesInMemoryState(t *testing.T) {
+// 削除した接続の情報は、取得に失敗したときの「直前値」としても、タブ・needs_repair としても残らない。
+func TestConnectionDeleteLeavesNoStaleStateBehind(t *testing.T) {
 	e := st.NewEnv(t)
 	e.AddConn("c1", "devbox", st.URL1, true)
 	e.AddConn("c2", "other", st.URL2, true)
@@ -23,7 +23,6 @@ func TestConnectionDeleteReleasesInMemoryState(t *testing.T) {
 	}
 	e.Snap.Get(ctx, "c1", "0")
 	e.Snap.Get(ctx, "c2", "0")
-	service.TouchObserveLock(e.Notif, "c1")
 	e.Conns.MarkNeedsRepair("c1")
 
 	if err := e.Conns.Delete(ctx, "c1"); err != nil {
@@ -36,10 +35,13 @@ func TestConnectionDeleteReleasesInMemoryState(t *testing.T) {
 	if _, _, ok := e.Conns.CachedTabs("c1"); ok {
 		t.Fatal("tab cache not released")
 	}
-	if service.HasSnapshotCache(e.Snap, "c1", "0") || !service.HasSnapshotCache(e.Snap, "c2", "0") {
-		t.Fatal("snapshot cache must be released for the deleted connection only")
+	if got := e.Snap.Get(ctx, "c1", "0"); got.Err == nil || len(got.Snapshot.Report.Panes) != 0 {
+		t.Fatalf("deleted connection served %+v; want an error and no stale data", got)
 	}
-	if service.HasObserveLock(e.Notif, "c1") {
-		t.Fatal("notification mutex not released")
+
+	// 別の接続は、取得に失敗したとき直前値を返し続ける。
+	e.Report.SetReportErr("c2", "0", st.ErrInjected)
+	if got := e.Snap.Get(ctx, "c2", "0"); got.Err == nil || !got.Snapshot.Stale || len(got.Snapshot.Report.Panes) != 1 {
+		t.Fatalf("other connection lost its last value: %+v", got)
 	}
 }

@@ -18,8 +18,10 @@ type NotificationService struct {
 	conns    *ConnectionService
 	log      *slog.Logger
 
-	mu    sync.Mutex
-	locks map[string]*sync.Mutex // 接続 ID → Observe の直列化用
+	mu      sync.Mutex
+	locks   map[string]*sync.Mutex // 接続 ID → Observe の直列化用
+	wakeIDs map[string]struct{}    // Wake で依頼された、直ちに通知用ポーリングを回す接続
+	wake    chan struct{}          // wakeIDs に依頼が入ったことを Run へ知らせる（容量 1）
 
 	afterRound func() // テスト用。通知用ポーリングの一巡（スキップを含む）が終わるたびに呼ぶ
 }
@@ -35,6 +37,8 @@ func NewNotificationService(report ReportClient, store Store, notifier Notifier,
 		conns:    conns,
 		log:      log,
 		locks:    make(map[string]*sync.Mutex),
+		wakeIDs:  make(map[string]struct{}),
+		wake:     make(chan struct{}, 1),
 	}
 	conns.OnDelete(s.forget)
 	return s
@@ -119,5 +123,6 @@ func (s *NotificationService) lockFor(connID string) *sync.Mutex {
 func (s *NotificationService) forget(connID string) {
 	s.mu.Lock()
 	delete(s.locks, connID)
+	delete(s.wakeIDs, connID)
 	s.mu.Unlock()
 }

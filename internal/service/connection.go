@@ -68,14 +68,18 @@ func (s *ConnectionService) Get(ctx context.Context, id string) (domain.Connecti
 	return conn, nil
 }
 
-// Delete は接続を削除する。先に Store.DeleteConnection、次に秘密領域（取りこぼしを減らす順序。ER §4）。
-// 秘密領域の削除失敗は警告ログのみ。メモリ上の状態（needs_repair・タブ・通知用の mutex など）も解放する。
+// Delete は接続を削除する。先に秘密領域、次に Store.DeleteConnection（ER §4）。
+// 秘密領域の削除に失敗したら接続を残してエラーを返す（再試行できる。token だけが孤立して残ることはない）。
+// 行の削除に失敗した場合は token が先に消えているので、接続は残るが needs_repair として扱い、再ペアリングか再削除を促す。
+// 成功したら、メモリ上の状態（needs_repair・タブ・通知用の mutex など）も解放する。
 func (s *ConnectionService) Delete(ctx context.Context, id string) error {
-	if err := s.store.DeleteConnection(ctx, id); err != nil {
-		return err
-	}
 	if err := s.secrets.Delete(id); err != nil {
 		s.log.Warn("secret entry was not deleted", "connection_id", id, "err", err)
+		return err
+	}
+	if err := s.store.DeleteConnection(ctx, id); err != nil {
+		s.MarkNeedsRepair(id)
+		return err
 	}
 
 	s.mu.Lock()

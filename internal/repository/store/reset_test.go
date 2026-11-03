@@ -124,3 +124,30 @@ func TestMoveAsideKeepsOnlyLatestBackup(t *testing.T) {
 		t.Errorf("backup files = %v", matches)
 	}
 }
+
+// 新しい退避を作れなかったときは、直前の退避を消さない（どちらも失わない）。
+func TestMoveAsideFailureKeepsPreviousBackup(t *testing.T) {
+	path := dbPath(t)
+	t1 := time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC)
+
+	writeFile(t, path, "one")
+	b1, err := moveAside(path, t1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, path, "two")
+	// 新しい退避の名前を空でないディレクトリで塞いで、改名を失敗させる。
+	t2 := t1.Add(time.Hour)
+	blocker := path + backupInfix + t2.UTC().Format("20060102T150405Z")
+	writeFile(t, filepath.Join(blocker, "keep"), "x")
+
+	if _, err := moveAside(path, t2); err == nil {
+		t.Fatal("moveAside succeeded despite the blocked backup name")
+	}
+	if b, err := os.ReadFile(b1); err != nil || string(b) != "one" { //nolint:gosec // テストが作った一時ファイルの読み取り
+		t.Errorf("previous backup was lost: %q, %v", b, err)
+	}
+	if b, err := os.ReadFile(path); err != nil || string(b) != "two" { //nolint:gosec // テストが作った一時ファイルの読み取り
+		t.Errorf("database must stay in place: %q, %v", b, err)
+	}
+}

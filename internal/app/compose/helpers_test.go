@@ -96,14 +96,7 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 }
 
 // tickerStarted は通知スケジューラがフェイク Clock に ticker を作ったか。
-func tickerStarted(c *servicetest.Clock) (ok bool) {
-	defer func() {
-		if recover() != nil {
-			ok = false
-		}
-	}()
-	return c.Ticker(0) != nil
-}
+func tickerStarted(c *servicetest.Clock) bool { return c.TickerCount() > 0 }
 
 func corruptDB(t *testing.T, path string) {
 	t.Helper()

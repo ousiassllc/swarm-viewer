@@ -42,8 +42,8 @@ func (h *Handler) Handle(raw string) {
 	}
 	id, err := h.parser.Parse(link)
 	if err != nil {
-		// エラーは入力値を含まない（domain.ParsePairing の規約）。URL は host 部分だけ出す。
-		h.log.Warn("deeplink rejected", "host", HostOf(link), "err", err)
+		// エラーは入力値を含まない（domain.ParsePairing の規約）。リンクの断片は出さず、種別だけを出す。
+		h.log.Warn("deeplink rejected", "kind", logKind(link), "err", err)
 		h.nav.Open(invalidLinkPath)
 		return
 	}

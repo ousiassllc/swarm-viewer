@@ -2,6 +2,7 @@ package servicetest
 
 import (
 	"context"
+	"slices"
 
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
 )
@@ -34,7 +35,15 @@ func (s *Store) PruneSnapshots(_ context.Context, connID string, keep []string) 
 	if err := s.fail("PruneSnapshots"); err != nil {
 		return err
 	}
-	s.Pruned = append(s.Pruned, Prune{Conn: connID, Keep: append([]string(nil), keep...)})
+	// 実装の契約: keep に無いセッションのスナップショットを消す。
+	for k := range s.Snaps {
+		if k.Conn != connID {
+			continue
+		}
+		if !slices.Contains(keep, k.Session) {
+			delete(s.Snaps, k)
+		}
+	}
 	return nil
 }
 

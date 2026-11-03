@@ -15,8 +15,8 @@ swarm-viewer の内部データ（SQLite）と秘密領域の構成を定める�
 | 項目 | 値 |
 |------|----|
 | 場所 | `os.UserConfigDir()` 配下の `swarm-viewer/viewer.db`（Windows `%AppData%`、macOS `~/Library/Application Support`） |
-| 権限 | 作成時 `0600`（所有者のみ。Windows は既定の ACL） |
-| 起動時の PRAGMA | `foreign_keys = ON`、`journal_mode = WAL`、`busy_timeout = 5000` |
+| 権限 | 作成時 `0600`（所有者のみ）。既存ファイルが `0600` より緩ければ起動時に `0600` へ締める（Windows は既定の ACL） |
+| 起動時の PRAGMA | `foreign_keys = ON`、`busy_timeout = 5000`、`journal_mode = WAL`。`user_version` を先に読み（新しい版の DB は一切変更せず `ErrSchemaTooNew`）、整合性チェックを経てから WAL へ切り替える |
 | スキーマ版 | `PRAGMA user_version`。アプリが知る版より新しい場合は起動を拒否して案内する（NFR-CMP-4）。古い場合は順にマイグレーションを実行する |
 | 時刻 | UTC の RFC 3339 文字列（`TEXT`、例 `2026-11-03T09:10:05Z`）。表示時にローカル時刻へ変換する |
 | 真偽値 | `INTEGER`（0 / 1）。`CHECK` で値を限定する |
@@ -60,7 +60,7 @@ erDiagram
 | `name` | TEXT | NOT NULL, `CHECK (length(name) BETWEEN 1 AND 100)` | 表示名。ペアリングの `name` が無ければ URL の host で補う |
 | `url` | TEXT | NOT NULL, UNIQUE | 正規化済み URL（scheme・host・port・path を検証済み。NFR-SEC-4・5）。同じ `url` の再ペアリングは新規追加ではなく token の差し替え |
 | `last_session` | TEXT | NULL 可 | 最後に選んだセッションの `id`（`sessions_list` の `id`）。許可外・消滅時は先頭の許可セッションにフォールバックする（FR-SESS-3） |
-| `baselined_at` | TEXT | NULL 可 | 初回の取得パス（全許可セッション）が完了した時刻。NULL の間は通知せず通知済み記録だけを作る（[機能要件 §8.2](../requirements/functional.md)） |
+| `baselined_at` | TEXT | NULL 可 | 初回の取得パス（全許可セッション）が完了した時刻。NULL の間は通知せず通知済み記録だけを作る（[機能要件 §8.2](../requirements/functional.md)）。一部のセッションが取得に失敗し続ける間は NULL のままで、その接続は通知されない（残余リスク。機能要件の規則どおり。新規ペアリング直後の最初の一巡は `Confirm` が直ちに起動する） |
 | `created_at` | TEXT | NOT NULL | 作成時刻 |
 | `updated_at` | TEXT | NOT NULL | 更新時刻（token 差し替え・名前変更・`last_session` 更新） |
 
@@ -172,7 +172,7 @@ erDiagram
 | 値 | report スコープの token（平文文字列） |
 | 作成 | ペアリング確定時（疎通確認に成功した後）。SQLite の `connections` の `INSERT` と同じユースケースで行う |
 | 差し替え | 同じ `url` の再ペアリング時に上書きする |
-| 削除 | 接続削除時。取りこぼし（孤立エントリ）を減らす順序にする: 先に SQLite の行を削除し、次に秘密領域を削除する。後者が失敗したら警告をログに出す（キーのみ。値は出さない）。孤立エントリの自動掃除は行わない（採用ライブラリ `go-keyring` はエントリ一覧を取得できないため）。残っても token は外へ出ず、同じ接続 ID は再利用されない（ULID） |
+| 削除 | 接続削除時。孤立エントリ（token だけが残り利用者が気づけない状態）を作らない順序にする: 先に秘密領域を削除し、次に SQLite の行を削除する。秘密領域の削除に失敗したら接続は残したままエラーを返し、利用者が再試行できる。行の削除に失敗した場合は token が先に消えているため、接続は残るが「token なし」（`needs_repair`）として扱い、再ペアリングまたは再削除で片付ける。キーのみをログに出す（値は出さない）。孤立エントリの自動掃除は行わない（採用ライブラリ `go-keyring` はエントリ一覧を取得できないため）。同じ接続 ID は再利用されない（ULID） |
 
 - 起動時: 秘密領域にエントリがない接続（OS 側で消された等）は、その接続を「token なし」として扱い、メイン画面で再ペアリングを促す（401 と同じ導線）
 - 孤立エントリは OS の資格情報管理（Keychain Access / 資格情報マネージャー）から `swarm-viewer` のエントリとして手動削除できる（README に記載）
@@ -205,3 +205,5 @@ erDiagram
 |----|------|---------|---------|
 | 1.0 | 2026-11-03 | 新規作成 | 初版 |
 | 1.1 | 2026-11-03 | 秘密領域の孤立エントリ掃除を廃止し手動削除の案内に変更 | 採用ライブラリ（go-keyring）がエントリ一覧を取得できないため |
+| 1.2 | 2026-11-04 | 接続削除の順序を「先に秘密領域、次に行」へ変更し、失敗時の扱いを明記 | 秘密領域の削除失敗が利用者に伝わらず孤立 token が残るため |
+| 1.3 | 2026-11-04 | 既存 DB の権限を `0600` へ締める・`user_version` を WAL 切り替えより先に読む・`baselined_at` の残余リスクを明記 | 緩い権限の DB の保護、新しい版の DB を変更しないため |

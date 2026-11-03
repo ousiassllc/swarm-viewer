@@ -39,6 +39,13 @@ func (c *Clock) NewTicker(d time.Duration) service.Ticker {
 	return t
 }
 
+// TickerCount は作られた ticker の数。
+func (c *Clock) TickerCount() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return len(c.tickers)
+}
+
 func (c *Clock) Ticker(i int) *Ticker {
 	c.mu.Lock()
 	defer c.mu.Unlock()

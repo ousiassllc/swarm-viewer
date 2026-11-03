@@ -44,13 +44,6 @@ type Store struct {
 
 	IgnoreInsert map[domain.NotifiedKey]bool // 別経路が先に挿入済みのキー（inserted に含めない）
 	errs         map[string]error            // メソッド名 → 注入するエラー
-	Pruned       []Prune
-}
-
-// Prune は PruneSnapshots の呼び出し記録。
-type Prune struct {
-	Conn string
-	Keep []string
 }
 
 // NewStore は空の Store を作る。
