@@ -1,0 +1,37 @@
+# 生成物（コミットしない。`task generate` で作る。docs/environment/setup.md §1）
+*_templ.go
+static/dist/
+
+# 依存・ビルド成果物
+node_modules/
+bin/
+build/**/bin/
+*.exe
+*.test
+*.out
+coverage.out
+
+# ローカルの DB・ログ・秘密情報
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.log
+.env
+.env.*
+
+# 他の JS パッケージマネージャーのロックファイル（bun.lock のみコミットする）
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# エディタ・OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# sweep の作業ディレクトリ
+.sweep/

@@ -1,0 +1,120 @@
+# CI（docs/environment/setup.md §5）。
+# セルフホステッドランナー（Linux）で実行する。ランナーのホストには Wails の依存
+# （gcc・gtk4・webkitgtk-6.0 の開発パッケージ）を事前に導入しておく。ジョブ内で apt / sudo は使わない。
+# ランナーのラベルは登録するランナーに合わせて確定する（現状は self-hosted, linux, x64）。
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "feat/**"
+  pull_request:
+    branches:
+      - main
+
+# 同じ ref の古い実行をキャンセルする。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GOLANGCI_LINT_VERSION: v2.12.2
+  TASK_VERSION: 3.x
+  BUN_VERSION: 1.3.14
+  WAILS_VERSION: v3.0.0
+
+jobs:
+  lint:
+    # セルフホステッドランナーで信頼できないコードを実行しないよう、
+    # pull_request は同一リポジトリのブランチ（fork 以外）のときだけ実行する。
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          clean: true
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: go-task/setup-task@v2
+        with:
+          version: ${{ env.TASK_VERSION }}
+      - run: bun install --frozen-lockfile
+      # 最初の検査より前に必ず生成する（*_templ.go・static/dist/ が無いと golangci-lint が失敗する）。
+      - run: task generate
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          args: ./...
+      - run: go tool templ fmt -fail .
+      - run: bunx biome check .
+      - run: bunx linterly check
+
+  test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          clean: true
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: go-task/setup-task@v2
+        with:
+          version: ${{ env.TASK_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: task generate
+      - run: go vet ./...
+      # OS 別のビルドタグを持つコード（go-keyring・SQLite ドライバ・filepath まわり）を
+      # Linux のランナーでもコンパイルして検査する。internal/app（Wails 依存）は対象外。
+      - name: go vet (windows)
+        run: go vet ./internal/domain/... ./internal/repository/... ./internal/service/... ./internal/web/...
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows
+      - name: go vet (darwin)
+        run: go vet ./internal/domain/... ./internal/repository/... ./internal/service/... ./internal/web/...
+        env:
+          CGO_ENABLED: "0"
+          GOOS: darwin
+      - run: go test ./...
+
+  build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    needs: [lint, test]
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          clean: true
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: go-task/setup-task@v2
+        with:
+          version: ${{ env.TASK_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: task generate
+      - name: Wails CLI を導入
+        run: |
+          go install "github.com/wailsapp/wails/v3/cmd/wails3@${WAILS_VERSION}"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      # Linux 向けのコンパイル確認。成果物は配布しない。
+      - run: wails3 build

@@ -1,0 +1,38 @@
+version: '3'
+
+# Wails のプラットフォーム別 Taskfile（linux/windows/darwin）が参照する共通タスク。
+# Wails 既定のフロントエンド（frontend/・bindings）は HALT 構成では使わないため、
+# `build:frontend` はルートの `generate`（Templ・Tailwind・htmx）に置き換えている。
+
+tasks:
+  go:mod:tidy:
+    summary: Runs `go mod tidy`
+    internal: true
+    # ユニバーサルビルドなどから並列に呼ばれても go.mod を壊さないよう、一度だけ実行する。
+    run: once
+    cmds:
+      - go mod tidy
+
+  build:frontend:
+    summary: 生成物（*_templ.go・static/dist/）を作る。Wails の既定 frontend ビルドの代わり
+    run: once
+    cmds:
+      - task: :generate
+
+  generate:icons:
+    summary: appicon.png から Windows の `.ico` と macOS の `.icns` を生成する
+    run: once
+    dir: build
+    sources:
+      - "appicon.png"
+    generates:
+      - "darwin/icons.icns"
+      - "windows/icon.ico"
+    cmds:
+      - wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename windows/icon.ico
+
+  update:build-assets:
+    summary: config.yml の info / protocols からビルドアセット（Info.plist・NSIS・desktop）を再生成する
+    dir: build
+    cmds:
+      - wails3 update build-assets -name "{{.APP_NAME}}" -binaryname "{{.APP_NAME}}" -config config.yml -dir .
