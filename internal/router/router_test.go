@@ -81,6 +81,25 @@ func TestStateChangingRoutesRequireCSRF(t *testing.T) {
 	}
 }
 
+// フォント（woff2）が /static/fonts/ から、CSP 付きで配られる（Issue #9）。
+func TestStaticServesSymbolsFont(t *testing.T) {
+	h, _ := fakeRouter(t)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/static/fonts/SymbolsNerdFontMono-Regular.woff2", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d", w.Code)
+	}
+	if !strings.HasPrefix(w.Body.String(), "wOF2") {
+		t.Error("本文が woff2 でない")
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "font/woff2" && ct != "application/font-woff2" {
+		t.Errorf("Content-Type = %q", ct)
+	}
+	if csp := w.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "default-src 'self'") || strings.Contains(csp, "font-src") {
+		t.Errorf("CSP を変えない（default-src 'self' のまま）: %q", csp)
+	}
+}
+
 // 全ルート（エラー応答・404 含む）に CSP と no-store が付き、token は本文に出ない。
 func TestEveryResponseHasHeadersAndNoToken(t *testing.T) {
 	h, env := fakeRouter(t)

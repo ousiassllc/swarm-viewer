@@ -4,6 +4,32 @@
 @source "../../../internal/web";
 
 /*
+ * Nerd Font のアイコン（私用領域 PUA）用に Symbols Only フォントを同梱する（docs/requirements/non-functional.md NFR-SEC-9）。
+ * unicode-range を PUA に絞るので、日本語・英字は OS のフォントで描かれ、PUA の文字が現れるまでフォントも読み込まれない。
+ * CSP（default-src 'self'）に合わせ、フォントはこの CSS からの相対パス（/static/fonts/）で配る。
+ * 元ファイルは static/src/fonts/（Taskfile の generate が static/dist/fonts/ へコピーする）。
+ */
+@font-face {
+  font-family: "Symbols Nerd Font";
+  src: url("../fonts/SymbolsNerdFontMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+E000-F8FF, U+F0000-FFFFD;
+}
+
+/*
+ * 本文の font-family。先頭に Symbols Nerd Font を足し、残りは Tailwind v4 の既定の font-sans（OS のフォント）のまま。
+ * Tailwind を更新したら node_modules/tailwindcss/theme.css の --font-sans と見比べる。
+ */
+@theme {
+  --font-sans:
+    "Symbols Nerd Font", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    "Noto Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Noto Color Emoji";
+}
+
+/*
  * htmx の indicator 切り替え。htmx は includeIndicatorStyles:false でインライン <style> を
  * 注入しない（CSP の style-src 'self' に反するため）ので、ここで定義する（docs/api/endpoints.md §4.5）。
  */
