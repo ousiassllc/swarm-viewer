@@ -27,7 +27,9 @@ swarm-viewer の開発環境・CI/CD・lint・format・Git Hooks を定める。
 
 ```
 swarm-viewer/
-├── .github/workflows/ci.yml   # CI（§5）
+├── .github/workflows/ci.yml   # CI（§5.1〜§5.4）
+├── .github/workflows/release.yml  # リリース（§5.5）
+├── .github/scripts/           # release.yml が使うスクリプト（plan-release.sh・set-version.sh）とそのテスト
 ├── .golangci.yml              # Go の lint / format（§6）
 ├── .linterly.yml              # 行数管理（§8）
 ├── .linterlyignore
@@ -137,20 +139,20 @@ graph LR
 | ジョブ | 内容 |
 |--------|------|
 | `lint` | チェックアウト → Go（`actions/setup-go`、`go-version-file: go.mod`）・bun（`oven-sh/setup-bun`）の準備 → `bun install --frozen-lockfile` → **`task generate`（最初の検査より前に必ず実行）** → `golangci-lint`（`golangci/golangci-lint-action` で導入。Linux では Wails 直下を除いたパッケージ、続けて `GOOS=windows CGO_ENABLED=0` で `./...`）→ `go tool templ fmt -fail .` → `bunx biome check .` → `bunx linterly check` |
-| `test` | 同じ準備 → **`task generate`** → `go vet`（Wails 直下を除く）→ Windows / macOS 向けの `go vet`（下記）→ `go test`（Wails 直下を除く。テストは固定時間の待ちに頼らない。[NFR-QLT-3](../requirements/non-functional.md)） |
+| `test` | 同じ準備 → **`task generate`** → `go vet`（Wails 直下を除く）→ Windows / macOS 向けの `go vet`（下記）→ `go test`（Wails 直下を除く。テストは固定時間の待ちに頼らない。[NFR-QLT-3](../requirements/non-functional.md)）→ `bash .github/scripts/plan-release_test.sh`（リリースの版を決める `plan-release.sh` の表駆動テスト。ネットワーク不要。§5.5） |
 | `build` | `lint`・`test` が成功したときだけ。同じ準備 → `task generate` → `GOOS=windows CGO_ENABLED=0 go build -tags production .`（Windows 向けのコンパイル確認。`wails3` CLI 自体が Linux で GTK 系の開発パッケージを要するため、CLI は使わず直接ビルドする。Linux 向けは上記の前提により現状行わない。成果物は配布しない） |
 
 - Windows / macOS 向けの `go vet`（`test` ジョブ内）: OS 別のビルドタグを持つコード（`go-keyring`・SQLite ドライバ・`filepath` まわりなど）を、Linux のランナーでもコンパイルして検査する安価な穴埋め。Wails 依存の `internal/app` 直下と `main.go` は、Windows なら CGO なしでコンパイルできるため windows の検査に含める（darwin は CGO が要るため対象外）。
   - `CGO_ENABLED=0 GOOS=windows go vet ./...`
   - `CGO_ENABLED=0 GOOS=darwin go vet ./internal/domain/... ./internal/repository/... ./internal/service/... ./internal/web/...`
-- `wails3 build` の実ビルド（Windows の NSIS インストーラ・macOS の `.app` を含む）は CI では行わない。**配布前の手動確認項目**とする（§5.4）
+- `wails3 build` の実ビルド（Windows の NSIS インストーラ・macOS の `.app` を含む）は CI では行わない。配布物は release.yml（§5.5）が GitHub ホストランナーで作り、**その成果物を実機で確認する**（§5.4）
 - `actions/setup-go` のキャッシュ保存は無効（`cache: false`）にする。セルフホステッドランナーで post ステップが 20 分以上止まりジョブがタイムアウトしたため。Go のモジュール・ビルドキャッシュはランナーのローカルに残る。bun のキャッシュは `oven-sh/setup-bun` の既定に任せる
 - 生成物をコミットしないため、生成物の差分検知ステップ（`git diff --exit-code`）は置かない
-- リリース用のワークフロー（Windows の NSIS インストーラ・macOS の `.app` を Releases へ配布）は、このドキュメントの範囲外。[NFR-DST-1](../requirements/non-functional.md) に従い別途定める
+- リリース（Windows の NSIS インストーラ・macOS の `.app` を Releases へ配布）は release.yml が行う。トリガー・ジョブ構成・ランナー・権限・成果物は §5.5 に定める（[NFR-DST-1](../requirements/non-functional.md)）
 
 ### 5.3 デプロイ
 
-デプロイ設定は持たない（ネイティブアプリで、配布は GitHub Releases の手動リリース。[NFR-DST-3](../requirements/non-functional.md) のとおり自動更新もない）。
+配布は GitHub Releases。`vX.Y.Z` のタグが付くと release.yml が成果物を作って Release を公開する（§5.5。main の CI 成功で自動に付く場合と、手で打つ場合がある）。サーバーへのデプロイ設定は持たない（ネイティブアプリで、[NFR-DST-3](../requirements/non-functional.md) のとおり自動更新もない）。
 
 ### 5.4 既知の制約（Linux ランナーのみの CI）
 
@@ -158,12 +160,49 @@ graph LR
 
 | 検知できないもの | 補完 |
 |------------------|------|
-| `internal/app`（Wails 依存）の Windows / macOS 固有のビルド失敗、`wails3 build` のパッケージング | 開発者本人の Windows / macOS 環境で、pre-push（`go test ./...`）と `task build` を実行する。**配布前に、それぞれの OS で `wails3 build` を実行し、実機確認（[アーキテクチャ設計 §11](../architecture/overview.md)）を行う**（手動確認項目） |
+| `internal/app`（Wails 依存）の Windows / macOS 固有のビルド失敗、`wails3 build` のパッケージング | 開発者本人の Windows / macOS 環境で、pre-push（`go test ./...`）と `task build` を実行する。パッケージング（NSIS・`.app`）は release.yml（§5.5）が作るので、**Release の成果物を各 OS にインストールして実機確認（[アーキテクチャ設計 §11](../architecture/overview.md)）を行う**（手動確認項目。下記の「Release の成果物の実機確認」） |
 | `app` 以外の Windows / macOS 固有のコンパイルエラー | §5.2 の `GOOS=windows`・`GOOS=darwin` の `go vet` で拾う（ただし実行時の挙動は拾えない） |
 | トレイ・OS 通知・URL スキームの動作 | 自動テスト対象外。実機で確認する |
 | Windows のパス・改行（CRLF）に依存する不具合 | `.gitattributes` で `* text=auto eol=lf` を指定し、パス処理は `path/filepath` を使う |
 
 OS 別のマトリクス（Windows / macOS のセルフホステッドランナーの追加）は、Windows / macOS 固有の破損が実際に見つかった時点で検討する。
+
+Release の成果物の実機確認（手動確認項目）:
+
+1. Release の `SHA256SUMS` と、ダウンロードしたファイルの `sha256sum -c SHA256SUMS`（Windows は `Get-FileHash`）が一致する
+2. Windows 11: インストーラを実行して起動する。ファイルのプロパティの製品バージョンがタグと一致する。`swarm-viewer://` のリンクでアプリが開く
+3. macOS（Apple Silicon。可能なら Intel も）: zip を展開し、README の回避手順で起動する。`CFBundleShortVersionString` がタグと一致する。`swarm-viewer://` のリンクでアプリが開く
+4. トレイ・通知など [アーキテクチャ設計 §11](../architecture/overview.md) の残りの項目
+
+### 5.5 リリース
+
+`.github/workflows/release.yml`。構成は ousiassllc/swarm-console の release.yml に合わせる。
+
+| 項目 | 内容 |
+|------|------|
+| 成果物 | Release に次の 3 ファイルを載せる。`swarm-viewer_vX.Y.Z_windows_amd64_installer.exe`（NSIS インストーラ。`INSTALL_SCOPE` は Taskfile 既定の `machine`＝管理者権限）、`swarm-viewer_vX.Y.Z_darwin_universal.zip`（amd64 + arm64 のユニバーサル `.app` を `ditto` で zip にしたもの）、`SHA256SUMS`（上の 2 ファイルの `sha256sum`。`sha256sum -c SHA256SUMS`・`Get-FileHash` で確かめられる）。Windows は amd64 のみ。Linux 向けは配布しない |
+| トリガー | (1) `workflow_run`: main への push の CI（`ci.yml`）が成功したら、main の先頭に次のパッチ版のタグを自動で付けてリリースする。(2) `push` の `v*` タグ: 手で打った `vX.Y.Z`。マイナー・メジャーを上げるときに使う。PR・フォーク・main 以外のブランチの CI では動かない |
+| 版の決め方 | タグは厳密に `vX.Y.Z`（先頭の `v` あり、プレリリース・ビルドメタデータ・先頭の 0 は不可）。自動のときは、形の合う既存タグの最大のパッチ + 1（数として比較する。`v0.1.10` > `v0.1.9`）、無ければ `v0.1.0`。手で打つときは、既存の最大より大きいことを要する（GitHub の「最新のリリース」が古い版に戻らないため）。形の合わないタグでは Release を作らず失敗させる。決める処理は `.github/scripts/plan-release.sh`（テストは `plan-release_test.sh`。CI の `test` ジョブが実行する） |
+| 古いコミット・main 以外 | 自動のタグは、CI が成功したコミットが **main の先頭**のときだけ付ける（古いコミットに新しい版を付けない。先頭に既に `v*` タグがあれば何もしない）。さらに verify ジョブが、リリースするコミットが **main の履歴にある**ことと、そのコミットで **`ci.yml` が成功している**ことを確かめる。手で打ったタグがこれを満たさなければ Release は作られない。lint・test は release.yml 内では再実行しない |
+| 版の埋め込み | タグが版の唯一の元。ビルド前に `.github/scripts/set-version.sh` が `build/config.yml` の `info.version` をタグの `X.Y.Z` に書き換え、`task common:update:build-assets`（`wails3 update build-assets`）で `Info.plist`（`CFBundleShortVersionString`・`CFBundleVersion`）・`build/windows/info.json`（Windows のファイルのプロパティ）・`wails_tools.nsh`・`wails.exe.manifest` を再生成し、各ファイルに版が入ったことを確かめる（入っていなければ失敗）。このコマンドは `project.nsi`・各 Taskfile・`protocols` の設定には触れず、plist は既存の内容にマージする。ビルド後に、Windows は exe とインストーラの固定の版（`FileVersionRaw` = `X.Y.Z.0`）とインストーラの `ProductVersion` の文字列（exe の文字列欄は .NET の `VersionInfo` では空に見えるため見ない。Explorer のプロパティ表示は実機確認。§5.4）、macOS は `Info.plist` の版・URL スキーム・universal（`x86_64` と `arm64`）・署名の検証も行う。アプリ内の版の表示は持たない（`main.go` に `version` 変数はない） |
+| ジョブ構成 | 下図 |
+| ランナー | `plan`・`verify`・`release` は `ubuntu-latest`、`build-windows` は `windows-latest`、`build-macos` は `macos-latest`（いずれも GitHub ホストランナー）。**CI（`ci.yml`）はセルフホステッドだが、リリースは GitHub ホストランナーを使う。リポジトリは private なので、リリースごとに Actions の分数を消費する**（macOS は倍率が大きい） |
+| 権限 | 既定は `contents: read`。`contents: write` を持つのは `release` ジョブだけ（タグも `gh release create --target <コミット>` でここで作る。手で打ったタグは `--verify-tag`）。`verify` は `gh run list` のために `actions: read` も持つ |
+| 同時実行 | `concurrency: group: release`、`cancel-in-progress: false`。次の版を既存のタグから決めるため、2 本を同時に動かさない |
+| ツール | Go・bun・Task は ci.yml と同じ action・版。`wails3` CLI は `go.mod` の版を `go install` する。NSIS（`makensis`）は `windows-latest`（Windows Server 2025）に入っていないため、無ければ `choco install nsis`（版は release.yml の `NSIS_VERSION` で固定）で入れる。使う action は GitHub 公式（`actions/*`）と `oven-sh/setup-bun`・`go-task/setup-task` だけ |
+| 署名 | しない（unsigned。[NFR-DST-2](../requirements/non-functional.md)）。macOS は Taskfile 既定の ad-hoc 署名のまま。Release ノートの冒頭に、unsigned であることと README の回避手順への案内を入れる（`--notes` + `--generate-notes`） |
+
+```mermaid
+graph LR
+    P[plan] --> V[verify]
+    V --> W[build-windows]
+    V --> M[build-macos]
+    W --> R[release]
+    M --> R
+```
+
+- `workflow_run` のワークフローは**既定ブランチ（main）にあるファイルだけ**が動く。release.yml と ci.yml が main に入るまで、自動のリリースは始まらない。また、タグを付けられるのは main の履歴にあるコミットだけなので、実装が main に入るまで最初のリリース（`v0.1.0`）は作れない
+- プレリリース（`v0.1.0-rc.1` など）は出さない。タグは `vX.Y.Z` に限る。ドライランの代わりに、最初の自動リリース（`v0.1.0`）の成果物を §5.4 の手順で実機確認する
 
 ## 6. Lint
 
@@ -275,3 +314,4 @@ Lit を導入して `/api/v1/...` を Huma に登録する時点で、次を追�
 | 1.0 | 2026-11-03 | 新規作成 | 初版 |
 | 1.1 | 2026-11-03 | CI のランナーをセルフホステッド（Linux）に変更。ジョブ内の `apt` を廃止して事前導入前提にした。Windows / macOS 向けの `go vet` を追加。pre-commit の `task generate` を常時実行に変更 | 実行環境の指定と、Linux CI では拾えないビルドタグ依存コードの穴埋め |
 | 1.2 | 2026-11-04 | CI: Linux ランナーに GTK 系の開発パッケージが無いため Linux の検査から Wails 直下を外し Windows 向け検査で補う。`build` を `wails3 build` から Windows 向けの `go build` に変更。`setup-go` のキャッシュを無効化 | 実ランナーの環境と、post ステップの停止 |
+| 1.3 | 2026-11-04 | §5.5「リリース」を追加（release.yml のトリガー・版の決め方・ジョブ構成・ランナー・権限・成果物・`SHA256SUMS`）。§5.2 の `test` に `plan-release_test.sh` を追加。§5.3 を release.yml による配布に、§5.4 を Release の成果物での実機確認に更新 | Issue #3（Windows / macOS の配布物を CI で作り Releases へ載せる） |
