@@ -228,6 +228,33 @@ func TestParseReportAccountReason(t *testing.T) {
 	}
 }
 
+func TestParseReportHostMem(t *testing.T) {
+	t.Parallel()
+	r, err := ParseReport([]byte(`{"host":{"mem":{"available":true,"total_gb":128,"used_gb":41.3,"used_percent":32.3}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := (Mem{Available: true, TotalGB: 128, UsedGB: 41.3, UsedPercent: 32.3}); r.Host.Mem != want {
+		t.Errorf("mem = %+v, want %+v", r.Host.Mem, want)
+	}
+
+	// host.mem が無い古い swarm-console・null・available: false は Available が false。
+	for name, in := range map[string]string{
+		"欠落":    `{"host":{"cpu":{"available":true,"used_percent":1}}}`,
+		"null":  `{"host":{"mem":null}}`,
+		"無効":    `{"host":{"mem":{"available":false,"total_gb":null,"used_gb":null,"used_percent":null}}}`,
+		"host なし": `{}`,
+	} {
+		r, err := ParseReport([]byte(in))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if r.Host.Mem != (Mem{}) {
+			t.Errorf("%s: mem = %+v", name, r.Host.Mem)
+		}
+	}
+}
+
 func TestParseReportSwapWithoutSwap(t *testing.T) {
 	t.Parallel()
 	r, err := ParseReport([]byte(`{"host":{"swap":{"available":true,"total_gb":0,"used_gb":0,"used_percent":0}}}`))

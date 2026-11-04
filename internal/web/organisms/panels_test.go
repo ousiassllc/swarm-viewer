@@ -148,6 +148,7 @@ func TestHostPanel(t *testing.T) {
 	t.Parallel()
 	h := domain.Host{
 		CPU:  domain.CPU{Available: true, UsedPercent: 96},
+		Mem:  domain.Mem{Available: true, TotalGB: 128, UsedGB: 41.3, UsedPercent: 32.3},
 		Swap: domain.Swap{Available: true, TotalGB: 0},
 		Disk: []domain.Disk{
 			{Mount: "/", Available: true, UsedPercent: 81, FreeGB: 12.34},
@@ -155,13 +156,37 @@ func TestHostPanel(t *testing.T) {
 		},
 	}
 	html := webtest.Render(t, organisms.HostPanel(organisms.HostPanelProps{Host: h}))
-	webtest.MustContain(t, html, "CPU", "96%", "bg-red-500", "スワップ", "なし", "12.3 GB 空き", "bg-amber-500", "/data", "—")
-	webtest.MustNotContain(t, html, "load", "メモリ")
+	webtest.MustContain(t, html, "CPU", "96%", "bg-red-500", "メモリ", "32.3%", "41.3 GB / 128 GB", "スワップ", "なし", "12.3 GB 空き", "bg-amber-500", "/data", "—")
+	webtest.MustNotContain(t, html, "load")
+	// 表示順: CPU → メモリ → スワップ → ディスク。
+	if !(strings.Index(html, "CPU") < strings.Index(html, "メモリ") && strings.Index(html, "メモリ") < strings.Index(html, "スワップ") && strings.Index(html, "スワップ") < strings.Index(html, "/data")) {
+		t.Errorf("行の順が CPU → メモリ → スワップ → ディスクでない:\n%s", html)
+	}
 
 	h.Swap = domain.Swap{Available: true, TotalGB: 4, UsedGB: 1, UsedPercent: 25}
 	webtest.MustContain(t, webtest.Render(t, organisms.HostPanel(organisms.HostPanelProps{Host: h})), "1 GB / 4 GB", "25%")
 	h.Swap = domain.Swap{}
 	webtest.MustContain(t, webtest.Render(t, organisms.HostPanel(organisms.HostPanelProps{Host: h})), "スワップ")
+}
+
+func TestHostPanel_Mem(t *testing.T) {
+	t.Parallel()
+	render := func(m domain.Mem) string {
+		h := domain.Host{CPU: domain.CPU{Available: true}, Mem: m, Swap: domain.Swap{Available: true, TotalGB: 4, UsedGB: 1, UsedPercent: 25}}
+		return webtest.Render(t, organisms.HostPanel(organisms.HostPanelProps{Host: h}))
+	}
+
+	// しきい値色は CPU などと同じ（80 / 95）。
+	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 79.9, UsedPercent: 79.9}), "79.9%", "79.9 GB / 100 GB", "bg-sky-500")
+	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 80, UsedPercent: 80}), "bg-amber-500")
+	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 95, UsedPercent: 95}), "bg-red-500")
+
+	// host.mem が無い（古い swarm-console）・available: false は「メモリ」の行を「—」で出す。ほかの行は崩れない。
+	for _, m := range []domain.Mem{{}, {Available: false, TotalGB: 8, UsedGB: 4, UsedPercent: 50}} {
+		html := render(m)
+		webtest.MustContain(t, html, "メモリ", "—", "スワップ", "1 GB / 4 GB", "25%")
+		webtest.MustNotContain(t, html, "8 GB", "50%")
+	}
 }
 
 func TestPaneGrid_Layout(t *testing.T) {

@@ -113,6 +113,14 @@ type CPU struct {
 	UsedPercent float64 `json:"used_percent"`
 }
 
+// Mem は host.mem。Swap と同じ形。host.mem を返さない古い swarm-console では零値（Available が false）。
+type Mem struct {
+	Available   bool    `json:"available"`
+	TotalGB     float64 `json:"total_gb"`
+	UsedGB      float64 `json:"used_gb"`
+	UsedPercent float64 `json:"used_percent"`
+}
+
 // Swap は host.swap。TotalGB が 0 でも Available なら「スワップ無し」。
 type Swap struct {
 	Available   bool    `json:"available"`
@@ -130,9 +138,10 @@ type Disk struct {
 	UsedPercent float64 `json:"used_percent"`
 }
 
-// Host はホスト全体の負荷。load1・mem_free_gb は使わない。
+// Host はホスト全体の負荷。load1・mem_free_gb は使わない（メモリは Mem の使用率を使う）。
 type Host struct {
 	CPU  CPU    `json:"cpu"`
+	Mem  Mem    `json:"mem"`
 	Swap Swap   `json:"swap"`
 	Disk []Disk `json:"disk"`
 }

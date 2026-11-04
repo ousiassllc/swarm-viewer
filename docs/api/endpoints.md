@@ -73,7 +73,7 @@ viewer が読むキーと、画面での使い方。未知のキーは無視す�
 | `panes[]` | array | ペインカード（§1.4.1） |
 | `attention[]` | array of `{kind, pane, detail}` | 要対応バー（[機能要件 §7](../requirements/functional.md)）。3 キーとも文字列 |
 | `usage` | object | 利用上限パネル（§1.4.2） |
-| `host.cpu` / `host.swap` / `host.disk[]` | object | ホスト負荷（[機能要件 §6](../requirements/functional.md)）。`host.load1`・`host.mem_free_gb` は使わない |
+| `host.cpu` / `host.mem` / `host.swap` / `host.disk[]` | object | ホスト負荷（[機能要件 §6](../requirements/functional.md)）。`host.mem` は `{available, total_gb, used_gb, used_percent}`（`swap` と同じ形。[swarm-console #86](https://github.com/ousiassllc/swarm-console/issues/86)）で、無い古い swarm-console では `available: false` と同じく「—」。`host.load1`・`host.mem_free_gb` は使わない |
 | `warnings[]` | `{code, message}` | 警告バナー。`code`: `layout_changed`・`tmux_unavailable`・`session_missing`・`pane_unreadable` |
 | `auth.agents[]` | `{agent, status, expires_at}` | `attention` の `auth_expired` / `auth_expiring` の補足（`expires_at` の併記）にのみ使う |
 | `omp`・`update` | object | 使わない |
@@ -305,3 +305,4 @@ HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"include
 | 1.1 | 2026-11-03 | トリガーフィルタ `[document.visibilityState…]` を廃止し、静的 `app.js` で非表示中の停止・復帰時の即時取得を行う方式に変更。CSRF 配布を `hx-headers` に訂正。htmx-config を明記 | CSP（`unsafe-eval` なし）で htmx のフィルタ式が動かないため |
 | 1.2 | 2026-11-04 | 通常モードのルートから 302・303 を撤去（フルページはその場に描画、HX は `HX-Redirect`）。メイン画面の初回描画をホストへの通信なしにし、タブを snapshot 応答の OOB で更新する | WebKit の WebView が `http.Redirect` を扱えないため。到達不能なホストで初回表示が遅れるため |
 | 1.3 | 2026-11-05 | `usage.claude[]`・`codex[]` に `reason`（2 枠とも取れない理由）を追加し、2 枠とも `available: false` は 1 行表示と明記 | Issue #11（swarm-console #87 の `reason` に備える） |
+| 1.4 | 2026-11-05 | `report` の `host.mem` を読むキーに追加（無い古い swarm-console では「—」） | Issue #10（swarm-console #86 の `host.mem` に備える） |
