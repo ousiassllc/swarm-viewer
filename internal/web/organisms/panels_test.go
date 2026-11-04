@@ -159,7 +159,8 @@ func TestHostPanel(t *testing.T) {
 	webtest.MustContain(t, html, "CPU", "96%", "bg-red-500", "メモリ", "32.3%", "41.3 GB / 128 GB", "スワップ", "なし", "12.3 GB 空き", "bg-amber-500", "/data", "—")
 	webtest.MustNotContain(t, html, "load")
 	// 表示順: CPU → メモリ → スワップ → ディスク。
-	if !(strings.Index(html, "CPU") < strings.Index(html, "メモリ") && strings.Index(html, "メモリ") < strings.Index(html, "スワップ") && strings.Index(html, "スワップ") < strings.Index(html, "/data")) {
+	cpu, mem, swap, disk := strings.Index(html, "CPU"), strings.Index(html, "メモリ"), strings.Index(html, "スワップ"), strings.Index(html, "/data")
+	if cpu >= mem || mem >= swap || swap >= disk {
 		t.Errorf("行の順が CPU → メモリ → スワップ → ディスクでない:\n%s", html)
 	}
 
