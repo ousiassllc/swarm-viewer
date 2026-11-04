@@ -55,23 +55,31 @@ jobs:
         run: |
           makensis -VERSION
           task package
-      - name: Diagnose version resources
+      - name: Check the version of the exe and the installer, and name the installer
         run: |
-          for f in bin/swarm-viewer.exe bin/swarm-viewer-amd64-installer.exe; do
-            echo "=== $f (powershell 5.1)"
-            powershell -NoProfile -ExecutionPolicy Bypass -File .github/diag/verinfo.ps1 "$f"
-            echo "=== $f (pwsh)"
-            pwsh -NoProfile -File .github/diag/verinfo.ps1 "$f" || true
+          version="${TAG#v}"
+          installer="bin/swarm-viewer-amd64-installer.exe"
+          [ -f "$installer" ] || { echo "::error::$installer was not built"; exit 1; }
+          # exe：固定の版（FileVersionRaw = X.Y.Z.0）。exe の文字列欄の ProductVersion は Win32 API（VerQueryValue）では X.Y.Z と読めるが、
+          # .NET の VersionInfo は空を返す（FileVersion の文字列が exe に無いためと推測。未確認）ので、文字列は見ない
+          # インストーラ：固定の版に加えて、ProductVersion の文字列も見る
+          for f in "$installer" bin/swarm-viewer.exe; do
+            got="$(powershell -NoProfile -Command "(Get-Item '$f').VersionInfo.FileVersionRaw.ToString()" | tr -d '\r')"
+            if [ "$got" != "${version}.0" ]; then
+              echo "::error::FileVersionRaw of $f is '$got', want '${version}.0'"
+              exit 1
+            fi
           done
-          mkdir -p "$RUNNER_TEMP/rd" && cd "$RUNNER_TEMP/rd"
-          cp "$GITHUB_WORKSPACE/.github/diag/rd.go.txt" main.go
-          printf 'module rd\ngo 1.22\nrequire github.com/tc-hib/winres v0.3.1\n' > go.mod
-          GOFLAGS=-mod=mod go run . "$GITHUB_WORKSPACE/bin/swarm-viewer.exe"
-          cd "$GITHUB_WORKSPACE"
+          got="$(powershell -NoProfile -Command "(Get-Item '$installer').VersionInfo.ProductVersion" | tr -d '\r')"
+          if [ "$got" != "$version" ]; then
+            echo "::error::ProductVersion of $installer is '$got', want '$version'"
+            exit 1
+          fi
           mkdir dist
-          mv bin/swarm-viewer-amd64-installer.exe "dist/swarm-viewer_${TAG}_windows_amd64_installer.exe"
+          mv "$installer" "dist/swarm-viewer_${TAG}_windows_amd64_installer.exe"
       - uses: actions/upload-artifact@v7
         with:
           name: dryrun-windows
           path: dist/
           if-no-files-found: error
+
