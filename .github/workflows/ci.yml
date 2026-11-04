@@ -123,6 +123,9 @@ jobs:
       - run: |
           # shellcheck disable=SC2086
           go test ${LINUX_PKGS}
+      # release.yml の plan ジョブが使う plan-release.sh の表駆動テスト（ネットワーク不要）。
+      - name: plan-release.sh のテスト
+        run: bash .github/scripts/plan-release_test.sh
 
   build:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository

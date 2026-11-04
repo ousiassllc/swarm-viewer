@@ -340,7 +340,7 @@ graph LR
 |---|------|---------|
 | 1 | go-sdk と swarm-console（ステートレス運用） | `initialize`→`tools/call` の組み合わせで通るか。クライアント `Close` 時の `DELETE` が 405 で返ったときの扱い（ログにエラーが出ても動作に影響しないか）。`Accept: text/event-stream` に対する応答が単発 JSON か SSE か |
 | 2 | Wails v3 のトレイ・通知 | Windows 11 / macOS で、ウィンドウを閉じてトレイ常駐する挙動、通知クリックからのウィンドウ前面化、未署名アプリの通知許可 |
-| 3 | URL スキームの実機登録 | NSIS インストーラ・macOS `.app` の外では登録されない。`wails3 dev` ではディープリンクを検証できないため、検証手順（インストーラ生成後）を決める |
+| 3 | URL スキームの実機登録 | NSIS インストーラ・macOS `.app` の外では登録されない。`wails3 dev` ではディープリンクを検証できないため、**Release の成果物をインストールして確認する**（[環境構築 §5.5](../environment/setup.md)）。手順: (1) Release の `SHA256SUMS` と成果物の `sha256sum -c`（Windows は `Get-FileHash`）が一致することを確かめる。(2) Windows 11: インストーラを実行し（管理者権限）、アプリを一度起動して閉じる。`Win+R` または `Start-Process` で `swarm-viewer://pair?v=1&url=…&token=…` を開き、アプリが起動／前面化してペアリング画面に値が渡ることを確かめる。レジストリ `HKEY_CLASSES_ROOT\swarm-viewer` の登録も確認する。(3) macOS: zip を展開した `.app` を README の回避手順で一度起動し、ターミナルで `open 'swarm-viewer://pair?v=1&url=…&token=…'` を実行してアプリが開くことを確かめる。`plutil -p swarm-viewer.app/Contents/Info.plist` で `CFBundleURLSchemes` に `swarm-viewer` があることも確認する。(4) アプリが起動済みの状態と未起動の状態の両方で試す。確認用の `url`・`token` にはダミーの値を使い、発行済みの本物の接続文字列は使わない（README の「ペアリング」のとおり、ディープリンクは OS のプロセス引数や履歴に残る） |
 | 4 | `SetURL` による遷移 | WebView の履歴・フォーカス・`hx-` 状態が遷移後に正しく初期化されるか |
 | 5 | `visibilityState` | WebView（WebView2 / WKWebView）で最小化・トレイ格納時に `hidden` になるか |
 | 6 | OS サスペンドからの復帰 | 通知スケジューラ（`Clock` の ticker）がサスペンド後に遅れず発火するか、復帰時の即時取得（NFR-AVL-4）を WebView の `visibilitychange` だけで満たせるか。足りなければ Wails の電源イベントを使う |
@@ -355,3 +355,4 @@ graph LR
 | 1.2 | 2026-11-03 | トリガーフィルタ式を廃止し静的 `app.js` で可視性を制御。htmx-config と CSRF 配布方法を明記 | CSP（`unsafe-eval` なし）で htmx のフィルタ式が動かないため |
 | 1.3 | 2026-11-03 | 生成物（`_templ.go`・`static/dist/`）をコミットしないと確定 | 環境構築ドキュメントでの決定 |
 | 1.4 | 2026-11-04 | リダイレクト（302・303）を廃止しその場に描画・`HX-Redirect` に変更。初回描画をホストと通信しない方式にし、タブを snapshot 応答の OOB で更新。§11 に #7 を追加 | WebKit の WebView が `http.Redirect` を扱えないため。到達不能なホストで初回表示が遅れるため |
+| 1.5 | 2026-11-04 | §11 #3（URL スキームの実機登録）の検証手順を「Release の成果物をインストールして確認」で確定 | Issue #3（release.yml で配布物を CI が作るようになったため） |
