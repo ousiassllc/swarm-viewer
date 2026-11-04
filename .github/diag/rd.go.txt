@@ -1,0 +1,23 @@
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/tc-hib/winres"
+	"github.com/tc-hib/winres/version"
+)
+
+func main() {
+	f, _ := os.Open(os.Args[1])
+	rs, err := winres.LoadFromEXE(f)
+	if err != nil { panic(err) }
+	rs.WalkType(winres.RT_VERSION, func(r winres.Identifier, l uint16, d []byte) bool {
+		fmt.Printf("lang=%#x\n", l)
+		vi, err := version.FromBytes(d)
+		if err != nil { fmt.Println(err); return true }
+		j, _ := vi.MarshalJSON()
+		fmt.Println(string(j))
+		return true
+	})
+}
