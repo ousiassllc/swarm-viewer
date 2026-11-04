@@ -1,4 +1,4 @@
-# 使い捨ての dry-run（Issue #3 の要確認項目の検証用。リリースは作らない）。PR には含めない。
+# 使い捨ての dry-run（PR には含めない）
 name: Release dry-run
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
       run:
         shell: bash
     env:
-      TAG: v0.1.0
+      TAG: v9.8.7
     steps:
       - uses: actions/checkout@v7
         with:
@@ -55,15 +55,21 @@ jobs:
         run: |
           makensis -VERSION
           task package
-      - name: Dump version info
+      - name: Check the version of the exe and the installer, and name the installer
         run: |
-          for f in bin/swarm-viewer.exe bin/swarm-viewer-amd64-installer.exe; do
-            echo "== $f"
-            powershell -NoProfile -Command "(Get-Item '$f').VersionInfo | Format-List *"
+          version="${TAG#v}"
+          installer="bin/swarm-viewer-amd64-installer.exe"
+          [ -f "$installer" ] || { echo "::error::$installer was not built"; exit 1; }
+          # exe の文字列（ProductVersion）は .NET の VersionInfo では空に見える（リソース自体は正しい）ので、固定の版（FileVersionRaw = X.Y.Z.0）で確かめる
+          for f in "$installer" bin/swarm-viewer.exe; do
+            got="$(powershell -NoProfile -Command "(Get-Item '$f').VersionInfo.FileVersionRaw.ToString()" | tr -d '\r')"
+            if [ "$got" != "${version}.0" ]; then
+              echo "::error::FileVersionRaw of $f is '$got', want '${version}.0'"
+              exit 1
+            fi
           done
-          powershell -NoProfile -Command "Get-ChildItem build/windows/nsis | Select Name,Length"
           mkdir dist
-          mv bin/swarm-viewer-amd64-installer.exe "dist/swarm-viewer_${TAG}_windows_amd64_installer.exe"
+          mv "$installer" "dist/swarm-viewer_${TAG}_windows_amd64_installer.exe"
       - uses: actions/upload-artifact@v7
         with:
           name: dryrun-windows
@@ -76,7 +82,7 @@ jobs:
     permissions:
       contents: read
     env:
-      TAG: v0.1.0
+      TAG: v9.8.7
     steps:
       - uses: actions/checkout@v7
         with:
