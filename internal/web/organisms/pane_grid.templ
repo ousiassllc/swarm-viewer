@@ -1,0 +1,77 @@
+package organisms
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
+)
+
+// PaneGridProps は PaneGrid の入力。
+type PaneGridProps struct {
+	// Layout は report の layout。Valid(len(Panes)) でなければペイン順のリストで表示する（FR-PANE-1）。
+	Layout domain.Layout
+	// Panes は panes[]（report の順）。
+	Panes []domain.Pane
+	// Attention は attention[]。asking / stalled のペインを強調表示するために使う。
+	Attention []domain.Attention
+	// Stale は直前値の表示中（取得失敗）のとき true。カードをグレーアウトする。
+	Stale bool
+}
+
+// gridRows は Layout.Cols に従ってペインを段に分ける。Layout が不成立なら nil。
+func gridRows(l domain.Layout, panes []domain.Pane) [][]domain.Pane {
+	if len(panes) == 0 || !l.Valid(len(panes)) {
+		return nil
+	}
+	rows := make([][]domain.Pane, 0, len(l.Cols))
+	rest := panes
+	for _, n := range l.Cols {
+		rows = append(rows, rest[:n])
+		rest = rest[n:]
+	}
+	return rows
+}
+
+// highlighted は attention の asking / stalled に該当するペイン位置か。
+func highlighted(att []domain.Attention, pos string) bool {
+	if pos == "" {
+		return false
+	}
+	for _, a := range att {
+		if a.Pane == pos && (a.Kind == "asking" || a.Kind == "stalled") {
+			return true
+		}
+	}
+	return false
+}
+
+func cardProps(p PaneGridProps, pane domain.Pane) molecules.PaneCardProps {
+	return molecules.PaneCardProps{Pane: pane, Stale: p.Stale, Highlight: highlighted(p.Attention, pane.Pos)}
+}
+
+// PaneGrid はペインカードの配置。layout が成立すれば段ごとの列数に従う T*/B* 配置、
+// 欠落・不整合ならペイン順のリスト。ペインが 0 件なら空状態の文言。
+templ PaneGrid(p PaneGridProps) {
+	if len(p.Panes) == 0 {
+		<p class="text-sm text-slate-400">ペインがありません</p>
+	} else if rows := gridRows(p.Layout, p.Panes); rows != nil {
+		<div class="flex flex-col gap-3" data-layout="grid">
+			for _, row := range rows {
+				<div class="flex gap-3">
+					for _, pane := range row {
+						<div class="min-w-0 flex-1">
+							@molecules.PaneCard(cardProps(p, pane))
+						</div>
+					}
+				</div>
+			}
+		</div>
+	} else {
+		<ul class="flex flex-col gap-3" data-layout="list">
+			for _, pane := range p.Panes {
+				<li>
+					@molecules.PaneCard(cardProps(p, pane))
+				</li>
+			}
+		</ul>
+	}
+}

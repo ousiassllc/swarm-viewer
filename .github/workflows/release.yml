@@ -1,0 +1,280 @@
+# リリース（docs/environment/setup.md §5.5）。Windows の NSIS インストーラと macOS のユニバーサル .app（zip）を
+# SHA256SUMS と一緒に GitHub Releases へ載せる。構成は ousiassllc/swarm-console の release.yml に合わせる。
+#
+# 2 つのきっかけ：
+#   workflow_run  main への push の CI（ci.yml）が成功：main の先頭に次のパッチ版（最新の vX.Y.Z のパッチ+1。無ければ v0.1.0）を付ける
+#   tag push      手で打った vX.Y.Z：マイナー・メジャーを上げる（プレリリース形は不可）
+# ジョブは 5 つ。ビルドが書き込みトークンを持たず、検査を通らないものを載せないための分け方：
+#   plan           リリースするか・タグは何か（main の先頭だけ。古いコミットに新しい版を付けない）
+#   verify         コミットが main の履歴にあり、ci.yml が成功している（lint / test はここでは再実行しない）
+#   build-windows  windows-latest で NSIS インストーラ（contents: read だけ）
+#   build-macos    macos-latest でユニバーサル .app の zip（contents: read だけ）
+#   release        SHA256SUMS を作って gh release create（タグもここで作る）。contents: write を持つのはこのジョブだけ
+# PR・フォークの CI では動かない（workflow_run は main の CI だけが対象）。使う action は GitHub 公式（actions/*）と、
+# ci.yml で既に使っている oven-sh/setup-bun・go-task/setup-task だけ。
+# ci.yml はセルフホステッドだが、このワークフローは GitHub ホストランナー（ubuntu / windows / macos）を使う
+# （private リポジトリでは Actions の分数を消費する。macOS は分数の倍率が大きい）。
+# workflow_run のワークフローは既定ブランチ（main）のファイルだけが動く：このファイルと ci.yml が main に入るまで自動のリリースは始まらない。
+# 版の唯一の元はタグ：ビルド前に build/config.yml の info.version をタグから書き換える（.github/scripts/set-version.sh）。
+# 署名・公証はしない（unsigned）。
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+# 次の版は既存のタグから決めるので、同時に 2 本動かさない（待ちは 1 つまで。古い待ちはキャンセルされる）
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  # リリースするコミット：CI が通ったもの（workflow_run）か、タグが指すもの（tag push）
+  RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  TASK_VERSION: 3.x
+  BUN_VERSION: 1.3.14
+  # Windows の NSIS インストーラ用。windows-latest（Windows Server 2025）には入っていないので、無ければ choco で入れる
+  NSIS_VERSION: 3.11.0
+
+jobs:
+  plan:
+    # workflow_run は CI の実行ごとに起動する：このリポジトリの main への push の CI が成功のときだけ
+    if: >-
+      github.event_name == 'push' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          fetch-depth: 0 # 全タグ（最新の版）と main の先頭
+          persist-credentials: false
+      - id: plan
+        name: Decide the release and its tag
+        env:
+          WORKFLOW_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WORKFLOW_RUN_EVENT: ${{ github.event.workflow_run.event }}
+          WORKFLOW_RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WORKFLOW_RUN_HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+        run: bash .github/scripts/plan-release.sh
+
+  verify:
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read # gh run list（コミットの CI 結果）
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          fetch-depth: 0 # main の履歴（祖先の確認）
+          persist-credentials: false
+      - name: The commit is in main's history
+        env:
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" origin/main; then
+            echo "::error::$TAG ($RELEASE_SHA) is not in main's history: tag a commit that is merged into main"
+            exit 1
+          fi
+      - name: ci.yml succeeded on the commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ok="$(gh run list --workflow ci.yml --commit "$RELEASE_SHA" --json conclusion --jq 'any(.[]; .conclusion == "success")')"
+          if [ "$ok" != "true" ]; then
+            echo "::error::no successful CI run for $RELEASE_SHA: wait for CI to pass on this commit (or fix it) before tagging"
+            exit 1
+          fi
+
+  build-windows:
+    needs: [plan, verify]
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      TAG: ${{ needs.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false # リリースの成果物に、他のワークフローが書いたキャッシュを混ぜない
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: go-task/setup-task@v2
+        with:
+          version: ${{ env.TASK_VERSION }}
+      - run: bun install --frozen-lockfile
+      - name: Install the wails3 CLI (the version in go.mod)
+        run: |
+          wails_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+          [ -n "$wails_version" ] || { echo "::error::cannot read the wails version from go.mod"; exit 1; }
+          GOBIN="$RUNNER_TEMP/bin" go install "github.com/wailsapp/wails/v3/cmd/wails3@${wails_version}"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Install NSIS if makensis is missing
+        run: |
+          if ! command -v makensis >/dev/null 2>&1 && [ ! -x "/c/Program Files (x86)/NSIS/makensis.exe" ]; then
+            choco install nsis --version="$NSIS_VERSION" --yes --no-progress
+          fi
+          echo 'C:\Program Files (x86)\NSIS' >> "$GITHUB_PATH"
+      - name: Set the version from the tag
+        run: bash .github/scripts/set-version.sh "$TAG"
+      - name: Build the NSIS installer
+        run: |
+          makensis -VERSION
+          task package
+      - name: Check the version of the exe and the installer, and name the installer
+        run: |
+          version="${TAG#v}"
+          installer="bin/swarm-viewer-amd64-installer.exe"
+          [ -f "$installer" ] || { echo "::error::$installer was not built"; exit 1; }
+          # exe：固定の版（FileVersionRaw = X.Y.Z.0）。exe の文字列欄の ProductVersion は Win32 API（VerQueryValue）では X.Y.Z と読めるが、
+          # .NET の VersionInfo は空を返す（FileVersion の文字列が exe に無いためと推測。未確認）ので、文字列は見ない
+          # インストーラ：固定の版に加えて、ProductVersion の文字列も見る
+          for f in "$installer" bin/swarm-viewer.exe; do
+            got="$(powershell -NoProfile -Command "(Get-Item '$f').VersionInfo.FileVersionRaw.ToString()" | tr -d '\r')"
+            if [ "$got" != "${version}.0" ]; then
+              echo "::error::FileVersionRaw of $f is '$got', want '${version}.0'"
+              exit 1
+            fi
+          done
+          got="$(powershell -NoProfile -Command "(Get-Item '$installer').VersionInfo.ProductVersion" | tr -d '\r')"
+          if [ "$got" != "$version" ]; then
+            echo "::error::ProductVersion of $installer is '$got', want '$version'"
+            exit 1
+          fi
+          mkdir dist
+          mv "$installer" "dist/swarm-viewer_${TAG}_windows_amd64_installer.exe"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-windows
+          path: dist/
+          if-no-files-found: error
+
+  build-macos:
+    needs: [plan, verify]
+    runs-on: macos-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ needs.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false # リリースの成果物に、他のワークフローが書いたキャッシュを混ぜない
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: go-task/setup-task@v2
+        with:
+          version: ${{ env.TASK_VERSION }}
+      - run: bun install --frozen-lockfile
+      - name: Install the wails3 CLI (the version in go.mod)
+        run: |
+          wails_version="$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)"
+          [ -n "$wails_version" ] || { echo "::error::cannot read the wails version from go.mod"; exit 1; }
+          GOBIN="$RUNNER_TEMP/bin" go install "github.com/wailsapp/wails/v3/cmd/wails3@${wails_version}"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Set the version from the tag
+        run: bash .github/scripts/set-version.sh "$TAG"
+      - run: task generate
+      # amd64 と arm64 を CGO で順にビルドして lipo で 1 つにし、.app にまとめて ad-hoc 署名する（Taskfile の既定のまま）
+      - name: Build the universal .app
+        run: task darwin:package:universal
+      - name: Check the .app and zip it
+        run: |
+          version="${TAG#v}"
+          app="bin/swarm-viewer.app"
+          archs="$(lipo -archs "$app/Contents/MacOS/swarm-viewer")"
+          for arch in x86_64 arm64; do
+            case " $archs " in
+              *" $arch "*) ;;
+              *) echo "::error::the binary has no $arch slice (archs: $archs)"; exit 1 ;;
+            esac
+          done
+          got="$(plutil -extract CFBundleShortVersionString raw "$app/Contents/Info.plist")"
+          if [ "$got" != "$version" ]; then
+            echo "::error::CFBundleShortVersionString is '$got', want '$version'"
+            exit 1
+          fi
+          plutil -extract CFBundleURLTypes.0.CFBundleURLSchemes.0 raw "$app/Contents/Info.plist" | grep -qx 'swarm-viewer'
+          codesign --verify --deep --strict "$app"
+          mkdir dist
+          # zip だと実行属性・シンボリックリンクが壊れるので ditto を使う
+          ditto -c -k --keepParent "$app" "dist/swarm-viewer_${TAG}_darwin_universal.zip"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-macos
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    needs: [plan, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # このジョブだけ。タグもここで作る
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }} # checkout しないジョブ
+          TAG: ${{ needs.plan.outputs.tag }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          cd dist
+          installer="swarm-viewer_${TAG}_windows_amd64_installer.exe"
+          zip="swarm-viewer_${TAG}_darwin_universal.zip"
+          sha256sum "$installer" "$zip" > SHA256SUMS
+          cat SHA256SUMS
+
+          notes="> **注意**: この成果物はコード署名・公証をしていません（unsigned）。macOS では Gatekeeper の警告が出ます。回避手順は [README の「署名されていないアプリの開き方」](https://github.com/${GH_REPO}/blob/${TAG}/README.md#署名されていないアプリの開き方) を参照してください。ダウンロードしたら SHA256SUMS で確かめてください。"
+
+          # 手で打ったタグは既にあるので、無ければ失敗させる（--verify-tag）。自動のときは --target で、リリースするコミットにタグを作る
+          if [ "$EVENT_NAME" = push ]; then
+            tag_args=(--verify-tag)
+          else
+            tag_args=(--target "$RELEASE_SHA")
+          fi
+          gh release create "$TAG" --title "$TAG" --notes "$notes" --generate-notes "${tag_args[@]}" \
+            "$installer" "$zip" SHA256SUMS

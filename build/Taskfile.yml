@@ -1,0 +1,41 @@
+version: '3'
+
+# Wails のプラットフォーム別 Taskfile（linux/windows/darwin）が参照する共通タスク。
+# Wails 既定のフロントエンド（frontend/・bindings）は HALT 構成では使わない。
+# 生成物（Templ・Tailwind・htmx）はルートの `generate` が作り、ルートの `build` / `package` が
+# 先に実行する（deps）。`build:frontend` はプラットフォーム別 Taskfile が参照するための空のタスク。
+
+tasks:
+  go:mod:tidy:
+    summary: Runs `go mod tidy`
+    internal: true
+    # ユニバーサルビルドなどから並列に呼ばれても go.mod を壊さないよう、一度だけ実行する。
+    run: once
+    cmds:
+      - go mod tidy
+
+  build:frontend:
+    summary: 何もしない。生成物（*_templ.go・static/dist/）はルートの build / package が先に `generate` で作る
+    # ここからルートの `generate` を `task: :generate` で呼ぶと、プラットフォーム別 Taskfile 経由
+    # （windows:common:build:frontend）では "windows:generate" と解決されて失敗する。
+    run: once
+    cmds:
+      - 'echo "frontend は generate で生成済み"'
+
+  generate:icons:
+    summary: appicon.png から Windows の `.ico` と macOS の `.icns` を生成する
+    run: once
+    dir: build
+    sources:
+      - "appicon.png"
+    generates:
+      - "darwin/icons.icns"
+      - "windows/icon.ico"
+    cmds:
+      - wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename windows/icon.ico
+
+  update:build-assets:
+    summary: config.yml の info / protocols からビルドアセット（Info.plist・NSIS・desktop）を再生成する
+    dir: build
+    cmds:
+      - wails3 update build-assets -name "{{.APP_NAME}}" -binaryname "{{.APP_NAME}}" -config config.yml -dir .

@@ -1,0 +1,159 @@
+# CI（docs/environment/setup.md §5）。
+# セルフホステッドランナー（Linux）で実行する。ランナーのホストには Wails の依存
+# （gcc・gtk4・webkitgtk-6.0 の開発パッケージ）を事前に導入しておく。ジョブ内で apt / sudo は使わない。
+# ランナーのラベルは登録するランナーに合わせて確定する（現状は self-hosted, linux, x64）。
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "feat/**"
+  pull_request:
+    branches:
+      - main
+
+# 同じ ref の古い実行をキャンセルする。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GOLANGCI_LINT_VERSION: v2.12.2
+  TASK_VERSION: 3.x
+  BUN_VERSION: 1.3.14
+
+jobs:
+  lint:
+    # セルフホステッドランナーで信頼できないコードを実行しないよう、
+    # pull_request は同一リポジトリのブランチ（fork 以外）のときだけ実行する。
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          clean: true
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          # セルフホステッドでは post ステップのキャッシュ保存が 20 分以上止まったため無効にする。
+          # Go のモジュール・ビルドキャッシュはランナーのローカルに残る。
+          cache: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: go-task/setup-task@v2
+        with:
+          version: ${{ env.TASK_VERSION }}
+      - run: bun install --frozen-lockfile
+      # 最初の検査より前に必ず生成する（*_templ.go・static/dist/ が無いと golangci-lint が失敗する）。
+      - run: task generate
+      # Wails（internal/app 直下と main.go）は Linux では gtk4・webkitgtk-6.0・libsoup-3.0 の開発パッケージを要する。
+      # このランナーには未導入のため、Linux の検査対象から外し、Windows 向け（CGO 不要）の検査で補う。
+      - name: Linux の検査対象パッケージを決める
+        run: |
+          mod="$(go list -m)"
+          pkgs="$(go list ./... | grep -vxF -e "${mod}" -e "${mod}/internal/app" | sed "s|^${mod}|.|" | tr '\n' ' ')"
+          echo "LINUX_PKGS=${pkgs}" >> "$GITHUB_ENV"
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          install-only: true
+      - run: |
+          # shellcheck disable=SC2086
+          golangci-lint run ${LINUX_PKGS}
+      - name: golangci-lint (windows)
+        run: golangci-lint run ./...
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows
+      - run: go tool templ fmt -fail .
+      - run: bunx biome check .
+      - run: bunx linterly check
+
+  test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          clean: true
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          # セルフホステッドでは post ステップのキャッシュ保存が 20 分以上止まったため無効にする。
+          # Go のモジュール・ビルドキャッシュはランナーのローカルに残る。
+          cache: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: go-task/setup-task@v2
+        with:
+          version: ${{ env.TASK_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: task generate
+      # Wails（internal/app 直下と main.go）は Linux では gtk4・webkitgtk-6.0・libsoup-3.0 の開発パッケージを要する。
+      # このランナーには未導入のため、Linux の検査対象から外し、Windows 向け（CGO 不要）の検査で補う。
+      - name: Linux の検査対象パッケージを決める
+        run: |
+          mod="$(go list -m)"
+          pkgs="$(go list ./... | grep -vxF -e "${mod}" -e "${mod}/internal/app" | sed "s|^${mod}|.|" | tr '\n' ' ')"
+          echo "LINUX_PKGS=${pkgs}" >> "$GITHUB_ENV"
+      - run: |
+          # shellcheck disable=SC2086
+          go vet ${LINUX_PKGS}
+      # OS 別のビルドタグを持つコード（go-keyring・SQLite ドライバ・filepath まわり）を
+      # Linux のランナーでもコンパイルして検査する。Wails（internal/app・main.go）は Windows なら CGO なしで
+      # コンパイルできるので windows の検査に含める。darwin は Wails が CGO を要するため対象外。
+      - name: go vet (windows)
+        run: go vet ./...
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows
+      - name: go vet (darwin)
+        run: go vet ./internal/domain/... ./internal/repository/... ./internal/service/... ./internal/web/...
+        env:
+          CGO_ENABLED: "0"
+          GOOS: darwin
+      - run: |
+          # shellcheck disable=SC2086
+          go test ${LINUX_PKGS}
+      # release.yml の plan ジョブが使う plan-release.sh の表駆動テスト（ネットワーク不要）。
+      - name: plan-release.sh のテスト
+        run: bash .github/scripts/plan-release_test.sh
+
+  build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    needs: [lint, test]
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          clean: true
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          # セルフホステッドでは post ステップのキャッシュ保存が 20 分以上止まったため無効にする。
+          # Go のモジュール・ビルドキャッシュはランナーのローカルに残る。
+          cache: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: go-task/setup-task@v2
+        with:
+          version: ${{ env.TASK_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: task generate
+      # wails3 CLI 自体が Linux では gtk4・webkitgtk-6.0 の開発パッケージ（このランナーには未導入）を要するため、
+      # CLI は使わず Windows 向け（CGO 不要）に直接ビルドして、コンパイルできることだけを確認する。成果物は配布しない。
+      - name: go build (windows)
+        run: go build -tags production -o "${RUNNER_TEMP}/swarm-viewer.exe" .
+        env:
+          CGO_ENABLED: "0"
+          GOOS: windows

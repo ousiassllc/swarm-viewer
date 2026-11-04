@@ -1,0 +1,18 @@
+package atoms
+
+import "github.com/ousiassllc/swarm-viewer/internal/web/format"
+
+// BadgeProps は Badge の入力。
+type BadgeProps struct {
+	// Text は表示する文字列。信頼できない入力でも Templ のエスケープで文字列として描画される。
+	Text string
+	// Tone は色の意味。未知の値は muted。
+	Tone format.Tone
+}
+
+// Badge はエージェント種別・状態・要対応を示す小さなラベル。色だけに頼らず Text を必ず表示する。
+templ Badge(p BadgeProps) {
+	<span class={ "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset", format.BadgeClass(p.Tone) }>
+		{ p.Text }
+	</span>
+}

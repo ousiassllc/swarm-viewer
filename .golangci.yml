@@ -1,0 +1,107 @@
+# golangci-lint v2 系の設定（docs/environment/setup.md §6.1）。
+# go build / vet / lint の前に必ず `task generate` を実行する（*_templ.go・static/dist/ が必要）。
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - gosec # token・ファイル権限（SQLite は 0600）・平文通信の誤りを拾う
+    - bodyclose
+    - errorlint
+    - depguard # 層の依存ルール（docs/environment/setup.md §4）
+    - forbidigo # templ.Raw の禁止（NFR-SEC-10）
+    - nolintlint # //nolint には必ず理由を書く
+  settings:
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-unused: false
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^templ\.Raw$
+          msg: templ.Raw は使わない。HTML として解釈させない（NFR-SEC-10）
+    depguard:
+      rules:
+        # internal/domain は他層を import しない（アーキテクチャ設計 §4.2）
+        domain:
+          files:
+            - "**/internal/domain/**"
+          deny:
+            - pkg: github.com/ousiassllc/swarm-viewer/internal/repository
+              desc: domain は他層に依存しない
+            - pkg: github.com/ousiassllc/swarm-viewer/internal/service
+              desc: domain は他層に依存しない
+            - pkg: github.com/ousiassllc/swarm-viewer/internal/app
+              desc: domain は他層に依存しない
+            - pkg: github.com/ousiassllc/swarm-viewer/internal/router
+              desc: domain は他層に依存しない
+            - pkg: github.com/ousiassllc/swarm-viewer/internal/web
+              desc: domain は他層に依存しない
+            - pkg: github.com/wailsapp/wails
+              desc: Wails 依存は internal/app に閉じ込める
+        # internal/repository は domain だけに依存する
+        repository:
+          files:
+            - "**/internal/repository/**"
+          deny:
+            - pkg: github.com/ousiassllc/swarm-viewer/internal/service
+              desc: repository は domain だけに依存する
+            - pkg: github.com/ousiassllc/swarm-viewer/internal/app
+              desc: repository は domain だけに依存する
+            - pkg: github.com/ousiassllc/swarm-viewer/internal/router
+              desc: repository は domain だけに依存する
+            - pkg: github.com/ousiassllc/swarm-viewer/internal/web
+              desc: repository は domain だけに依存する
+            - pkg: github.com/wailsapp/wails
+              desc: Wails 依存は internal/app に閉じ込める
+        # internal/service は Wails を import しない（上位層にも依存しない）
+        service:
+          files:
+            - "**/internal/service/**"
+          deny:
+            - pkg: github.com/wailsapp/wails
+              desc: service は Wails を import しない。Wails 依存は internal/app に閉じ込める
+            - pkg: github.com/ousiassllc/swarm-viewer/internal/app
+              desc: service は app に依存しない。app が service の interface を実装する
+            - pkg: github.com/ousiassllc/swarm-viewer/internal/router
+              desc: service は上位層（router）に依存しない
+            - pkg: github.com/ousiassllc/swarm-viewer/internal/web
+              desc: service は上位層（web）に依存しない
+        # internal/web は app を import しない（コンポーネント設計 §7）。Wails にも依存しない
+        web:
+          files:
+            - "**/internal/web/**"
+          deny:
+            - pkg: github.com/ousiassllc/swarm-viewer/internal/app
+              desc: web は app に依存しない。遷移先は URL 文字列で指す
+            - pkg: github.com/ousiassllc/swarm-viewer/internal/router
+              desc: web は router に依存しない（router が handler を登録する）
+            - pkg: github.com/wailsapp/wails
+              desc: Wails 依存は internal/app に閉じ込める
+        # internal/web/handler は repository を import しない（service 経由）
+        web-handler:
+          files:
+            - "**/internal/web/handler/**"
+          deny:
+            - pkg: github.com/ousiassllc/swarm-viewer/internal/repository
+              desc: handler は repository を直接使わず service を経由する
+  exclusions:
+    # 生成コード（*_templ.go）は既定の除外に任せる
+    generated: lax
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/ousiassllc/swarm-viewer
+  exclusions:
+    generated: lax

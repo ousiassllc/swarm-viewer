@@ -1,0 +1,60 @@
+package pages
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/layout"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+)
+
+// RecoveryReason は初期化導線を出す理由。
+type RecoveryReason string
+
+// RecoveryReason の値。
+const (
+	// RecoveryCorrupt は SQLite が開けない・壊れている（store.ErrCorrupt）。
+	RecoveryCorrupt RecoveryReason = "corrupt"
+	// RecoverySchemaTooNew は新しい版のアプリで上げたスキーマ（store.ErrSchemaTooNew）。
+	RecoverySchemaTooNew RecoveryReason = "schema_too_new"
+)
+
+// RecoveryProps は RecoveryPage の入力。
+type RecoveryProps struct {
+	// Reason は理由。未知の値は corrupt と同じ案内。
+	Reason RecoveryReason
+	// Error は初期化に失敗したときの固定文言。空なら出さない。
+	Error string
+}
+
+func recoveryMessage(r RecoveryReason) string {
+	if r == RecoverySchemaTooNew {
+		return "保存データが、より新しい版のアプリで作られています。アプリを更新するか、保存データを初期化してください。"
+	}
+	return "保存データを開けませんでした（壊れている可能性があります）。保存データを初期化すると、接続と設定が消えます。"
+}
+
+// RecoveryPage は DB 破損・スキーマが新しすぎるときの初期化導線（NFR-AVL-5、CMP-4）。
+// recovery モードでは `/` がこの画面を返す。初期化は `POST /recovery/reset`（paths.RecoveryReset）。
+// token は秘密領域に残る（初期化後は孤立エントリになり、再ペアリングで置き換わる）。
+templ RecoveryPage(shell layout.BaseProps, p RecoveryProps) {
+	@layout.Base(shell) {
+		@RecoveryContent(p)
+	}
+}
+
+// RecoveryContent は初期化導線のフラグメント。
+templ RecoveryContent(p RecoveryProps) {
+	@pageTitle("保存データを開けません")
+	<p class="text-sm text-slate-300" data-recovery-reason={ string(p.Reason) }>{ recoveryMessage(p.Reason) }</p>
+	<p class="text-xs text-slate-500">保存していた token は OS の秘密領域に残ります。初期化後に接続をペアリングし直してください。</p>
+	if p.Error != "" {
+		<p role="alert" class="text-sm text-red-300">{ p.Error }</p>
+	}
+	<div>
+		@atoms.Button(atoms.ButtonProps{Label: "保存データを初期化する", Variant: atoms.ButtonDanger, Attrs: templ.Attributes{
+			"hx-post":         paths.RecoveryReset,
+			"hx-target":       "#main",
+			"hx-confirm":      "接続と設定を消去して初期化します。よろしいですか？",
+			"hx-disabled-elt": "this",
+		}})
+	</div>
+}

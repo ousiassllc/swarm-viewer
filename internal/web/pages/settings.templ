@@ -1,0 +1,29 @@
+package pages
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/web/layout"
+	"github.com/ousiassllc/swarm-viewer/internal/web/organisms"
+)
+
+// SettingsProps は SettingsPage / SettingsContent の入力。
+type SettingsProps struct {
+	// Form は設定フォームの入力（値・OS の通知許可状態・検証失敗の文言）。
+	Form organisms.SettingsFormProps
+}
+
+// SettingsPage は設定画面 S3 のフルページ。
+templ SettingsPage(shell layout.BaseProps, p SettingsProps) {
+	@layout.Base(shell) {
+		@SettingsContent(p)
+	}
+}
+
+// SettingsContent は設定画面のフラグメント。
+// フォームは #settings-form に入り、保存（PUT）と 422 の応答はこの中身だけを差し替える。
+templ SettingsContent(p SettingsProps) {
+	@pageTitle("設定")
+	<div id={ organisms.SettingsFormID }>
+		@organisms.SettingsForm(p.Form)
+	</div>
+	@homeLink("閉じる")
+}
