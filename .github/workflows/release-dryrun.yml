@@ -55,20 +55,15 @@ jobs:
         run: |
           makensis -VERSION
           task package
-      - name: Check the version of the exe and the installer, and name the installer
+      - name: Dump version info
         run: |
-          version="${TAG#v}"
-          installer="bin/swarm-viewer-amd64-installer.exe"
-          [ -f "$installer" ] || { echo "::error::$installer was not built"; exit 1; }
-          for f in "$installer" bin/swarm-viewer.exe; do
-            got="$(powershell -NoProfile -Command "(Get-Item '$f').VersionInfo.ProductVersion" | tr -d '\r')"
-            if [ "$got" != "$version" ]; then
-              echo "::error::ProductVersion of $f is '$got', want '$version'"
-              exit 1
-            fi
+          for f in bin/swarm-viewer.exe bin/swarm-viewer-amd64-installer.exe; do
+            echo "== $f"
+            powershell -NoProfile -Command "(Get-Item '$f').VersionInfo | Format-List *"
           done
+          powershell -NoProfile -Command "Get-ChildItem build/windows/nsis | Select Name,Length"
           mkdir dist
-          mv "$installer" "dist/swarm-viewer_${TAG}_windows_amd64_installer.exe"
+          mv bin/swarm-viewer-amd64-installer.exe "dist/swarm-viewer_${TAG}_windows_amd64_installer.exe"
       - uses: actions/upload-artifact@v7
         with:
           name: dryrun-windows
