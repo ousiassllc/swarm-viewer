@@ -81,7 +81,7 @@
 
 | ID | 要件 |
 |----|------|
-| NFR-DST-1 | `wails3 build` で Windows / macOS 向けに生成し、GitHub Releases で配布する。Windows は NSIS インストーラ、macOS は `.app` |
+| NFR-DST-1 | Windows / macOS 向けの配布物を CI（release.yml。[環境構築 §5.5](../environment/setup.md)）が作り、GitHub Releases で配布する。形式は、Windows が NSIS インストーラ（`.exe`、amd64）、macOS が `.app` を zip にしたもの（amd64 + arm64 のユニバーサル）。Release には配布物と一緒にチェックサム `SHA256SUMS`（`sha256sum` 形式）を載せる |
 | NFR-DST-2 | コード署名・公証は初版では行わない（unsigned。macOS の Gatekeeper 警告は許容し、README に回避手順を書く） |
 | NFR-DST-3 | 自動更新は初版では持たない（手動入れ替え） |
 | NFR-DST-4 | カスタム URI スキーム `swarm-viewer://` は、`build/config.yml` の `protocols:` で宣言し、インストーラ（NSIS）／`.app`（`Info.plist`）によって OS へ登録する。インストールしていない実行ファイル単体ではディープリンクは使えず、貼り付けでペアリングする |
@@ -104,3 +104,4 @@
 | 1.2 | 2026-11-03 | NFR-DAT-4（スナップショットの保存方針）を追加 | ER 設計（`snapshots`）との整合 |
 | 1.3 | 2026-11-03 | NFR-AVL-2 に 401・403 の例外を追加 | API 仕様との整合 |
 | 1.4 | 2026-11-03 | NFR-SEC-9 に `unsafe-eval` 禁止と htmx-config、eval を要する機能の不使用を明記 | CSP と htmx のトリガーフィルタ式の不整合の解消 |
+| 1.5 | 2026-11-04 | NFR-DST-1 に配布物の形式（NSIS `.exe`・`.app` の zip・ユニバーサル）と `SHA256SUMS` を明記 | Issue #3（release.yml による配布の追加） |
