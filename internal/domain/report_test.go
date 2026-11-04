@@ -204,6 +204,30 @@ func TestParseReportAvailableFalseSlots(t *testing.T) {
 	}
 }
 
+func TestParseReportAccountReason(t *testing.T) {
+	t.Parallel()
+	const in = `{"usage":{"status":"ok",
+	"claude":[{"account":"a","reason":"without_usage"},{"account":"b","reason":null},{"account":"c"}],
+	"codex":[{"account":"d","reason":"no_email"}],
+	"cursor":[{"account":"e","reason":"x"}]}}`
+	r, err := ParseReport([]byte(in))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := r.Usage.Claude[0].Reason; got == nil || *got != "without_usage" {
+		t.Errorf("claude[0].Reason = %v", got)
+	}
+	if r.Usage.Claude[1].Reason != nil || r.Usage.Claude[2].Reason != nil {
+		t.Errorf("null・欠落（古い swarm-console）は nil: %v %v", r.Usage.Claude[1].Reason, r.Usage.Claude[2].Reason)
+	}
+	if got := r.Usage.Codex[0].Reason; got == nil || *got != "no_email" {
+		t.Errorf("codex[0].Reason = %v", got)
+	}
+	if got := r.Usage.Cursor[0].Reason; got == nil || *got != "x" {
+		t.Errorf("cursor[0].Reason = %v", got)
+	}
+}
+
 func TestParseReportSwapWithoutSwap(t *testing.T) {
 	t.Parallel()
 	r, err := ParseReport([]byte(`{"host":{"swap":{"available":true,"total_gb":0,"used_gb":0,"used_percent":0}}}`))

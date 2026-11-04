@@ -102,12 +102,13 @@ viewer が読むキーと、画面での使い方。未知のキーは無視す�
 | `status` | `ok`・`stale`・`unavailable`・`pending`・`disabled`（それ以外は `unavailable` として扱う） |
 | `reason` | `stale`・`unavailable` のときの理由コード（`not_found`・`timeout`・`exec`・`parse`）。折りたたみ表示 |
 | `fetched_at` | 最後に成功した取得の時刻。`null` あり |
-| `claude[]` / `codex[]` | `{account, five_hour, seven_day}` |
-| `cursor[]` | `{account, window, models}`。`window` は `monthly`・`weekly` など、`null` あり |
+| `claude[]` / `codex[]` | `{account, five_hour, seven_day, reason}`。`reason` は 2 枠とも取れなかったときの理由コード（`without_usage`・`no_email`。`null`・欠落・知らない値は理由なし） |
+| `cursor[]` | `{account, window, models}`（`reason` が付いても使わない）。`window` は `monthly`・`weekly` など、`null` あり |
 | 枠 | `{available, used, unit, status, resets_at}`。`available: false` のときほかは `null`。`unit`: `percent`・`usd`。`status`: `ok`・`exhausted`・`unknown` |
 
 - 7 日枠のキーは `seven_day`（`weekly` ではない）
 - 週枠が欠けるアカウントがありうる。必ず `available` を確認し、`false` は「—」で表示する
+- `claude[]` / `codex[]` で 2 枠とも `available: false` のアカウントは「—」を 2 行出さず「取得できません」を 1 行で出し、`reason` があれば理由を添える（[機能要件 §5.2](../requirements/functional.md)）。`reason` は swarm-console の対応版（[swarm-console #87](https://github.com/ousiassllc/swarm-console/issues/87)）から返る。無い版でも「取得できません」の 1 行は出る
 - 表示規則（バー・しきい値・金額表示）は[機能要件 §5](../requirements/functional.md)
 
 ### 1.5 エラーの扱い
@@ -303,3 +304,4 @@ HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"include
 | 1.0 | 2026-11-03 | 新規作成 | 初版 |
 | 1.1 | 2026-11-03 | トリガーフィルタ `[document.visibilityState…]` を廃止し、静的 `app.js` で非表示中の停止・復帰時の即時取得を行う方式に変更。CSRF 配布を `hx-headers` に訂正。htmx-config を明記 | CSP（`unsafe-eval` なし）で htmx のフィルタ式が動かないため |
 | 1.2 | 2026-11-04 | 通常モードのルートから 302・303 を撤去（フルページはその場に描画、HX は `HX-Redirect`）。メイン画面の初回描画をホストへの通信なしにし、タブを snapshot 応答の OOB で更新する | WebKit の WebView が `http.Redirect` を扱えないため。到達不能なホストで初回表示が遅れるため |
+| 1.3 | 2026-11-05 | `usage.claude[]`・`codex[]` に `reason`（2 枠とも取れない理由）を追加し、2 枠とも `available: false` は 1 行表示と明記 | Issue #11（swarm-console #87 の `reason` に備える） |

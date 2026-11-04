@@ -145,6 +145,22 @@ func UsageStatusLabel(status string) string {
 	}
 }
 
+// UsageReasonLabel は利用上限のアカウントの reason（枠を取れなかった理由）を表示文言にする。
+// 原因は swarm-console からは確かには分からないため「可能性」と書く。nil・知らない値は理由なし（空文字）。
+func UsageReasonLabel(reason *string) string {
+	if reason == nil {
+		return ""
+	}
+	switch *reason {
+	case "without_usage":
+		return "使用量を取れませんでした（ログイン切れの可能性）"
+	case "no_email":
+		return "アカウントを特定できません（ログイン切れの可能性）"
+	default:
+		return ""
+	}
+}
+
 // CursorWindowLabel は Cursor の window を表示名にする。nil・空は空文字。未知の値はそのまま返す。
 func CursorWindowLabel(w *string) string {
 	if w == nil {

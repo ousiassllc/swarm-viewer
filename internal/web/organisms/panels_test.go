@@ -82,6 +82,54 @@ func TestUsagePanel_StatusBranches(t *testing.T) {
 	webtest.MustNotContain(t, webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now})), "<details")
 }
 
+func TestUsagePanel_BothSlotsUnavailableIsOneLine(t *testing.T) {
+	t.Parallel()
+	render := func(a domain.AgentAccount) string {
+		u := domain.Usage{Status: domain.UsageOK, Claude: []domain.AgentAccount{a}}
+		return webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now}))
+	}
+
+	// 2 枠とも取れない（reason なし・古い swarm-console）: 「取得できません」1 行。「—」・枠ラベルは出ない。
+	html := render(domain.AgentAccount{Account: "account-1"})
+	webtest.MustContain(t, html, "Claude · account-1", "取得できません")
+	webtest.MustNotContain(t, html, "—", "5 時間枠", "7 日枠", "ログイン切れ")
+	if n := strings.Count(html, "取得できません"); n != 1 {
+		t.Errorf("「取得できません」は 1 回のはず: %d 回\n%s", n, html)
+	}
+
+	// reason があれば理由を添える。
+	for reason, want := range map[string]string{
+		"without_usage": "使用量を取れませんでした（ログイン切れの可能性）",
+		"no_email":      "アカウントを特定できません（ログイン切れの可能性）",
+	} {
+		html = render(domain.AgentAccount{Account: "account-1", Reason: strp(reason)})
+		webtest.MustContain(t, html, "取得できません", want)
+		webtest.MustNotContain(t, html, "—", "5 時間枠")
+	}
+
+	// 知らない reason は理由なし（「取得できません」だけ）。
+	html = render(domain.AgentAccount{Account: "account-1", Reason: strp("brand-new")})
+	webtest.MustContain(t, html, "取得できません")
+	webtest.MustNotContain(t, html, "brand-new", "ログイン切れ", "—")
+
+	// 片方だけ取れない: これまでどおり 2 行（取れない枠は「—」）。reason があっても理由は出さない。
+	ok := domain.Slot{Available: true, Used: fp(30), Unit: domain.UnitPercent}
+	html = render(domain.AgentAccount{Account: "account-1", FiveHour: ok, Reason: strp("without_usage")})
+	webtest.MustContain(t, html, "5 時間枠", "7 日枠", "30%", "—")
+	webtest.MustNotContain(t, html, "ログイン切れ")
+	if strings.Contains(html, ">取得できません<") {
+		t.Errorf("片方だけ取れないアカウントに 1 行表示を出さない:\n%s", html)
+	}
+}
+
+func TestUsagePanel_CodexBothSlotsUnavailable(t *testing.T) {
+	t.Parallel()
+	u := domain.Usage{Status: domain.UsageOK, Codex: []domain.AgentAccount{{Account: "cx", Reason: strp("no_email")}}}
+	html := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now}))
+	webtest.MustContain(t, html, "Codex · cx", "取得できません", "アカウントを特定できません")
+	webtest.MustNotContain(t, html, "—", "5 時間枠")
+}
+
 func TestUsagePanel_StaleFlagGraysOut(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: domain.Usage{Status: domain.UsageOK}, Stale: true, Now: now}))

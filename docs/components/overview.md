@@ -98,7 +98,7 @@ graph TD
 | `Attention` | `Kind string`・`Pane string`・`Detail string` |
 | `Warning` | `Code`・`Message` |
 | `Usage` | `Status`・`Reason`・`FetchedAt *time.Time`・`Claude []AgentAccount`・`Codex []AgentAccount`・`Cursor []CursorAccount` |
-| `AgentAccount` / `CursorAccount` / `Slot` | `Slot{Available bool, Used *float64, Unit string, Status string, ResetsAt *time.Time}` |
+| `AgentAccount` / `CursorAccount` / `Slot` | `AgentAccount`・`CursorAccount` は `Reason *string`（枠を取れなかった理由。無ければ `nil`）を持つ。`Slot{Available bool, Used *float64, Unit string, Status string, ResetsAt *time.Time}` |
 | `Host` | `CPU`・`Swap`・`Disk []Disk`（各 `Available` と率） |
 | `Report` | `At`・`Layout`・`Panes`・`Attention`・`Usage`・`Host`・`Warnings`・`Auth`（`auth.agents` の `agent`・`status`・`expires_at`） |
 | `Session` | `ID string`・`Allowed bool` |
@@ -510,3 +510,4 @@ func main() {
 | 1.3 | 2026-11-03 | go-keyring の macOS での token 受け渡し（argv/stdin）の確認事項と、MCP クライアントの差し替え方針を追記 | セキュリティ・互換性リスクの明示 |
 | 1.4 | 2026-11-04 | `ConnectionService.Delete` の順序と失敗時の扱いを ER §4 に合わせて変更 | 孤立 token を残さないため |
 | 1.5 | 2026-11-04 | 下書きの能動的な期限切れ掃除、`Confirm` 後の `Wake`、`Store.Open` の手順を追記 | 未確定の token をメモリに残さない・新規接続の最初の通知を早めるため |
+| 1.6 | 2026-11-05 | `AgentAccount`・`CursorAccount` に `Reason *string` を追加 | Issue #11 |

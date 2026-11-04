@@ -84,10 +84,26 @@ templ usageAccounts(p UsagePanelProps) {
 	}
 }
 
+// bothSlotsUnavailable は 2 枠とも available: false のアカウントか（「—」を 2 行出さず 1 行にまとめる）。
+func bothSlotsUnavailable(a domain.AgentAccount) bool {
+	return !a.FiveHour.Available && !a.SevenDay.Available
+}
+
+// agentAccount は Claude / Codex のアカウント 1 件。2 枠とも取れないときは「取得できません」を 1 行で出し、
+// reason があれば理由を添える（機能要件 §5.2）。片方だけ取れないときは 2 行のまま（取れない枠は「—」）。
 templ agentAccount(agent string, a domain.AgentAccount, now time.Time) {
 	<div class="flex flex-col gap-1">
 		<h3 class="text-xs font-medium text-slate-300">{ format.JoinNonEmpty(" · ", agent, a.Account) }</h3>
-		@molecules.UsageRow(molecules.UsageRowProps{Label: "5 時間枠", Slot: a.FiveHour, Now: now})
-		@molecules.UsageRow(molecules.UsageRowProps{Label: "7 日枠", Slot: a.SevenDay, Now: now})
+		if bothSlotsUnavailable(a) {
+			<p class="text-xs text-slate-400">
+				<span>取得できません</span>
+				if reason := format.UsageReasonLabel(a.Reason); reason != "" {
+					<span class="text-slate-500">{ " · " + reason }</span>
+				}
+			</p>
+		} else {
+			@molecules.UsageRow(molecules.UsageRowProps{Label: "5 時間枠", Slot: a.FiveHour, Now: now})
+			@molecules.UsageRow(molecules.UsageRowProps{Label: "7 日枠", Slot: a.SevenDay, Now: now})
+		}
 	</div>
 }
