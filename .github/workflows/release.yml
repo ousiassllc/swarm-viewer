@@ -157,10 +157,11 @@ jobs:
           version="${TAG#v}"
           installer="bin/swarm-viewer-amd64-installer.exe"
           [ -f "$installer" ] || { echo "::error::$installer was not built"; exit 1; }
+          # exe の文字列（ProductVersion）は .NET の VersionInfo では空に見える（リソース自体は正しい）ので、固定の版（FileVersionRaw = X.Y.Z.0）で確かめる
           for f in "$installer" bin/swarm-viewer.exe; do
-            got="$(powershell -NoProfile -Command "(Get-Item '$f').VersionInfo.ProductVersion" | tr -d '\r')"
-            if [ "$got" != "$version" ]; then
-              echo "::error::ProductVersion of $f is '$got', want '$version'"
+            got="$(powershell -NoProfile -Command "(Get-Item '$f').VersionInfo.FileVersionRaw.ToString()" | tr -d '\r')"
+            if [ "$got" != "${version}.0" ]; then
+              echo "::error::FileVersionRaw of $f is '$got', want '${version}.0'"
               exit 1
             fi
           done
