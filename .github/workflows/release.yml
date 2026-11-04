@@ -157,7 +157,9 @@ jobs:
           version="${TAG#v}"
           installer="bin/swarm-viewer-amd64-installer.exe"
           [ -f "$installer" ] || { echo "::error::$installer was not built"; exit 1; }
-          # exe の文字列（ProductVersion）は .NET の VersionInfo では空に見える（リソース自体は正しい）ので、固定の版（FileVersionRaw = X.Y.Z.0）で確かめる
+          # exe：固定の版（FileVersionRaw = X.Y.Z.0）。exe の文字列欄の ProductVersion は Win32 API（VerQueryValue）では X.Y.Z と読めるが、
+          # .NET の VersionInfo は空を返す（FileVersion の文字列が exe に無いためと推測。未確認）ので、文字列は見ない
+          # インストーラ：固定の版に加えて、ProductVersion の文字列も見る
           for f in "$installer" bin/swarm-viewer.exe; do
             got="$(powershell -NoProfile -Command "(Get-Item '$f').VersionInfo.FileVersionRaw.ToString()" | tr -d '\r')"
             if [ "$got" != "${version}.0" ]; then
@@ -165,6 +167,11 @@ jobs:
               exit 1
             fi
           done
+          got="$(powershell -NoProfile -Command "(Get-Item '$installer').VersionInfo.ProductVersion" | tr -d '\r')"
+          if [ "$got" != "$version" ]; then
+            echo "::error::ProductVersion of $installer is '$got', want '$version'"
+            exit 1
+          fi
           mkdir dist
           mv "$installer" "dist/swarm-viewer_${TAG}_windows_amd64_installer.exe"
       - uses: actions/upload-artifact@v7
