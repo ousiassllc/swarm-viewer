@@ -1,9 +1,9 @@
 package atoms
 
 // ModalClass は中央モーダル（ネイティブ <dialog>）のクラス（ガイド O1・O2）。
-// 角丸 --r-xl（rounded-xl）・--shadow-modal・padding 24。スクラム（::backdrop）の色とフェードは app.css の dialog.modal が持つ。
+// 角丸 --r-xl（rounded-xl）・1px の --border・--shadow-modal・padding 24。スクラム（::backdrop）の色とフェードは app.css の dialog.modal が持つ。
 // ::backdrop は Tailwind の既定でマージンが 0 になるので、中央寄せの m-auto を付ける。
-const ModalClass = "fade-in modal m-auto w-[min(28rem,calc(100vw-2rem))] rounded-xl bg-surface p-6 text-ink shadow-modal"
+const ModalClass = "fade-in modal m-auto w-[min(28rem,calc(100vw-2rem))] rounded-xl border border-border bg-surface p-6 text-ink shadow-modal"
 
 // ConfirmDialogID は確認ダイアログの id。static/src/js/app.js が htmx:confirm（hx-confirm）で開く。
 const ConfirmDialogID = "confirm-dialog"

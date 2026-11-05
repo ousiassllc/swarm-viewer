@@ -43,7 +43,7 @@ fun UsagePanel(
     val status = UsageStatus.normalize(usage.status)
     val gray = stale || status == UsageStatus.STALE
     AppCard(modifier = Modifier.fillMaxWidth().grayedOut(gray)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
             Text("利用上限", style = MaterialTheme.typography.titleMedium)
             usageStatusLabel(status).takeIf { it.isNotEmpty() }?.let { AppAlert(it, kind = usageStatusAlertKind(status)) }
             if (usageShowsNumbers(status)) {

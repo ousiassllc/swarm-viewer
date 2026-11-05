@@ -117,7 +117,7 @@ func TestButton_HostsRipple(t *testing.T) {
 func TestConfirmDialog(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, atoms.ConfirmDialog())
-	webtest.MustContain(t, html, `<dialog id="confirm-dialog"`, "data-modal", "rounded-xl", "shadow-modal", "m-auto",
+	webtest.MustContain(t, html, `<dialog id="confirm-dialog"`, "data-modal", "rounded-xl", "border border-border", "shadow-modal", "m-auto",
 		"data-confirm-title", "data-confirm-message", "data-confirm-action", "bg-danger", `data-modal-result="cancel"`, "キャンセル")
 	webtest.MustNotContain(t, html, "<script", "onclick", "hx-on", " open")
 	// ボタン列は 8px（ガイド S2）。

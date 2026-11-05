@@ -92,6 +92,12 @@ func TestUsagePanel_StatusBranches(t *testing.T) {
 	webtest.MustContain(t, webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now})), "<details", "timeout")
 	u.Status = domain.UsagePending
 	webtest.MustNotContain(t, webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now})), "<details")
+
+	// 通常のカード: padding 24・まとまり同士 24（ガイド §3 --pad-card・--gap-card-section）。
+	u.Status = domain.UsageOK
+	html = webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now}))
+	webtest.MustContain(t, html, "gap-6", "p-6")
+	webtest.MustNotContain(t, html, "p-4", "gap-3")
 }
 
 func TestUsagePanel_BothSlotsUnavailableIsOneLine(t *testing.T) {
@@ -170,6 +176,9 @@ func TestHostPanel(t *testing.T) {
 	html := webtest.Render(t, organisms.HostPanel(organisms.HostPanelProps{Host: h}))
 	webtest.MustContain(t, html, "CPU", "96%", "[&amp;::-webkit-progress-value]:bg-danger", "メモリ", "32.3%", "41.3 GB / 128 GB", "スワップ", "なし", "12.3 GB 空き", "[&amp;::-webkit-progress-value]:bg-warning", "/data", "—")
 	webtest.MustNotContain(t, html, "load")
+	// 画面の半分幅を占める通常のカードなので、padding は 24（ガイド §3 --pad-card）。
+	webtest.MustContain(t, html, "p-6")
+	webtest.MustNotContain(t, html, "p-4")
 	// 表示順: CPU → メモリ → スワップ → ディスク。
 	cpu, mem, swap, disk := strings.Index(html, "CPU"), strings.Index(html, "メモリ"), strings.Index(html, "スワップ"), strings.Index(html, "/data")
 	if cpu >= mem || mem >= swap || swap >= disk {

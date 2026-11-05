@@ -25,9 +25,9 @@ func usageGray(p UsagePanelProps) bool {
 
 func usageSectionClass(p UsagePanelProps) string {
 	if usageGray(p) {
-		return "flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 opacity-50 grayscale"
+		return "flex flex-col gap-6 rounded-lg border border-border bg-surface p-6 opacity-50 grayscale"
 	}
-	return "flex flex-col gap-3 rounded-lg border border-border bg-surface p-4"
+	return "flex flex-col gap-6 rounded-lg border border-border bg-surface p-6"
 }
 
 // showsNumbers は数字を出す status（ok・stale）か。unavailable・pending・disabled は出さない（機能要件 §5.1）。

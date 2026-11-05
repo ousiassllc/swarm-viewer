@@ -35,6 +35,10 @@ func TestConnectionList(t *testing.T) {
 	if strings.Count(html, `data-confirm-title="接続を削除"`) != 2 || strings.Count(html, `data-confirm-label="削除"`) != 2 {
 		t.Error("削除ごとに確認ダイアログの見出しとラベルがある")
 	}
+	// 行のボタン（とバッジ）は 8px 間隔のまとまりに入れる。名前ブロックとの間は 12px のまま（ガイド S2）。
+	if strings.Count(html, `<li class="flex items-center gap-3 px-4 py-3">`) != 2 || strings.Count(html, `<div class="flex items-center gap-2">`) != 2 {
+		t.Errorf("行は gap-3、ボタンの列は gap-2: %s", html)
+	}
 }
 
 func TestConnectionList_Empty(t *testing.T) {

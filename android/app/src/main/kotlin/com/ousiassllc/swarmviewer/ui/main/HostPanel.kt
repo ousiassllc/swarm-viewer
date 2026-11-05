@@ -34,7 +34,7 @@ fun HostPanel(
     stale: Boolean,
 ) {
     AppCard(modifier = Modifier.fillMaxWidth().grayedOut(stale)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("ホスト", style = MaterialTheme.typography.titleMedium)
             hostRows(host).forEach { HostRow(it) }
         }
