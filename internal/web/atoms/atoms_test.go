@@ -153,4 +153,7 @@ func TestInput(t *testing.T) {
 	html := webtest.Render(t, atoms.Input(atoms.InputProps{ID: "i", Name: "n", Required: true, Placeholder: "p"}))
 	webtest.MustContain(t, html, `type="text"`, `name="n"`, "required", `autocomplete="off"`)
 	webtest.MustNotContain(t, webtest.Render(t, atoms.Input(atoms.InputProps{Name: "n"})), "required")
+	// 入力欄の文字は本文と同じ 16px（ガイド T3）。
+	webtest.MustContain(t, html, "min-h-10", "text-base")
+	webtest.MustNotContain(t, html, "text-sm")
 }

@@ -66,6 +66,9 @@ func TestPairingForm(t *testing.T) {
 	webtest.MustContain(t, html, `role="alert"`, "接続文字列の形式が正しくありません", "></textarea>")
 	// ラベル→入力 8px・入力→エラー 4px・項目間 16px（ガイド S2）。
 	webtest.MustContain(t, html, `class="flex flex-col gap-4"`, `<div class="flex flex-col gap-2"><label for="pairing-input"`, `<div class="flex flex-col gap-1"><textarea`)
+	// 接続文字列の欄は本文と同じ 16px の等幅（ガイド T3・T5）。
+	webtest.MustContain(t, html, "font-mono", "text-base")
+	webtest.MustNotContain(t, html, "font-mono text-sm")
 }
 
 func TestSettingsForm(t *testing.T) {
@@ -79,6 +82,10 @@ func TestSettingsForm(t *testing.T) {
 		`<option value="5" selected>5 分</option>`, `<option value="10">10 分</option>`, `<option value="30">30 分</option>`, `<option value="60">60 分</option>`,
 		"OS が通知を許可していません",
 	)
+	// select の文字は本文と同じ 16px（ガイド T3）。
+	if strings.Count(html, "w-40 px-3") != 2 || strings.Contains(html, "w-40 px-3 text-sm") || !strings.Contains(html, "text-base") {
+		t.Errorf("select は text-base（text-sm を足さない）: %s", html)
+	}
 	if n := checkedCount(html); n != 1 {
 		t.Errorf("通知だけがオン（デバッグログはオフ）: %d", n)
 	}

@@ -93,10 +93,10 @@ func inputType(t string) string {
 	return t
 }
 
-// FieldClass は入力欄・select・textarea の共通クラス（高さ 40・--r-md・1px border・surface 地）。
+// FieldClass は入力欄・select・textarea の共通クラス（高さ 40・--r-md・1px border・surface 地・文字 16px）。
 // フォーカスは app.css の outline（--focus の 2px）を、フォーム用の ring（--focus の 40%）に置き換える。
 // 横幅・padding・フォントは呼び出し側が足す。
-const FieldClass = "min-h-10 rounded-md border border-border bg-surface text-ink placeholder:text-mute focus-visible:border-focus focus-visible:outline-transparent focus-visible:ring-2 focus-visible:ring-(color:--ring)"
+const FieldClass = "min-h-10 rounded-md text-base border border-border bg-surface text-ink placeholder:text-mute focus-visible:border-focus focus-visible:outline-transparent focus-visible:ring-2 focus-visible:ring-(color:--ring)"
 
 // Input は共通の 1 行入力。
 templ Input(p InputProps) {
@@ -108,7 +108,7 @@ templ Input(p InputProps) {
 		placeholder={ p.Placeholder }
 		required?={ p.Required }
 		autocomplete="off"
-		class={ FieldClass, "w-full px-3 text-sm" }
+		class={ FieldClass, "w-full px-3" }
 		{ p.Attrs... }
 	/>
 }

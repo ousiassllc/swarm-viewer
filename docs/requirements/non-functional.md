@@ -186,7 +186,7 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 |----|------|
 | NFR-DSG-1 | 色はガイドのトークン（`--ink` `--bone` `--mute` `--surface` `--border` `--accent` `--accent-soft` `--focus` と状態色 `--success` `--warning` `--danger` `--info`）だけを使う。Web は `static/src/css/app.css` に定義し、Tailwind の既定パレットは無効にする。Android は `ui/theme/` の ColorScheme と状態色で持つ。独自の色・ハードコードの色を足さない |
 | NFR-DSG-2 | ライト / ダークはシステムの設定に追従する（Web は `prefers-color-scheme`、Android はシステムテーマ）。手動の切替 UI は持たない |
-| NFR-DSG-3 | フォントは NFR-SEC-9 のとおり同梱する。SemiBold は見出しとボタンだけに使い、Medium・Bold を使わない。本文は 14px 以上（説明・警告・エラーの文章を 12px にしない）。12px はバッジ・日時・ペイン番号などのキャプションだけ |
+| NFR-DSG-3 | フォントは NFR-SEC-9 のとおり同梱する。SemiBold は見出しとボタンだけに使い、Medium・Bold を使わない。本文は 14px 以上（説明・警告・エラーの文章を 12px にしない）。入力欄・select・textarea の文字は 16px（`atoms.FieldClass` の `text-base`）。12px はバッジ・日時・ペイン番号などのキャプションだけ |
 | NFR-DSG-4 | 主操作・リンク・選択中タブはインク色（`--accent`）で、青などのアクセント色を使わない。`working` と `report_waiting` は無彩色で、状態はラベルで区別する。フォーカスは `--focus` の 2px（offset 2）、入力欄は `--focus` の 40% のリング |
 | NFR-DSG-5 | トーストは画面下中央・端から 24px・高さ 40・ピル・1 行の短文・3 秒で消え・同時に 1 つ。エラー（削除失敗など）はトーストにせず、インラインアラートで示す |
 | NFR-DSG-6 | モーションはガイドのトークン（出現 320ms ease-out、退出 240ms ease-in）。`prefers-reduced-motion: reduce` ではフェードを付けない（スピナーの回転は処理中表示のため維持する）。トースト・インラインアラートは出現でフェードイン、トーストは退出でフェードアウトする。ボタンの押下は小さなリップル（280ms ease-out）。Android は Compose の既定のアニメーション（ボタンのリップルを含む）に任せ、独自のモーションは持たない |
