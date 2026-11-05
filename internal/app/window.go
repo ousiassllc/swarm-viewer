@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -9,6 +10,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"github.com/ousiassllc/swarm-viewer/internal/app/navpath"
+	"github.com/ousiassllc/swarm-viewer/internal/app/theme"
 )
 
 // Window はメイン WebView ウィンドウ。service.Navigator を実装する（Open → SetURL＋前面化）。
@@ -37,6 +39,9 @@ func newWindow(app *application.App, log *slog.Logger) *Window {
 		MinWidth:  640,
 		MinHeight: 480,
 		URL:       navpath.Home,
+		// OS のテーマに合わせた背景は applyTheme が入れる（起動時は backgroundSync、テーマ変更時は Shell が呼ぶ）。
+		// ここで入れる色は、applyTheme が走るまでの既定（ライト）。
+		BackgroundColour: boneColour(false),
 	})
 	// 閉じる操作を横取りして非表示にする。終了中は通す（フックを使うので既定のウィンドウ破棄より先に走る）。
 	w.win.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
@@ -47,6 +52,32 @@ func newWindow(app *application.App, log *slog.Logger) *Window {
 		w.win.Hide()
 	})
 	return w
+}
+
+// boneColour はウィンドウ背景（--bone。ライト・ダーク）を Wails の色にする。
+func boneColour(dark bool) application.RGBA {
+	c := theme.Bone(dark)
+	return application.NewRGB(c.R, c.G, c.B)
+}
+
+// applyTheme はウィンドウ背景を OS のテーマの --bone にする。WebView が描画する前やリサイズ中に見える面が、
+// ページの背景と食い違わないようにする（ガイド C5）。
+func (w *Window) applyTheme(dark bool) {
+	w.win.SetBackgroundColour(boneColour(dark))
+}
+
+// backgroundSync は、ウィンドウが作られる前（Wails のサービス起動は保留中のウィンドウを作る前に走る）に
+// 背景色を OS のテーマへ合わせるサービス。application.New の時点では OS のテーマを読めないため、ここで行う。
+type backgroundSync struct {
+	app *application.App
+	win *Window
+}
+
+func (b *backgroundSync) ServiceName() string { return "background-sync" }
+
+func (b *backgroundSync) ServiceStartup(context.Context, application.ServiceOptions) error {
+	b.win.applyTheme(b.app.Env.IsDarkMode())
+	return nil
 }
 
 // markQuitting は以後のウィンドウ close を通す（終了処理中）。
