@@ -174,6 +174,11 @@ func TestSnapshotView_InitialWithoutErrorShowsPreviousNotice(t *testing.T) {
 	region := webtest.Render(t, organisms.SnapshotRegion(p))
 	webtest.MustContain(t, region, "読み込み中…")
 	webtest.MustNotContain(t, region, "表示できるデータがありません")
+	webtest.MustContain(t, region, `role="status"`)
+	// ポーリング応答（SnapshotView）でも OOB のバナーは空になる。
+	oob := webtest.Render(t, organisms.SnapshotView(p))
+	webtest.MustContain(t, oob, `hx-swap-oob="true"`, "読み込み中…")
+	webtest.MustNotContain(t, oob, `role="alert"`, "前回の状態を表示中")
 }
 
 func TestSnapshotView_ContainsAllPanels(t *testing.T) {

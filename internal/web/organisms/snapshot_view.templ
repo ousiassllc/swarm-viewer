@@ -101,7 +101,9 @@ templ SnapshotRegion(p SnapshotViewProps) {
 			hx-swap="outerHTML"
 		}
 	>
-		if p.isEmpty() {
+		if p.isLoading() {
+			<p role="status" class="text-sm text-slate-400">{ emptyMessage(p) }</p>
+		} else if p.isEmpty() {
 			<p class="text-sm text-slate-400">{ emptyMessage(p) }</p>
 		} else {
 			@AttentionBar(AttentionBarProps{Attention: p.Snapshot.Report.Attention, Warnings: p.Snapshot.Report.Warnings, Auth: p.Snapshot.Report.Auth})
