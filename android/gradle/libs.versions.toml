@@ -3,7 +3,7 @@
 # compileSdk を上げるときは、この制約ごと見直す。
 
 [versions]
-agp = "9.5.0"
+agp = "9.5.1"
 kotlin = "2.4.21"
 ksp = "2.3.13"
 ktlintGradle = "14.2.0"
