@@ -99,6 +99,8 @@ func TestUsagePanel_StatusBranches(t *testing.T) {
 	// reason は unavailable のときだけ折りたたみ（pending・disabled では出さない）。
 	u.Status = domain.UsageUnavailable
 	webtest.MustContain(t, webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now})), "<details", "timeout")
+	// 単独の <details> はガイドの `.acc`（枠付き）。値の <code> は ink のまま（本文を text-mute にしない）。
+	webtest.MustContain(t, webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now})), `<details class="acc text-sm text-ink">`, `<div class="acc-body"><code class="font-mono">`)
 	u.Status = domain.UsagePending
 	webtest.MustNotContain(t, webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now})), "<details")
 

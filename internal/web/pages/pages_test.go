@@ -115,6 +115,8 @@ func TestPairingPage(t *testing.T) {
 	if !strings.Contains(html, "<summary>注意</summary>") || strings.Index(html, "<details") > strings.Index(html, "発行した接続文字列は再利用しないでください。") {
 		t.Error("再利用の注意は <details> の中にある")
 	}
+	// アコーディオンはガイドの `.acc`（枠付き）・本文は --mute（O8）。
+	webtest.MustContain(t, html, `<details class="acc text-sm text-ink">`, `<p class="acc-body text-mute">発行した接続文字列は再利用しないでください。</p>`)
 	webtest.MustNotContain(t, html, "が出力した接続文字列を貼り付けてください")
 	webtest.MustNotContain(t, webtest.Render(t, pages.PairingContent(pages.PairingProps{})), "保存済みの接続")
 }

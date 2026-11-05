@@ -198,6 +198,7 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | NFR-DSG-12 | ボタンの左右 padding は 18（小は 12。Web は `px-[18px]`、Android は `AppButton`・`AppOutlinedButton`・`AppDangerButton` の `ButtonContentPadding`。上下は高さ 40 が決める）。チェックボックス・ラジオ→文言は 10（`--list-marker-gap`。Web は `atoms.CheckboxRowClass`。Android のラジオは `AppRadio` が円の周囲に 3dp の余白を持つので、文言の前に足す余白は 10 − 3 = 7dp の `RadioLabelStart`）。空状態の padding は縦 48・横 24 で、画面幅で変えない（Web は `px-6 py-12`、Android は `EmptyStateHorizontalPadding`・`EmptyStateVerticalPadding`） |
 | NFR-DSG-13 | トーストの出現・退出の移動量は 8px（ガイド M5「下から 8px」）。`motion.css` の `fade-in`・`fade-out` は移動量を `--fade-rise`（既定 4px）で読み、`toast.templ` の本体が `[--fade-rise:8px]` を付ける（アラート・モーダルは既定の 4px） |
 | NFR-DSG-14 | 検証に失敗した入力欄は `--danger` の枠で示す（ガイド O7 の `.fld.bad`。文言は入力欄の下のインラインアラート）。Web はペアリングの textarea に `atoms.FieldInvalidClass`（枠 `--danger`・フォーカスのリング `--ring-danger` = `--danger` の 40%）を重ね、Android は `AppTextField(isError = …)` で枠・caret・ラベルを `ExtraColors.danger` にする。トーストの幅は `min(92vw, 420px)` で頭打ち（`toast.templ` の `max-w-[min(92vw,26.25rem)]`。接続名など利用者が決める長い文言でも端まで伸びない） |
+| NFR-DSG-15 | 入力欄はガイドの見本（`.lbl`＋`.fld`）の形にする。ラベルは入力の上（間隔 6）、入力は高さ 40・内側 12・角丸 `--r-md`・1px の枠・surface の地。Android の `AppTextField` は M3 の枠内に浮くラベル・高さ 56dp の `OutlinedTextField` を使わず、`BasicTextField` と `OutlinedTextFieldDefaults.DecorationBox`（内側 左右 12dp・上下 8dp・本文 16sp の行高 24dp で 40dp）に、ラベルを別の `Text`（`bodyMedium`）で上に置く。読み上げは入力欄の `contentDescription` にラベルを渡す。アコーディオン（`<details>`）は、単独のものにガイドの `.acc`（`acc` クラス: 枠 1px `--border`・角丸 `--r-lg`・surface の地・summary の padding 12px 16px、本文は `acc-body`（padding 0 16px 14px）で包み文字色は `--mute`）を付ける。アラートの中の `<details>`（取得失敗の詳細）は二重枠を避けるため `acc` を付けない。値の `<code>`（`usage.reason`・エラーコード）は ink のまま |
 
 承認済みの逸脱（ガイドの値と異なるが、プロダクト固有の理由で維持するもの）:
 
@@ -251,3 +252,4 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | 4.2 | 2026-11-05 | NFR-DSG-14（入力欄のエラー枠・トーストの最大幅 420px）を追加 | Issue #73（デザインガイド O3・O7） |
 | 4.3 | 2026-11-06 | NFR-DSG-7 の `--mute` をライト `#6b6b6e`・ダーク `#8b8b8e` に分け、中立バッジの文字を `--mute` にした。要対応バーのエージェント間の線を `--border` にそろえた | Issue #85（デザインガイド C2・C4・C6） |
 | 4.4 | 2026-11-06 | NFR-DSG-12 に、Android のラジオの記号→文言も 10（円の余白 3dp を差し引いた 7dp を文言の前に置く）を追記 | Issue #87（デザインガイド S2） |
+| 4.5 | 2026-11-06 | NFR-DSG-15（入力欄のラベル位置・高さ 40、アコーディオンの枠・本文色）を追加 | Issue #86（デザインガイド O8） |

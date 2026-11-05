@@ -152,7 +152,8 @@
  * 三角のマーカーは消す。画像・data: URI は CSP（default-src 'self'）で使えないので、シェブロンは枠線の回転で作る。
  * 見本どおり、シェブロンは右端（::after）・閉じているときは下向き（rotate 45）・開いているときは上向き（rotate -135）で、
  * 回転の中心が見た目の中心に来るよう 4px ずらす。遷移は --motion-base・--ease-out。reduced-motion では回転を即時にする。
- * 見本の枠付きコンテナ（.acc）は足さない（アラートの中などで枠を重ねないため）。
+ * 見本の枠付きコンテナ（.acc）は `acc` クラスで足す（枠 1px --border・角丸 --r-lg・surface の地・summary の padding 12px 16px）。本文は呼び出し側が `acc-body`
+ * （padding 0 16px 14px）で包み、文字色は text-mute を付ける（値の <code> は ink のまま）。単独の <details> だけに付け、アラートの中の <details> には付けない（枠を重ねないため）。
  */
 @layer components {
   details > summary {
@@ -190,6 +191,20 @@
     details > summary::after {
       transition: none;
     }
+  }
+
+  details.acc {
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+  }
+
+  details.acc > summary {
+    padding: 0.75rem 1rem;
+  }
+
+  details.acc > .acc-body {
+    padding: 0 1rem 0.875rem;
   }
 }
 
