@@ -148,8 +148,7 @@
 }
 
 @theme {
-  --font-sans:
-    Sora, "Noto Sans JP", "Symbols Nerd Font", sans-serif;
+  --font-sans: Sora, "Noto Sans JP", "Symbols Nerd Font", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --text-xs: 0.75rem;
@@ -210,6 +209,83 @@
     .htmx-request .htmx-indicator,
     .htmx-request.htmx-indicator {
       transition: none;
+    }
+  }
+}
+
+/*
+ * 出現と退出のモーション（ガイド M5・NFR-DSG-6）。
+ * アラートとトーストは .fade-in（フェードイン 320ms・ease-out・4px 上へ）で現れる。トーストの退出は .is-leaving
+ * （フェードアウト 240ms・ease-in）を app.js が付け、animationend で消す。
+ * .is-settled は、ポーリングの再描画で同じ文言のアラートが差し替わっただけのとき app.js が付ける（フェードを繰り返さない）。
+ * ボタンの押下は .ripple（クリック点から円が広がって消える 280ms・ease-out。ガイド M4）。円の大きさと位置は app.js が CSSOM で決める。
+ * reduced-motion ではどれも付けない（退出は app.js が即時に消す）。
+ */
+@layer components {
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    to {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+
+  @keyframes ripple {
+    from {
+      opacity: 0.3;
+      transform: scale(0);
+    }
+
+    to {
+      opacity: 0;
+      transform: scale(1);
+    }
+  }
+
+  .fade-in {
+    animation: fade-in var(--motion-fade-in) var(--ease-out) both;
+  }
+
+  .fade-in.is-settled {
+    animation: none;
+  }
+
+  .fade-in.is-leaving {
+    animation: fade-out var(--motion-fade-out) var(--ease-in) forwards;
+  }
+
+  .ripple {
+    position: absolute;
+    border-radius: 9999px;
+    background-color: currentcolor;
+    pointer-events: none;
+    animation: ripple var(--motion-slow) var(--ease-out) forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fade-in,
+    .fade-in.is-leaving {
+      animation: none;
+    }
+
+    .ripple {
+      display: none;
     }
   }
 }

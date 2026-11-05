@@ -124,3 +124,56 @@ func TestAppJS_NoEval(t *testing.T) {
 		}
 	}
 }
+
+// 出現・退出・リップルのモーションはガイドのトークン（320ms ease-out / 240ms ease-in / 280ms）で、
+// reduced-motion では付かない（M3・M4・M5、NFR-DSG-6）。
+func TestAppCSS_MotionUsesTokensAndRespectsReducedMotion(t *testing.T) {
+	t.Parallel()
+
+	data, err := fs.ReadFile(static.FS(), "css/app.css")
+	if err != nil {
+		t.Fatalf("css/app.css を読めない（先に task generate を実行する）: %v", err)
+	}
+	css := string(data)
+	for _, want := range []string{
+		"@keyframes fade-in", "@keyframes fade-out", "@keyframes ripple",
+		"animation:fade-in var(--motion-fade-in) var(--ease-out)",
+		"animation:fade-out var(--motion-fade-out) var(--ease-in)",
+		"animation:ripple var(--motion-slow) var(--ease-out)",
+		"--motion-slow:",
+	} {
+		if !strings.Contains(css, want) {
+			t.Errorf("app.css に %q が無い", want)
+		}
+	}
+	// reduced-motion のブロックに、フェードとリップルを止める指定がある。
+	idx := strings.LastIndex(css, "@media (prefers-reduced-motion:reduce){.fade-in")
+	if idx < 0 {
+		t.Fatal("app.css に .fade-in を止める prefers-reduced-motion のブロックが無い")
+	}
+	if block := css[idx:]; !strings.Contains(block, ".ripple{display:none}") {
+		t.Errorf("reduced-motion のブロックが .ripple を止めていない: %s", block)
+	}
+}
+
+// app.js はトーストの退出を animationend で消し（reduced-motion は即時）、ボタン押下でリップルを足す。
+// リップルの位置は CSSOM（element.style）で決め、マークアップの style 属性は使わない（CSP style-src 'self'）。
+func TestAppJS_ToastLeavingAndRipple(t *testing.T) {
+	t.Parallel()
+
+	data, err := fs.ReadFile(static.FS(), "js/app.js")
+	if err != nil {
+		t.Fatalf("js/app.js を読めない（先に task generate を実行する）: %v", err)
+	}
+	src := string(data)
+	for _, want := range []string{"is-leaving", "animationend", "prefers-reduced-motion: reduce", `"pointerdown"`, `"ripple"`, "is-settled", "[data-alert]"} {
+		if !strings.Contains(src, want) {
+			t.Errorf("app.js に %q が無い", want)
+		}
+	}
+	for _, banned := range []string{"setAttribute(\"style\"", "innerHTML", "cssText"} {
+		if strings.Contains(src, banned) {
+			t.Errorf("app.js に %q が含まれている（CSP・エスケープの観点で使わない）", banned)
+		}
+	}
+}
