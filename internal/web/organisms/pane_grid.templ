@@ -15,8 +15,6 @@ type PaneGridProps struct {
 	Panes []domain.Pane
 	// Attention は attention[]。asking / stalled のペインを強調表示するために使う。
 	Attention []domain.Attention
-	// Stale は直前値の表示中（取得失敗）のとき true。カードをグレーアウトする。
-	Stale bool
 }
 
 // gridRows は Layout.Cols に従ってペインを段に分ける。Layout が不成立なら nil。
@@ -49,7 +47,6 @@ func hasAttention(att []domain.Attention, pos string, kinds ...string) bool {
 func cardProps(p PaneGridProps, pane domain.Pane) molecules.PaneCardProps {
 	return molecules.PaneCardProps{
 		Pane:          pane,
-		Stale:         p.Stale,
 		Highlight:     hasAttention(p.Attention, pane.Pos, "asking", "stalled"),
 		ReportWaiting: hasAttention(p.Attention, pane.Pos, "report_waiting"),
 	}

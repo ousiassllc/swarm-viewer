@@ -41,10 +41,8 @@ func TestPaneCard_HasNoActionableElements(t *testing.T) {
 		Pos: "B2", ID: "%12", Agent: str("claude"), State: domain.StateAsking, Title: "title", CWD: "/work",
 		Elapsed: "1h05m", Activity: "running", Note: &domain.Note{Repo: "repo", Items: []string{"a"}},
 	}
-	for _, stale := range []bool{false, true} {
-		html := strings.ToLower(webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane, Stale: stale, Highlight: true})))
-		webtest.MustNotContain(t, html, "<button", "<form", "<input", "<a ", "<select", "<textarea", "hx-post", "hx-put", "hx-delete", "hx-get", "hx-patch", "onclick")
-	}
+	html := strings.ToLower(webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane, Highlight: true})))
+	webtest.MustNotContain(t, html, "<button", "<form", "<input", "<a ", "<select", "<textarea", "hx-post", "hx-put", "hx-delete", "hx-get", "hx-patch", "onclick")
 }
 
 func TestPaneCard_Fields(t *testing.T) {
@@ -67,15 +65,15 @@ func TestPaneCard_OptionalFieldsHidden(t *testing.T) {
 	webtest.MustNotContain(t, html, "5m", "<ul", "<p class=\"truncate text-xs")
 }
 
-func TestPaneCard_StaleAndHighlightClasses(t *testing.T) {
+func TestPaneCard_HighlightClasses(t *testing.T) {
 	t.Parallel()
 	pane := domain.Pane{Pos: "T1", State: domain.StateWorking, Title: "x"}
 	normal := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane}))
-	stale := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane, Stale: true}))
 	hi := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane, Highlight: true}))
+	// グレーアウトは領域がかけるので、カード自身は opacity を持たない（ガイド C5）。
 	webtest.MustNotContain(t, normal, "opacity-50", "ring-2 ring-warning")
-	webtest.MustContain(t, stale, "opacity-50")
 	webtest.MustContain(t, hi, "ring-2 ring-warning")
+	webtest.MustNotContain(t, hi, "opacity-50")
 }
 
 // title・activity・note は信頼できない入力。HTML として解釈しない（NFR-SEC-10）。
