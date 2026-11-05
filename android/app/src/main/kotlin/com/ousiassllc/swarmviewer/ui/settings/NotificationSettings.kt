@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.ousiassllc.swarmviewer.domain.ALLOWED_NOTIFY_POLL_MINUTES
 import com.ousiassllc.swarmviewer.domain.Settings
 import com.ousiassllc.swarmviewer.notify.NotificationPermission
+import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 
 /** 通知確認間隔の下に常に出す注記（機能要件 §12.4、FR-AND-7）。 */
 const val DOZE_NOTE = "Doze・バッテリー最適化により、通知は設定した間隔より遅れることがあります"
@@ -69,14 +69,16 @@ fun NotificationSettings(
         ALLOWED_NOTIFY_POLL_MINUTES.forEach { minutes ->
             RadioRow("$minutes 分", settings.notifyPollMinutes == minutes) { viewModel.setNotifyPollMinutes(minutes) }
         }
-        Text(DOZE_NOTE, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(DOZE_NOTE, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 private fun PermissionGuide(context: Context) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(PERMISSION_GUIDE, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-        OutlinedButton(onClick = { context.startActivity(NotificationPermission.appNotificationSettings(context)) }) { Text("通知設定を開く") }
+        Text(PERMISSION_GUIDE, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+        AppOutlinedButton(
+            onClick = { context.startActivity(NotificationPermission.appNotificationSettings(context)) },
+        ) { Text("通知設定を開く") }
     }
 }

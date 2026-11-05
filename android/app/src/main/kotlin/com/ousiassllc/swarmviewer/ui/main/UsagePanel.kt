@@ -7,13 +7,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ousiassllc.swarmviewer.domain.AgentAccount
@@ -23,10 +20,12 @@ import com.ousiassllc.swarmviewer.domain.SlotValues
 import com.ousiassllc.swarmviewer.domain.Usage
 import com.ousiassllc.swarmviewer.domain.UsageStatus
 import com.ousiassllc.swarmviewer.domain.usageTone
+import com.ousiassllc.swarmviewer.ui.theme.AppCard
+import com.ousiassllc.swarmviewer.ui.theme.MonoFontFamily
 import java.time.Instant
 
-private val LABEL_WIDTH = 64.dp
-private val VALUE_WIDTH = 56.dp
+private val LABEL_WIDTH = 72.dp
+private val VALUE_WIDTH = 64.dp
 
 /**
  * 利用上限パネル（機能要件 §5）。`usage.status` で表示を分ける: `ok` は通常、`stale` はグレーアウトして「古いデータ」と取得時刻、
@@ -41,9 +40,9 @@ fun UsagePanel(
 ) {
     val status = UsageStatus.normalize(usage.status)
     val gray = stale || status == UsageStatus.STALE
-    OutlinedCard(modifier = Modifier.fillMaxWidth().grayedOut(gray)) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("利用上限", style = MaterialTheme.typography.titleSmall)
+    AppCard(modifier = Modifier.fillMaxWidth().grayedOut(gray)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("利用上限", style = MaterialTheme.typography.titleMedium)
             usageStatusLabel(status).takeIf { it.isNotEmpty() }?.let { MutedText(it) }
             if (usageShowsNumbers(status)) {
                 usage.claude.forEach { AgentAccountBlock("Claude", it, now) }
@@ -66,7 +65,7 @@ private fun AgentAccountBlock(
     now: Instant,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(joinNonEmpty(" · ", agent, account.account), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
+        Text(joinNonEmpty(" · ", agent, account.account), style = MaterialTheme.typography.bodyMedium)
         if (!account.fiveHour.available && !account.sevenDay.available) {
             MutedText(joinNonEmpty(" · ", "取得できません", usageReasonLabel(account.reason)))
         } else {
@@ -82,7 +81,7 @@ private fun CursorAccountBlock(
     now: Instant,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(joinNonEmpty(" · ", "Cursor", account.account), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
+        Text(joinNonEmpty(" · ", "Cursor", account.account), style = MaterialTheme.typography.bodyMedium)
         SlotRow(cursorWindowLabel(account.window).ifEmpty { "モデル" }, account.models, now)
     }
 }
@@ -109,17 +108,17 @@ private fun SlotRow(
                     Text(
                         formatPercent(used),
                         color = tone.valueColor(),
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = MonoFontFamily,
                         textAlign = TextAlign.End,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.width(VALUE_WIDTH),
                     )
                 }
                 slot.unit == SlotValues.UNIT_USD ->
                     Text(
                         formatUsd(used),
-                        fontFamily = FontFamily.Monospace,
-                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = MonoFontFamily,
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 else -> MutedText(DASH)
             }

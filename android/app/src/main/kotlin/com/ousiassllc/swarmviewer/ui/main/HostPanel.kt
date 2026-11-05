@@ -8,21 +8,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ousiassllc.swarmviewer.domain.Host
 import com.ousiassllc.swarmviewer.domain.percentTone
+import com.ousiassllc.swarmviewer.ui.theme.AppCard
+import com.ousiassllc.swarmviewer.ui.theme.MonoFontFamily
 
 private val HOST_LABEL_WIDTH = 72.dp
-private val HOST_VALUE_WIDTH = 132.dp
+private val HOST_VALUE_WIDTH = 152.dp
 
 /**
  * ホスト負荷（CPU・メモリ・スワップ・ディスク。機能要件 §6）。各行は「ラベル・バー・値」の 3 列で、バーの両端が全行でそろう。
@@ -33,9 +33,9 @@ fun HostPanel(
     host: Host,
     stale: Boolean,
 ) {
-    OutlinedCard(modifier = Modifier.fillMaxWidth().grayedOut(stale)) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("ホスト", style = MaterialTheme.typography.titleSmall)
+    AppCard(modifier = Modifier.fillMaxWidth().grayedOut(stale)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("ホスト", style = MaterialTheme.typography.titleMedium)
             hostRows(host).forEach { HostRow(it) }
         }
     }
@@ -71,8 +71,8 @@ private fun ValueText(
     Text(
         text,
         color = color,
-        fontFamily = FontFamily.Monospace,
-        style = MaterialTheme.typography.bodySmall,
+        fontFamily = MonoFontFamily,
+        style = MaterialTheme.typography.bodyMedium,
         textAlign = TextAlign.End,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,

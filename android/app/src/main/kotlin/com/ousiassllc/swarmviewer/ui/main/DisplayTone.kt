@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.ousiassllc.swarmviewer.domain.PaneState
 import com.ousiassllc.swarmviewer.domain.Tone
+import com.ousiassllc.swarmviewer.ui.theme.extraColors
 
 /**
  * 表示色の意味（デスクトップ版の internal/web/format/tone.go と同じ対応）。色だけに依存せず、必ずラベルを併記する（機能要件 §3）。
@@ -40,17 +41,17 @@ fun attentionTone(kind: String): DisplayTone =
         else -> DisplayTone.Muted
     }
 
-private val warningColor = Color(0xFFF59E0B)
-private val successColor = Color(0xFF10B981)
-
-/** 表示色の実際の色（テーマに合わせる）。 */
+/**
+ * 表示色の実際の色（テーマに合わせる）。accent（working・正常）は ink 自身（無彩色）で、状態の区別はラベルが担う。
+ * warning / success / error はガイドの状態色（ライト / ダークで切り替わる）。
+ */
 @Composable
 fun DisplayTone.color(): Color =
     when (this) {
         DisplayTone.Accent -> MaterialTheme.colorScheme.primary
-        DisplayTone.Warning -> warningColor
-        DisplayTone.Success -> successColor
-        DisplayTone.Error -> MaterialTheme.colorScheme.error
+        DisplayTone.Warning -> MaterialTheme.extraColors.warning
+        DisplayTone.Success -> MaterialTheme.extraColors.success
+        DisplayTone.Error -> MaterialTheme.extraColors.danger
         DisplayTone.Muted -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 

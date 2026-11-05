@@ -1,6 +1,5 @@
 package com.ousiassllc.swarmviewer.ui.main
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,8 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,14 +16,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ousiassllc.swarmviewer.domain.Attention
 import com.ousiassllc.swarmviewer.domain.Layout
 import com.ousiassllc.swarmviewer.domain.Pane
 import com.ousiassllc.swarmviewer.domain.PaneState
+import com.ousiassllc.swarmviewer.ui.theme.AppCard
+import com.ousiassllc.swarmviewer.ui.theme.MonoFontFamily
 
 /**
  * ペインの表示。[wide] で切り替える（機能要件 §12.2）: false（Compact）は `pos` 順（report の順）の縦 1 列、
@@ -73,23 +70,17 @@ private fun PaneCard(
     val highlight = hasAttention(attention, pane.pos, "asking", "stalled")
     val reportWaiting = hasAttention(attention, pane.pos, "report_waiting")
     val maxLines = if (expanded) Int.MAX_VALUE else 1
-    Card(
+    AppCard(
         modifier = modifier.grayedOut(stale).clickable { expanded = !expanded },
-        border = if (highlight) BorderStroke(2.dp, DisplayTone.Warning.color()) else null,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        borderColor = if (highlight) DisplayTone.Warning.color() else MaterialTheme.colorScheme.outline,
+        borderWidth = if (highlight) 2.dp else 1.dp,
     ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             PaneHeader(pane, reportWaiting)
-            Text(
-                pane.title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                maxLines = maxLines,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Text(pane.title, style = MaterialTheme.typography.bodyLarge, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
             if (pane.activity.isNotEmpty()) {
                 val activity = if (pane.activityTruncated) pane.activity + "…" else pane.activity
-                Text(activity, style = MaterialTheme.typography.bodySmall, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
+                Text(activity, style = MaterialTheme.typography.bodyMedium, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
             }
             if (expanded && pane.cwd.isNotEmpty()) MutedText(pane.cwd)
             NoteBlock(pane, expanded)
@@ -102,8 +93,8 @@ private fun PaneHeader(
     pane: Pane,
     reportWaiting: Boolean,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(pane.pos, style = MaterialTheme.typography.labelLarge, fontFamily = FontFamily.Monospace)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(pane.pos, style = MaterialTheme.typography.bodyMedium, fontFamily = MonoFontFamily)
         pane.agent?.takeIf { it.isNotEmpty() }?.let { Badge(it, DisplayTone.Muted) }
         Badge(pane.state.label, stateTone(pane.state))
         if (reportWaiting) Badge(attentionLabel("report_waiting"), attentionTone("report_waiting"))
@@ -124,12 +115,12 @@ private fun NoteBlock(
     val summary = noteSummary(pane.note)
     if (summary.isEmpty) return
     val items = if (expanded) pane.note?.items.orEmpty() else summary.items
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (summary.repo.isNotEmpty()) MutedText(summary.repo)
         items.forEach {
             Text(
                 "・$it",
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
                 maxLines = if (expanded) Int.MAX_VALUE else 1,
                 overflow = TextOverflow.Ellipsis,
             )

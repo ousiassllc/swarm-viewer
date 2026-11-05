@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.SwarmViewer" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Compose の画面が出る前の窓の背景も、ガイドの bone（ページ背景）にそろえる。ダークは values-night。 -->
+    <style name="Theme.SwarmViewer" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/bone</item>
+    </style>
 </resources>

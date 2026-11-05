@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 private const val BADGE_BACKGROUND_ALPHA = 0.15f
 private const val STALE_ALPHA = 0.5f
@@ -27,7 +26,12 @@ fun Badge(
 ) {
     val color = tone.color()
     Surface(color = color.copy(alpha = BADGE_BACKGROUND_ALPHA), shape = MaterialTheme.shapes.small, modifier = modifier) {
-        Text(text, color = color, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+        Text(
+            text,
+            color = color,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+        )
     }
 }
 
@@ -46,12 +50,12 @@ fun ToneBar(
     )
 }
 
-/** 小さな補足の文言（muted）。 */
+/** 補足の文言（muted）。文章を含むので 14sp（bodyMedium）。12sp は注記・バッジだけ。 */
 @Composable
 fun MutedText(
     text: String,
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
 ) {
-    Text(text, style = MaterialTheme.typography.bodySmall, color = color, modifier = modifier)
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = color, modifier = modifier)
 }
