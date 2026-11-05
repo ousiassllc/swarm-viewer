@@ -124,6 +124,12 @@ func TestAppCSS_Accordion(t *testing.T) {
 			t.Errorf("app.css に %q が無い", want)
 		}
 	}
+	// 開閉マークの線はアイコンのストローク（≈1.5）で、色は --mute（ガイド I2）。
+	for _, want := range []string{"border-right:1.5px solid var(--mute)", "border-bottom:1.5px solid var(--mute)"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("開閉マークの線に %q が無い", want)
+		}
+	}
 }
 
 // app.js は CSP（unsafe-eval なし）の下で動く必要があるため eval 系を含まない。

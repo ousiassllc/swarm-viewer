@@ -60,7 +60,7 @@ templ SettingsForm(p SettingsFormProps) {
 		</div>
 		<div class="flex flex-col gap-2">
 			<label for="screen-poll" class="text-sm text-ink">画面更新間隔（選択中のセッション）</label>
-			<select id="screen-poll" name={ FieldScreenPollSeconds } class={ atoms.FieldClass, "w-40 px-3 text-sm" }>
+			<select id="screen-poll" name={ FieldScreenPollSeconds } class={ atoms.FieldClass, "w-40 px-3" }>
 				for _, n := range domain.AllowedScreenPollSeconds() {
 					<option value={ strconv.Itoa(n) } selected?={ n == p.Settings.ScreenPollSeconds }>{ strconv.Itoa(n) } 秒</option>
 				}
@@ -68,7 +68,7 @@ templ SettingsForm(p SettingsFormProps) {
 		</div>
 		<div class="flex flex-col gap-2">
 			<label for="notify-poll" class="text-sm text-ink">通知用ポーリング間隔（全セッション）</label>
-			<select id="notify-poll" name={ FieldNotifyPollMinutes } class={ atoms.FieldClass, "w-40 px-3 text-sm" }>
+			<select id="notify-poll" name={ FieldNotifyPollMinutes } class={ atoms.FieldClass, "w-40 px-3" }>
 				for _, n := range domain.AllowedNotifyPollMinutes() {
 					<option value={ strconv.Itoa(n) } selected?={ n == p.Settings.NotifyPollMinutes }>{ strconv.Itoa(n) } 分</option>
 				}

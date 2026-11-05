@@ -400,10 +400,10 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 | atoms | `Toast` | `Message` | OOB 用。1 行の短文（エラー詳細には使わず、`Alert` を使う） |
 | atoms | `Alert` | `Kind`（`info`・`success`・`warning`・`danger`）・`Title`・`Message`・`Attrs`・子要素 | インラインアラート（アイコン＋見出し＋本文）。`Title` は任意（SemiBold・14px）で、取得失敗バナーは失敗の種別を見出し、「前回取得 … / 次回再試行 …」を本文にする。1 文で足りるエラーは `Message` だけで出す（NFR-DSG-7）。応答全体の失敗・フォームのエラー・警告バナー・取得失敗バナーはすべてこれに載せる。状態は色だけでなくアイコンと文言でも伝える（ガイド C4）。`danger`・`warning` は `role="alert"`、`info`・`success` は `role="status"` |
 | atoms | `Icon` | `Name`・`Class` | Iconoir（MIT）の線画をインライン `<svg>`（`aria-hidden`・`currentColor`）で出す。現在は `warning-circle`・`warning-triangle`・`info-circle`・`check-circle`・`check` |
-| atoms | `Checkbox` | `Name`・`Value`・`Checked` | 18px・`--r-sm`・外枠 `--mute`。オンの印は Iconoir の `check`（インライン SVG） |
+| atoms | `Checkbox` | `Name`・`Value`・`Checked` | 18px・`--r-sm`・外枠 `--mute`。オンの印は Iconoir の `check`（インライン SVG。16px = `--icon-sm` を箱の中央に置く） |
 | atoms | `EmptyState` | `Message`・子要素 | 空状態（破線の枠・`--r-lg`・padding 48 / モバイル 24・32px のアイコン＋文言＋子要素の主ボタン）。ローディングは `Spinner` を使う |
 | atoms | `ConfirmDialog` | なし | 確認・破壊的操作の中央モーダル。レイアウトに 1 つだけ置き、`app.js` が `htmx:confirm`（`hx-confirm`）で開く。見出し・ラベルは要素の `data-confirm-title`・`data-confirm-label` |
-| atoms | `Button` / `Input` | 通常の属性 | |
+| atoms | `Button` / `Input` | 通常の属性 | `Input`・select・textarea は `FieldClass`（高さ 40・文字 16px）。`Button` は `cursor-pointer`、無効（処理中の `hx-disabled-elt` を含む）は `cursor-not-allowed` |
 | molecules | `PaneCard` | `Pane`・`Stale`・`Highlight`・`ReportWaiting` | 状態ラベル・activity・note 要約。`ReportWaiting` は state バッジの隣に「報告待ち」を出す。操作ボタンは**持たない** |
 | molecules | `UsageRow` | `Label`・`Slot` | `unit` で percent / usd を出し分け。`available: false` は「—」 |
 | molecules | `HostRow` | `Label`・`Percent`・`Detail` | |

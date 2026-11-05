@@ -151,8 +151,8 @@
     content: "";
     width: 0.5rem;
     height: 0.5rem;
-    border-right: 2px solid currentcolor;
-    border-bottom: 2px solid currentcolor;
+    border-right: 1.5px solid var(--mute);
+    border-bottom: 1.5px solid var(--mute);
     transform: rotate(-45deg);
     transition: transform var(--motion-base) var(--ease-in-out);
   }

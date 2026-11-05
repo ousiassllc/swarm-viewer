@@ -98,6 +98,9 @@ func TestCheckbox(t *testing.T) {
 	html := webtest.Render(t, atoms.Checkbox(atoms.CheckboxProps{Name: "debug_log", Value: "on", Checked: true}))
 	webtest.MustContain(t, html, `type="checkbox"`, `name="debug_log"`, `value="on"`, " checked ", "h-[18px] w-[18px]", "rounded-sm", "border-mute", "appearance-none", "peer-checked:visible", "M5 13.3636L8.03559")
 	webtest.MustNotContain(t, html, "accent-accent")
+	// チェック印は 16px（--icon-sm）で箱の中央に置く。箱いっぱいの 18px にしない（ガイド I2）。
+	webtest.MustContain(t, html, "absolute inset-0 m-auto h-4 w-4")
+	webtest.MustNotContain(t, html, "inset-0 h-full w-full")
 	webtest.MustNotContain(t, webtest.Render(t, atoms.Checkbox(atoms.CheckboxProps{Name: "n", Value: "on"})), " checked ")
 }
 
@@ -137,6 +140,14 @@ func TestButton(t *testing.T) {
 	webtest.MustContain(t, webtest.Render(t, atoms.Button(atoms.ButtonProps{Label: "送信", Type: "submit"})), `type="submit"`)
 }
 
+// ボタンは押せることをカーソルで伝え、無効（処理中の hx-disabled-elt を含む）は not-allowed にする（ガイド O7）。
+func TestButton_Cursor(t *testing.T) {
+	t.Parallel()
+	for _, v := range []atoms.ButtonVariant{atoms.ButtonPrimary, atoms.ButtonSecondary, atoms.ButtonDanger} {
+		webtest.MustContain(t, webtest.Render(t, atoms.Button(atoms.ButtonProps{Label: "x", Variant: v})), "cursor-pointer", "disabled:cursor-not-allowed", "disabled:opacity-40")
+	}
+}
+
 // ボタンの大きさは標準（高さ 40・padding 18・16px）と小（高さ 32・padding 12・14px）（ガイド O7）。ゼロ値は標準。
 func TestButton_Sizes(t *testing.T) {
 	t.Parallel()
@@ -153,4 +164,7 @@ func TestInput(t *testing.T) {
 	html := webtest.Render(t, atoms.Input(atoms.InputProps{ID: "i", Name: "n", Required: true, Placeholder: "p"}))
 	webtest.MustContain(t, html, `type="text"`, `name="n"`, "required", `autocomplete="off"`)
 	webtest.MustNotContain(t, webtest.Render(t, atoms.Input(atoms.InputProps{Name: "n"})), "required")
+	// 入力欄の文字は本文と同じ 16px（ガイド T3）。
+	webtest.MustContain(t, html, "min-h-10", "text-base")
+	webtest.MustNotContain(t, html, "text-sm")
 }

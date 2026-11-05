@@ -37,7 +37,7 @@ templ PairingForm(p PairingFormProps) {
 					required
 					autocomplete="off"
 					spellcheck="false"
-					class={ atoms.FieldClass, "w-full px-3 py-2 font-mono text-sm" }
+					class={ atoms.FieldClass, "w-full px-3 py-2 font-mono" }
 				></textarea>
 				if p.Error != "" {
 					@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: p.Error})
