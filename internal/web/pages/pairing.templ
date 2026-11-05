@@ -28,8 +28,8 @@ templ PairingPage(shell layout.BaseProps, p PairingProps) {
 // 422 のときは organisms.PairingForm だけを #pairing-form へ返す。
 templ PairingContent(p PairingProps) {
 	@pageTitle("接続を追加")
-	<p class="text-sm text-mute"><code class="font-mono">swarm-console pair</code> の出力を貼り付けてください。</p>
-	<details class="text-sm text-mute">
+	<p class="text-sm text-ink"><code class="font-mono">swarm-console pair</code> の出力を貼り付けてください。</p>
+	<details class="text-sm text-ink">
 		<summary class="cursor-pointer">注意</summary>
 		発行した接続文字列は再利用しないでください。
 	</details>
@@ -114,6 +114,6 @@ templ DraftExpiredPage(shell layout.BaseProps) {
 // DraftExpiredContent は「もう一度ペアリングしてください」のフラグメント。
 templ DraftExpiredContent() {
 	@pageTitle("もう一度ペアリングしてください")
-	<p class="text-sm text-mute">確認画面の有効期限が切れました。</p>
+	<p class="text-sm text-ink">確認画面の有効期限が切れました。</p>
 	@navLink(paths.Pairing, "ペアリングをやり直す")
 }

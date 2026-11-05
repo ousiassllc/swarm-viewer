@@ -31,7 +31,7 @@ templ ConnectionList(p ConnectionListProps) {
 			@atoms.Alert(p.Error)
 		}
 		if len(p.Connections) == 0 {
-			<p class="text-sm text-mute">保存済みの接続はありません</p>
+			<p class="text-sm text-ink">保存済みの接続はありません</p>
 		} else {
 			<ul class="flex flex-col divide-y divide-border rounded-lg border border-border bg-surface">
 				for _, c := range p.Connections {

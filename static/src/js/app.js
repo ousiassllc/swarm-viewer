@@ -24,20 +24,20 @@
 
   // トーストは 3 秒で消す（ガイド O3）。#toasts は OOB で差し替わる（同時に 1 つ）ので、
   // 差し替えのたびにタイマーを張り直す。中身が空の差し替え（初期状態）では何もしない。
+  // htmx:oobAfterSwap の detail.target は差し替え前の（DOM から外れた）要素なので、id の判定にだけ使い、
+  // 中身は DOM から引き直した新しい要素で見る。
   const TOAST_ID = "toasts";
   const TOAST_MS = 3000;
   let toastTimer;
   document.addEventListener("htmx:oobAfterSwap", (event) => {
-    const el = event.detail.target;
-    if (!el || el.id !== TOAST_ID) {
+    if (event.detail.target?.id !== TOAST_ID) {
       return;
     }
     clearTimeout(toastTimer);
-    if (el.childElementCount === 0) {
+    if (document.getElementById(TOAST_ID)?.childElementCount === 0) {
       return;
     }
     toastTimer = setTimeout(() => {
-      // OOB で差し替わった後の要素を引き直す（古い参照は DOM から外れている）。
       document.getElementById(TOAST_ID)?.replaceChildren();
     }, TOAST_MS);
   });

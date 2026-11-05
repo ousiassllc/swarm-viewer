@@ -41,7 +41,7 @@ func TestToneClasses_AllTonesAndUnknown(t *testing.T) {
 	seen := map[string]format.Tone{}
 	for _, tone := range tones[:5] {
 		for name, fn := range map[string]func(format.Tone) string{
-			"badge": format.BadgeClass, "bar": format.BarClass, "text": format.TextClass, "border": format.BorderClass,
+			"badge": format.BadgeClass, "bar": format.BarClass, "text": format.TextClass,
 		} {
 			cls := fn(tone)
 			if cls == "" {
@@ -55,7 +55,7 @@ func TestToneClasses_AllTonesAndUnknown(t *testing.T) {
 		}
 	}
 	for name, fn := range map[string]func(format.Tone) string{
-		"badge": format.BadgeClass, "bar": format.BarClass, "text": format.TextClass, "border": format.BorderClass,
+		"badge": format.BadgeClass, "bar": format.BarClass, "text": format.TextClass,
 	} {
 		if fn(format.Tone("???")) != fn(format.ToneMuted) {
 			t.Errorf("%s: 未知の Tone は muted と同じになるべき", name)

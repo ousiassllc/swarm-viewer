@@ -109,19 +109,3 @@ func TextClass(t Tone) string {
 		return "text-mute"
 	}
 }
-
-// BorderClass は枠線色の Tailwind クラスを返す。未知の Tone は muted。
-func BorderClass(t Tone) string {
-	switch t {
-	case ToneAccent:
-		return "border-ink/60"
-	case ToneWarning:
-		return "border-warning/60"
-	case ToneSuccess:
-		return "border-success/60"
-	case ToneError:
-		return "border-danger/60"
-	default:
-		return "border-mute"
-	}
-}

@@ -86,7 +86,7 @@ templ PaneCard(p PaneCardProps) {
 
 templ paneNote(n *domain.Note) {
 	if repo, items, more := format.NoteSummary(n); repo != "" || len(items) > 0 {
-		<div class="rounded-md border border-border bg-bone px-2 py-1 text-xs text-ink" title={ noteTooltip(n) }>
+		<div class="rounded-md border border-border bg-bone px-2 py-1 text-sm text-ink" title={ noteTooltip(n) }>
 			if repo != "" {
 				<p class="truncate font-mono text-mute">{ repo }</p>
 			}

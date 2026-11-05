@@ -102,9 +102,9 @@ templ SnapshotRegion(p SnapshotViewProps) {
 		}
 	>
 		if p.isLoading() {
-			<p role="status" class="text-sm text-mute">{ emptyMessage(p) }</p>
+			<p role="status" class="text-sm text-ink">{ emptyMessage(p) }</p>
 		} else if p.isEmpty() {
-			<p class="text-sm text-mute">{ emptyMessage(p) }</p>
+			<p class="text-sm text-ink">{ emptyMessage(p) }</p>
 		} else {
 			@AttentionBar(AttentionBarProps{Attention: p.Snapshot.Report.Attention, Warnings: p.Snapshot.Report.Warnings, Auth: p.Snapshot.Report.Auth})
 			@PaneGrid(PaneGridProps{Layout: p.Snapshot.Report.Layout, Panes: p.Snapshot.Report.Panes, Attention: p.Snapshot.Report.Attention, Stale: !p.Fresh})
