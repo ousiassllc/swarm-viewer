@@ -13,7 +13,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -32,6 +31,9 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ousiassllc.swarmviewer.R
 import com.ousiassllc.swarmviewer.domain.ALLOWED_SCREEN_POLL_SECONDS
+import com.ousiassllc.swarmviewer.ui.main.MutedText
+import com.ousiassllc.swarmviewer.ui.main.NoticeText
+import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 
 /**
  * 設定画面（A3。機能要件 §12.4）。画面更新間隔（5 / 10 / 30 / 60 秒）の選択、通知の項目（[NotificationSettings]）、
@@ -71,24 +73,16 @@ fun SettingsScreen(
                     ALLOWED_SCREEN_POLL_SECONDS.forEach { seconds ->
                         RadioRow("$seconds 秒", settings.screenPollSeconds == seconds) { viewModel.setScreenPollSeconds(seconds) }
                     }
-                    Text(
-                        "画面が見えている間だけ更新します。バックグラウンドでは止まります。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    NoticeText("画面が見えている間だけ更新します。バックグラウンドでは止まります。")
                 }
             }
             state.settings?.let { NotificationSettings(state, it, viewModel) }
             SettingsSection("接続") {
-                OutlinedButton(onClick = onOpenConnections, modifier = Modifier.fillMaxWidth()) { Text("接続を管理") }
+                AppOutlinedButton(onClick = onOpenConnections, modifier = Modifier.fillMaxWidth()) { Text("接続を管理") }
             }
             SettingsSection("このアプリ") {
                 Text(stringResource(R.string.app_name))
-                Text(
-                    "バージョン " + versionName(LocalContext.current),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                MutedText("バージョン " + versionName(LocalContext.current))
             }
         }
     }

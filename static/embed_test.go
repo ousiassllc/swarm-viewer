@@ -32,24 +32,36 @@ func TestFS_EmbedsRequiredAssets(t *testing.T) {
 	}
 }
 
-// Nerd Font の Symbols Only（woff2）が埋め込まれていること（Issue #9）。
-func TestFS_EmbedsSymbolsFont(t *testing.T) {
+// 同梱フォント（Nerd Font の Symbols Only・Ousiass デザインガイドの Sora / Noto Sans JP / JetBrains Mono）が
+// woff2 として埋め込まれていること（Issue #9・#30）。
+func TestFS_EmbedsFonts(t *testing.T) {
 	t.Parallel()
 
-	data, err := fs.ReadFile(static.FS(), fontPath)
-	if err != nil {
-		t.Fatalf("%s を読めない（先に task generate を実行する）: %v", fontPath, err)
-	}
-	// woff2 の先頭 4 バイトは "wOF2"。
-	if !strings.HasPrefix(string(data), "wOF2") {
-		t.Errorf("%s が woff2 でない（先頭 %q）", fontPath, data[:min(4, len(data))])
+	for _, name := range fontFiles {
+		data, err := fs.ReadFile(static.FS(), name)
+		if err != nil {
+			t.Fatalf("%s を読めない（先に task generate を実行する）: %v", name, err)
+		}
+		// woff2 の先頭 4 バイトは "wOF2"。
+		if !strings.HasPrefix(string(data), "wOF2") {
+			t.Errorf("%s が woff2 でない（先頭 %q）", name, data[:min(4, len(data))])
+		}
 	}
 }
 
-const fontPath = "fonts/SymbolsNerdFontMono-Regular.woff2"
+const symbolsFontPath = "fonts/SymbolsNerdFontMono-Regular.woff2"
+
+var fontFiles = []string{
+	symbolsFontPath,
+	"fonts/Sora-Regular.woff2",
+	"fonts/Sora-SemiBold.woff2",
+	"fonts/NotoSansJP-Regular.woff2",
+	"fonts/NotoSansJP-SemiBold.woff2",
+	"fonts/JetBrainsMono-Regular.woff2",
+}
 
 // @font-face の url() は CSS からの相対パスで、埋め込みのフォントに解決される（CSP default-src 'self'、外部 URL なし）。
-// unicode-range は PUA に絞る（日本語・英字は OS のフォント）。
+// Symbols Nerd Font の unicode-range は PUA に絞る（PUA の文字が現れるまで読み込まない）。
 func TestAppCSS_FontFaceIsSelfHosted(t *testing.T) {
 	t.Parallel()
 
@@ -60,13 +72,18 @@ func TestAppCSS_FontFaceIsSelfHosted(t *testing.T) {
 	}
 	css := string(data)
 
-	face := regexp.MustCompile(`@font-face\{[^}]*\}`).FindString(css)
-	if face == "" {
-		t.Fatal("app.css に @font-face が無い")
+	var symbols string
+	for _, face := range regexp.MustCompile(`@font-face\{[^}]*\}`).FindAllString(css, -1) {
+		if strings.Contains(face, `font-family:Symbols Nerd Font`) {
+			symbols = face
+		}
 	}
-	for _, want := range []string{`font-family:Symbols Nerd Font`, `format("woff2")`, `font-display:swap`, `unicode-range:U+E000-F8FF,U+F0000-FFFFD`} {
-		if !strings.Contains(face, want) {
-			t.Errorf("@font-face に %q が無い: %s", want, face)
+	if symbols == "" {
+		t.Fatal("app.css に Symbols Nerd Font の @font-face が無い")
+	}
+	for _, want := range []string{`format("woff2")`, `font-display:swap`, `unicode-range:U+E000-F8FF,U+F0000-FFFFD`} {
+		if !strings.Contains(symbols, want) {
+			t.Errorf("@font-face に %q が無い: %s", want, symbols)
 		}
 	}
 
@@ -85,8 +102,10 @@ func TestAppCSS_FontFaceIsSelfHosted(t *testing.T) {
 			t.Errorf("url(%s) が埋め込みのアセットに解決されない: %v", ref, err)
 		}
 	}
-	if !strings.Contains(css, "url(../"+fontPath+")") {
-		t.Errorf("@font-face が %s を参照していない", fontPath)
+	for _, name := range fontFiles {
+		if !strings.Contains(css, "url(../"+name+")") {
+			t.Errorf("@font-face が %s を参照していない", name)
+		}
 	}
 }
 

@@ -1,6 +1,5 @@
 package com.ousiassllc.swarmviewer.ui.main
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,17 +7,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ousiassllc.swarmviewer.domain.Attention
 import com.ousiassllc.swarmviewer.domain.Auth
 import com.ousiassllc.swarmviewer.domain.Warning
+import com.ousiassllc.swarmviewer.ui.theme.AppCard
+import com.ousiassllc.swarmviewer.ui.theme.MonoFontFamily
 import java.time.Instant
 
 /**
@@ -34,7 +33,7 @@ fun AttentionBar(
     stale: Boolean,
 ) {
     if (attention.isEmpty() && warnings.isEmpty()) return
-    Column(modifier = Modifier.grayedOut(stale), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(modifier = Modifier.grayedOut(stale), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         warnings.forEach { WarningBanner(it.message) }
         if (attention.isNotEmpty()) AttentionList(groupAttention(attention), auth)
     }
@@ -42,8 +41,8 @@ fun AttentionBar(
 
 @Composable
 private fun WarningBanner(message: String) {
-    OutlinedCard(border = BorderStroke(1.dp, DisplayTone.Warning.color()), modifier = Modifier.fillMaxWidth()) {
-        Text(message, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+    AppCard(borderColor = DisplayTone.Warning.color(), modifier = Modifier.fillMaxWidth()) {
+        Text(message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
     }
 }
 
@@ -52,17 +51,17 @@ private fun AttentionList(
     groups: AttentionGroups,
     auth: Auth,
 ) {
-    OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+    AppCard(modifier = Modifier.fillMaxWidth()) {
         Column {
             if (groups.panes.isNotEmpty()) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     groups.panes.forEach { AttentionRow(it, auth) }
                 }
             }
             if (groups.panes.isNotEmpty() && groups.agents.isNotEmpty()) HorizontalDivider()
             groups.agents.forEachIndexed { index, agent ->
                 if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     agent.items.forEach { AttentionRow(it, auth) }
                 }
             }
@@ -77,12 +76,12 @@ private fun AttentionRow(
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Badge(attentionLabel(item.kind), attentionTone(item.kind))
-        if (item.pane.isNotEmpty()) Text(item.pane, style = MaterialTheme.typography.labelLarge, fontFamily = FontFamily.Monospace)
+        if (item.pane.isNotEmpty()) Text(item.pane, style = MaterialTheme.typography.bodyMedium, fontFamily = MonoFontFamily)
         val detail = attentionDetail(item.kind, item.detail)
         if (detail.isNotEmpty()) {
             Text(
                 detail,
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false),

@@ -39,6 +39,12 @@ tasks:
             ["static/src/js/app.js", "static/dist/js/app.js"],
             // Nerd Font の Symbols Only（PUA のアイコン）。app.css の @font-face が ../fonts/ で参照する。
             ["static/src/fonts/SymbolsNerdFontMono-Regular.woff2", "static/dist/fonts/SymbolsNerdFontMono-Regular.woff2"],
+            // Ousiass デザインガイドの書体（Sora・Noto Sans JP の JIS X 0208 サブセット・JetBrains Mono。いずれも SIL OFL）。
+            ["static/src/fonts/Sora-Regular.woff2", "static/dist/fonts/Sora-Regular.woff2"],
+            ["static/src/fonts/Sora-SemiBold.woff2", "static/dist/fonts/Sora-SemiBold.woff2"],
+            ["static/src/fonts/NotoSansJP-Regular.woff2", "static/dist/fonts/NotoSansJP-Regular.woff2"],
+            ["static/src/fonts/NotoSansJP-SemiBold.woff2", "static/dist/fonts/NotoSansJP-SemiBold.woff2"],
+            ["static/src/fonts/JetBrainsMono-Regular.woff2", "static/dist/fonts/JetBrainsMono-Regular.woff2"],
           ];
           for (const [from, to] of copies) {
             await Bun.write(to, Bun.file(from));

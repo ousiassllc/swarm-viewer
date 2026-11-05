@@ -14,9 +14,9 @@ type SessionTabProps struct {
 
 func sessionTabClass(selected bool) string {
 	if selected {
-		return "rounded-t-md border-b-2 border-sky-500 bg-slate-800 px-3 py-1.5 text-sm font-semibold text-sky-300"
+		return "rounded-t-md border-b-2 border-accent px-3 py-1.5 text-sm text-ink"
 	}
-	return "rounded-t-md border-b-2 border-transparent px-3 py-1.5 text-sm text-slate-400 hover:text-slate-200"
+	return "rounded-t-md border-b-2 border-transparent px-3 py-1.5 text-sm text-mute hover:bg-accent-soft hover:text-ink"
 }
 
 // SessionTab はセッションタブ 1 つ。選択でメイン領域（#main）を再取得する（FR-SESS-2）。

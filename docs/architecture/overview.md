@@ -10,7 +10,7 @@ swarm-viewer の全体構成・技術選定・レイヤー構造・通信フロ�
 
 | 方針 | viewer での適用 |
 |------|----------------|
-| サーバーがUI制御を握る | 画面は Go（Gin + Templ）が HTML で返し、HTMX が差し替える。クライアント JS は HTMX 本体と、可視性制御の数行（`app.js`）、グローバルのエラーリスナーのみ |
+| サーバーがUI制御を握る | 画面は Go（Gin + Templ）が HTML で返し、HTMX が差し替える。クライアント JS は HTMX 本体と、可視性制御・トースト消去の数行（`app.js`）、グローバルのエラーリスナーのみ |
 | HATEOAS | 利用可能なアクションだけを HTML に含める。viewer は読み取り専用のため、操作系のコントロール自体を持たない（ペインへの送信・選択ボタンは存在しない） |
 | 「サーバー」はアプリ内 | HTTP は Wails のアセットハンドラ（`http.Handler`）経由で WebView と Go が話す。**TCP ポートは開かない**（token を WebView の JS に渡さない NFR-SEC-3 と、外部プロセスからの到達を避けるため） |
 | 疎結合 | swarm-console との通信（MCP）・SQLite・OS 秘密領域・OS 通知は、それぞれ interface の裏に置いて差し替え可能にする |
@@ -119,12 +119,12 @@ swarm-viewer/
 │       └── layout/              #   base（head・htmx・CSP meta・CSRF meta）
 └── static/
     ├── src/css/app.css          # Tailwind エントリ（@font-face を含む）
-    ├── src/fonts/               # Symbols Nerd Font Mono（woff2）と MIT のライセンス原文（コミットする）
+    ├── src/fonts/               # Sora・Noto Sans JP・JetBrains Mono・Symbols Nerd Font Mono（woff2）と各ライセンス原文（OFL・MIT。コミットする）
     └── dist/                    # ビルド成果物（go:embed 対象）
         ├── js/htmx.min.js
-        ├── js/app.js            # 可視性制御（非表示中のポーリング停止・復帰時の即時取得）
+        ├── js/app.js            # 可視性制御（非表示中のポーリング停止・復帰時の即時取得）とトーストの 3 秒消去
         ├── css/app.css
-        └── fonts/SymbolsNerdFontMono-Regular.woff2
+        └── fonts/*.woff2        # 同梱フォント（上記 4 書体・6 ファイル）
 ```
 
 ### 4.2 依存ルール
@@ -302,7 +302,8 @@ graph LR
 - token は repository 層の中だけで扱い、ハンドラ・テンプレート・ログに値を渡さない。ドメイン型の `Connection` は token を持たない（秘密領域のキーだけを持つ）
 - アセットハンドラは WebView のみから呼ばれる（TCP ポートなし）。それでも画面の状態変更ルート（POST/DELETE）には CSRF トークンを要求する（`<body hx-headers='{"X-CSRF-Token":"…"}'>` で配布。トークンはプロセス起動ごとに生成）
 - CSP: `default-src 'self'`、`connect-src 'self'`、`script-src 'self'`（`unsafe-eval`・`unsafe-inline` なし）、`style-src 'self'`、インラインスクリプトなし（NFR-SEC-9）。HTMX は `<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>` で eval とインラインスタイル注入を止める。外部ホストへは WebView から一切アクセスしない
-- フォント: Nerd Font のアイコン（PUA）は同梱の Symbols Nerd Font Mono（woff2。`static/src/fonts/` → generate で `static/dist/fonts/` → `/static/fonts/`）で描き、`app.css` の `@font-face` は `unicode-range` を PUA に絞る。日本語・英字は OS のフォント（Tailwind 既定の `font-sans` スタック）に任せる。CSP は変えない（`default-src 'self'`。NFR-SEC-9）。サブセット化はしない
+- フォント: Sora・Noto Sans JP（JIS X 0208 サブセット）・JetBrains Mono・Symbols Nerd Font Mono を同梱する（woff2。`static/src/fonts/` → generate で `static/dist/fonts/` → `/static/fonts/`）。`app.css` の `@font-face` で配り、Symbols Nerd Font だけ `unicode-range` を PUA に絞る。`font-sans` は Sora → Noto Sans JP → Symbols Nerd Font、`font-mono` は JetBrains Mono。CSP は変えない（`default-src 'self'`。NFR-SEC-9）
+- デザイントークン: 色・角丸・文字サイズ・フォント・影は `app.css` の `:root`（ライト）と `prefers-color-scheme: dark` で定義し、Tailwind の `@theme` から参照する（`bg-bone` `text-ink` `text-mute` `bg-surface` `border-border` `bg-accent` `bg-accent-soft` `text-danger` など）。Tailwind の既定色は無効。ペイン・使用率の状態色は `format/tone.go` が返すトークンのクラスが唯一の出所（NFR-DSG-1）
 - 画面に出す文字列はすべて Templ のエスケープに任せ、HTML として解釈しない（`templ.Raw` を使わない。NFR-SEC-10）
 - MCP の許可リスト: `sessions_list`・`report`（v1 で呼ぶのは 2 本）。リストは repository/report 内の定数で、それ以外のツール名は呼び出し時にエラーにする（NFR-SEC-1）
 
@@ -474,3 +475,4 @@ graph TD
 | 1.5 | 2026-11-04 | §11 #3（URL スキームの実機登録）の検証手順を「Release の成果物をインストールして確認」で確定 | Issue #3（release.yml で配布物を CI が作るようになったため） |
 | 1.6 | 2026-11-05 | §7 にフォントの扱い（同梱の Symbols Nerd Font・PUA のみ・`static/dist/fonts/`）を追記 | Issue #9 |
 | 1.7 | 2026-11-05 | Android 版の構成（§12）を追加。§11 に Android の未確認事項（#8〜#15）を追加 | Issue #15（Android 版の仕様書への反映） |
+| 1.8 | 2026-11-05 | §7 のフォントをガイド指定の書体の同梱に改訂し、デザイントークンの置き場を追記 | Issue #30（Ousiass デザインガイド準拠） |

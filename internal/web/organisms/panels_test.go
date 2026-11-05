@@ -31,11 +31,11 @@ func TestUsagePanel_ToneBoundaries(t *testing.T) {
 		want   string
 		absent []string
 	}{
-		{"79.9", domain.Slot{Available: true, Used: fp(79.9), Unit: domain.UnitPercent}, "bg-sky-500", []string{"bg-amber-500", "bg-red-500"}},
-		{"80", domain.Slot{Available: true, Used: fp(80), Unit: domain.UnitPercent}, "bg-amber-500", []string{"bg-red-500"}},
-		{"94.9", domain.Slot{Available: true, Used: fp(94.9), Unit: domain.UnitPercent}, "bg-amber-500", []string{"bg-red-500"}},
-		{"95", domain.Slot{Available: true, Used: fp(95), Unit: domain.UnitPercent}, "bg-red-500", []string{"bg-amber-500"}},
-		{"exhausted", domain.Slot{Available: true, Used: fp(1), Unit: domain.UnitPercent, Status: domain.SlotStatusExhausted}, "bg-red-500", []string{"bg-amber-500"}},
+		{"79.9", domain.Slot{Available: true, Used: fp(79.9), Unit: domain.UnitPercent}, "[&amp;::-webkit-progress-value]:bg-accent", []string{"[&amp;::-webkit-progress-value]:bg-warning", "[&amp;::-webkit-progress-value]:bg-danger"}},
+		{"80", domain.Slot{Available: true, Used: fp(80), Unit: domain.UnitPercent}, "[&amp;::-webkit-progress-value]:bg-warning", []string{"[&amp;::-webkit-progress-value]:bg-danger"}},
+		{"94.9", domain.Slot{Available: true, Used: fp(94.9), Unit: domain.UnitPercent}, "[&amp;::-webkit-progress-value]:bg-warning", []string{"[&amp;::-webkit-progress-value]:bg-danger"}},
+		{"95", domain.Slot{Available: true, Used: fp(95), Unit: domain.UnitPercent}, "[&amp;::-webkit-progress-value]:bg-danger", []string{"[&amp;::-webkit-progress-value]:bg-warning"}},
+		{"exhausted", domain.Slot{Available: true, Used: fp(1), Unit: domain.UnitPercent, Status: domain.SlotStatusExhausted}, "[&amp;::-webkit-progress-value]:bg-danger", []string{"[&amp;::-webkit-progress-value]:bg-warning"}},
 	}
 	for _, tt := range tests {
 		html := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: usageWith(domain.UsageOK, tt.slot), Now: now}))
@@ -156,7 +156,7 @@ func TestHostPanel(t *testing.T) {
 		},
 	}
 	html := webtest.Render(t, organisms.HostPanel(organisms.HostPanelProps{Host: h}))
-	webtest.MustContain(t, html, "CPU", "96%", "bg-red-500", "メモリ", "32.3%", "41.3 GB / 128 GB", "スワップ", "なし", "12.3 GB 空き", "bg-amber-500", "/data", "—")
+	webtest.MustContain(t, html, "CPU", "96%", "[&amp;::-webkit-progress-value]:bg-danger", "メモリ", "32.3%", "41.3 GB / 128 GB", "スワップ", "なし", "12.3 GB 空き", "[&amp;::-webkit-progress-value]:bg-warning", "/data", "—")
 	webtest.MustNotContain(t, html, "load")
 	// 表示順: CPU → メモリ → スワップ → ディスク。
 	cpu, mem, swap, disk := strings.Index(html, "CPU"), strings.Index(html, "メモリ"), strings.Index(html, "スワップ"), strings.Index(html, "/data")
@@ -178,9 +178,9 @@ func TestHostPanel_Mem(t *testing.T) {
 	}
 
 	// しきい値色は CPU などと同じ（80 / 95）。
-	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 79.9, UsedPercent: 79.9}), "79.9%", "79.9 GB / 100 GB", "bg-sky-500")
-	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 80, UsedPercent: 80}), "bg-amber-500")
-	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 95, UsedPercent: 95}), "bg-red-500")
+	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 79.9, UsedPercent: 79.9}), "79.9%", "79.9 GB / 100 GB", "[&amp;::-webkit-progress-value]:bg-accent")
+	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 80, UsedPercent: 80}), "[&amp;::-webkit-progress-value]:bg-warning")
+	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 95, UsedPercent: 95}), "[&amp;::-webkit-progress-value]:bg-danger")
 
 	// host.mem が無い（古い swarm-console）・available: false は「メモリ」の行を「—」で出す。ほかの行は崩れない。
 	for _, m := range []domain.Mem{{}, {Available: false, TotalGB: 8, UsedGB: 4, UsedPercent: 50}} {
@@ -234,8 +234,8 @@ func TestPaneGrid_HighlightsOnlyAskingAndStalled(t *testing.T) {
 		{Kind: "report_waiting", Pane: "T3"}, {Kind: "auth_expired", Detail: "claude"},
 	}
 	html := webtest.Render(t, organisms.PaneGrid(organisms.PaneGridProps{Panes: panes, Attention: att}))
-	if strings.Count(html, "ring-amber-400") != 2 {
-		t.Errorf("強調は asking と stalled の 2 枚だけ: %d", strings.Count(html, "ring-amber-400"))
+	if strings.Count(html, "ring-2 ring-warning") != 2 {
+		t.Errorf("強調は asking と stalled の 2 枚だけ: %d", strings.Count(html, "ring-2 ring-warning"))
 	}
 }
 
@@ -264,7 +264,7 @@ func TestAttentionBar_WarningsOnlyAndAttentionOnly(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, organisms.AttentionBar(organisms.AttentionBarProps{Warnings: []domain.Warning{{Code: "tmux_unavailable", Message: "m"}}}))
 	webtest.MustContain(t, html, "m")
-	webtest.MustNotContain(t, html, "divide", "rounded-md border border-slate-700 bg-slate-900 px-3 py-2")
+	webtest.MustNotContain(t, html, "divide", "rounded-lg border border-border bg-surface")
 	html = webtest.Render(t, organisms.AttentionBar(organisms.AttentionBarProps{Attention: []domain.Attention{{Kind: "x_new", Pane: "T1"}}}))
 	webtest.MustContain(t, html, "x_new")
 	webtest.MustNotContain(t, html, `role="alert"`)

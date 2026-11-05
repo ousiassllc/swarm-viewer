@@ -9,11 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -26,6 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ousiassllc.swarmviewer.service.ConnectionItem
 import com.ousiassllc.swarmviewer.ui.NEEDS_REPAIR_LABEL
+import com.ousiassllc.swarmviewer.ui.theme.AppButton
+import com.ousiassllc.swarmviewer.ui.theme.AppCard
+import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 
 /**
  * 接続管理（S1）。保存済み接続の一覧（表示名と URL の host のみ。token は出さない）、切替、削除（確認つき）、
@@ -66,7 +66,7 @@ fun ConnectionsScreen(
                         }
                     }
             }
-            Button(onClick = onAdd, modifier = Modifier.fillMaxWidth()) { Text("接続を追加") }
+            AppButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) { Text("接続を追加") }
         }
     }
 
@@ -88,15 +88,15 @@ private fun ConnectionCard(
     onRepair: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    AppCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(item.name, style = MaterialTheme.typography.titleMedium)
             Text(item.host, style = MaterialTheme.typography.bodyMedium)
             if (item.selected) Text("選択中", color = MaterialTheme.colorScheme.primary)
             if (item.needsRepair) Text(NEEDS_REPAIR_LABEL, color = MaterialTheme.colorScheme.error)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (!item.selected) OutlinedButton(onClick = onSelect) { Text("切り替える") }
-                if (item.needsRepair) Button(onClick = onRepair) { Text("再ペアリング") }
+                if (!item.selected) AppOutlinedButton(onClick = onSelect) { Text("切り替える") }
+                if (item.needsRepair) AppButton(onClick = onRepair) { Text("再ペアリング") }
                 TextButton(onClick = onDelete) { Text("削除") }
             }
         }

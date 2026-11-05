@@ -16,6 +16,8 @@ type ConnectionListProps struct {
 	Connections []domain.Connection
 	// CurrentID は表示中の接続 ID。空なら印を付けない。
 	CurrentID string
+	// Error は一覧の上に出すインラインアラートの固定文言（削除失敗など）。空なら出さない。
+	Error string
 }
 
 func deleteConfirm(name string) string {
@@ -24,16 +26,19 @@ func deleteConfirm(name string) string {
 
 // ConnectionList は保存済み接続の一覧（表示名・host・切替・削除）。削除は hx-confirm で確認する。
 templ ConnectionList(p ConnectionListProps) {
-	<div id={ ConnectionListID }>
+	<div id={ ConnectionListID } class="flex flex-col gap-4">
+		if p.Error != "" {
+			@atoms.Alert(p.Error)
+		}
 		if len(p.Connections) == 0 {
-			<p class="text-sm text-slate-400">保存済みの接続はありません</p>
+			<p class="text-sm text-ink">保存済みの接続はありません</p>
 		} else {
-			<ul class="flex flex-col divide-y divide-slate-700 rounded-lg border border-slate-700 bg-slate-900">
+			<ul class="flex flex-col divide-y divide-border rounded-lg border border-border bg-surface">
 				for _, c := range p.Connections {
-					<li class="flex items-center gap-3 px-3 py-2">
+					<li class="flex items-center gap-3 px-4 py-3">
 						<div class="min-w-0 flex-1">
-							<p class="truncate text-sm font-medium text-slate-100" title={ c.Name }>{ c.Name }</p>
-							<p class="truncate font-mono text-xs text-slate-400">{ c.Host() }</p>
+							<p class="truncate text-sm text-ink" title={ c.Name }>{ c.Name }</p>
+							<p class="truncate font-mono text-xs text-mute">{ c.Host() }</p>
 						</div>
 						if c.ID == p.CurrentID {
 							@atoms.Badge(atoms.BadgeProps{Text: "表示中", Tone: format.ToneAccent})

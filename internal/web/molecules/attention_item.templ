@@ -29,13 +29,13 @@ templ AttentionItem(p AttentionItemProps) {
 	<li class="flex min-w-0 items-center gap-2 text-sm">
 		@atoms.Badge(atoms.BadgeProps{Text: format.AttentionLabel(p.Attention.Kind), Tone: format.AttentionTone(p.Attention.Kind)})
 		if p.Attention.Pane != "" {
-			<span class="font-mono text-xs text-slate-300">{ p.Attention.Pane }</span>
+			<span class="font-mono text-xs text-ink">{ p.Attention.Pane }</span>
 		}
 		if d := attentionDetail(p.Attention); d != "" {
-			<span class="truncate text-slate-300" title={ d }>{ d }</span>
+			<span class="truncate text-ink" title={ d }>{ d }</span>
 		}
 		if !p.AuthExpiresAt.IsZero() {
-			<span class="text-xs text-slate-400">{ "期限 " + format.DateTimeWithYear(p.AuthExpiresAt) }</span>
+			<span class="text-xs text-mute">{ "期限 " + format.DateTimeWithYear(p.AuthExpiresAt) }</span>
 		}
 	</li>
 }

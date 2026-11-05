@@ -9,12 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -27,6 +23,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ousiassllc.swarmviewer.service.PairingDraft
+import com.ousiassllc.swarmviewer.ui.theme.AppButton
+import com.ousiassllc.swarmviewer.ui.theme.AppCard
+import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
+import com.ousiassllc.swarmviewer.ui.theme.AppTextField
 
 /**
  * ペアリング画面。貼り付け欄（伏せ字。token を含むため画面に出さない）と「QR を読み取る」から入り、
@@ -84,18 +84,18 @@ private fun PasteSection(
     onScan: () -> Unit,
 ) {
     Text("swarm-console の接続文字列（swarm-viewer://pair?…）を貼り付けるか、QR を読み取ってください。")
-    OutlinedTextField(
+    AppTextField(
         value = input,
         onValueChange = onInputChange,
-        label = { Text("接続文字列") },
+        label = "接続文字列",
         // token を含むため伏せ字にし、キーボードの学習・候補に残さない。
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )
-    Button(onClick = onSubmit, enabled = input.isNotBlank() && !busy, modifier = Modifier.fillMaxWidth()) { Text("接続") }
-    OutlinedButton(onClick = onScan, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("QR を読み取る") }
+    AppButton(onClick = onSubmit, enabled = input.isNotBlank() && !busy, modifier = Modifier.fillMaxWidth()) { Text("接続") }
+    AppOutlinedButton(onClick = onScan, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("QR を読み取る") }
 }
 
 @Composable
@@ -105,8 +105,8 @@ private fun ConfirmSection(
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    AppCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("この接続先に接続します", style = MaterialTheme.typography.titleMedium)
             Text("表示名: ${draft.name}")
             Text("接続先: ${draft.host}")
@@ -114,6 +114,6 @@ private fun ConfirmSection(
             if (draft.replacesExisting) Text("同じ接続先が保存済みです。token を差し替えます。")
         }
     }
-    Button(onClick = onConfirm, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(if (busy) "確認中…" else "接続") }
-    OutlinedButton(onClick = onCancel, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("キャンセル") }
+    AppButton(onClick = onConfirm, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(if (busy) "確認中…" else "接続") }
+    AppOutlinedButton(onClick = onCancel, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("キャンセル") }
 }

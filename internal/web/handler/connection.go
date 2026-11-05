@@ -44,7 +44,8 @@ func (h *Handler) connections(c *gin.Context) {
 	h.view(c, "接続管理", func(s layout.BaseProps) templ.Component { return pages.ConnectionsPage(s, p) }, pages.ConnectionsContent(p))
 }
 
-// deleteConnection は `DELETE /connections/{cid}`。接続を消し（SQLite → 秘密領域）、一覧フラグメントとトースト OOB を返す。
+// deleteConnection は `DELETE /connections/{cid}`。接続を消し（SQLite → 秘密領域）、一覧フラグメントと成功トースト OOB を返す。
+// 失敗したときはトーストを付けず、一覧にインラインアラートを載せて返す。
 // 最後に使った接続だった場合は settings.last_connection_id を空に戻す（次回は先頭の接続を開く）。
 func (h *Handler) deleteConnection(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -52,10 +53,9 @@ func (h *Handler) deleteConnection(c *gin.Context) {
 	if !ok {
 		return
 	}
-	toast := atoms.ToastProps{Kind: atoms.ToastSuccess, Message: "接続「" + conn.Name + "」を削除しました"}
-	if err := h.conns.Delete(ctx, conn.ID); err != nil {
-		h.log.Error("deleting connection failed", "connection", conn.Name, "err", err)
-		toast = atoms.ToastProps{Kind: atoms.ToastError, Message: "接続を削除できませんでした"}
+	deleteErr := h.conns.Delete(ctx, conn.ID)
+	if deleteErr != nil {
+		h.log.Error("deleting connection failed", "connection", conn.Name, "err", deleteErr)
 	} else {
 		h.clearLastConnection(c, conn)
 	}
@@ -64,6 +64,13 @@ func (h *Handler) deleteConnection(c *gin.Context) {
 		h.internal(c, "list connections", err)
 		return
 	}
+	if deleteErr != nil {
+		// 失敗はトーストにせず、一覧の上のインラインアラートで示す（トーストはエラー詳細に使わない）。
+		list.Error = "接続を削除できませんでした"
+		h.render(c, http.StatusOK, organisms.ConnectionList(list))
+		return
+	}
+	toast := atoms.ToastProps{Message: "接続「" + conn.Name + "」を削除しました"}
 	h.render(c, http.StatusOK, templ.Join(organisms.ConnectionList(list), atoms.Toast(toast)))
 }
 

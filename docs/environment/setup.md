@@ -74,7 +74,7 @@ swarm-viewer/
 | タスク | 内容 |
 |--------|------|
 | `task setup` | `bun install --frozen-lockfile` → `bunx lefthook install` → `task generate`。clone 直後に 1 回実行する |
-| `task generate` | `go tool templ generate` → Tailwind CLI で `static/dist/css/app.css` を生成（`bunx @tailwindcss/cli -i static/src/css/app.css -o static/dist/css/app.css --minify`）→ htmx（と `response-targets` 拡張）を `node_modules` から、`app.js` を `static/src/js/` から `static/dist/js/` へコピー → Symbols Nerd Font の woff2（コミット済みの `static/src/fonts/`）を `static/dist/fonts/` へコピー |
+| `task generate` | `go tool templ generate` → Tailwind CLI で `static/dist/css/app.css` を生成（`bunx @tailwindcss/cli -i static/src/css/app.css -o static/dist/css/app.css --minify`）→ htmx（と `response-targets` 拡張）を `node_modules` から、`app.js` を `static/src/js/` から `static/dist/js/` へコピー → 同梱フォントの woff2（Sora・Noto Sans JP・JetBrains Mono・Symbols Nerd Font。コミット済みの `static/src/fonts/`）を `static/dist/fonts/` へコピー |
 | `task fmt` | `golangci-lint fmt` → `go tool templ fmt .` → `bunx biome format --write .` |
 | `task lint` | `golangci-lint run ./...` → `go tool templ fmt -fail .` → `bunx biome check .` → `bunx linterly check` |
 | `task test` | `task generate` → `go test ./...` |

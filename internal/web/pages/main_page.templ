@@ -50,7 +50,7 @@ templ MainContent(p MainProps) {
 						href={ templ.SafeURL(paths.Connection(c.ID)) }
 						hx-get={ paths.Connection(c.ID) }
 						hx-target="#main"
-						class="rounded-md bg-slate-800 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700"
+						class="rounded-md border border-border px-2 py-1 text-xs text-ink hover:bg-accent-soft aria-[current=true]:bg-accent-soft"
 						if c.ID == p.Connection.ID {
 							aria-current="true"
 						}

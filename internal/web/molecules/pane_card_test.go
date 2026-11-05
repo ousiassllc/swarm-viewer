@@ -73,9 +73,9 @@ func TestPaneCard_StaleAndHighlightClasses(t *testing.T) {
 	normal := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane}))
 	stale := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane, Stale: true}))
 	hi := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane, Highlight: true}))
-	webtest.MustNotContain(t, normal, "opacity-50", "ring-amber-400")
+	webtest.MustNotContain(t, normal, "opacity-50", "ring-2 ring-warning")
 	webtest.MustContain(t, stale, "opacity-50")
-	webtest.MustContain(t, hi, "ring-amber-400")
+	webtest.MustContain(t, hi, "ring-2 ring-warning")
 }
 
 // title・activity・note は信頼できない入力。HTML として解釈しない（NFR-SEC-10）。
@@ -106,7 +106,7 @@ func TestPaneCard_ReportWaitingBadge(t *testing.T) {
 		t.Error("「報告待ち」は state バッジの後に出る")
 	}
 	// report_waiting は枠色で強調しない（強調は asking / stalled だけ）。
-	webtest.MustNotContain(t, html, "ring-amber-400")
+	webtest.MustNotContain(t, html, "ring-2 ring-warning")
 
 	html = webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane}))
 	webtest.MustContain(t, html, "指示待ち")

@@ -3,15 +3,17 @@ package com.ousiassllc.swarmviewer.ui.main
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScrollableTabRow
@@ -27,13 +29,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ousiassllc.swarmviewer.R
 import com.ousiassllc.swarmviewer.data.store.Snapshot
 import com.ousiassllc.swarmviewer.domain.Report
 import com.ousiassllc.swarmviewer.service.ConnectionItem
 import com.ousiassllc.swarmviewer.ui.NEEDS_REPAIR_LABEL
+import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import java.time.Instant
 
 /**
@@ -73,7 +78,7 @@ fun MainScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             when {
-                state.connections == null -> MutedText("読み込み中…", modifier = Modifier.padding(16.dp))
+                state.connections == null -> NoticeText("読み込み中…", modifier = Modifier.padding(16.dp))
                 state.noConnections -> EmptyConnections(onManageConnections)
                 else -> {
                     SessionTabs(state.sessions, state.session, viewModel::selectSession)
@@ -90,7 +95,7 @@ fun MainScreen(
 private fun EmptyConnections(onManageConnections: () -> Unit) {
     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("接続がありません。接続文字列を貼り付けるか、QR を読み取って追加してください。")
-        Button(onClick = onManageConnections) { Text("接続を追加") }
+        AppButton(onClick = onManageConnections) { Text("接続を追加") }
     }
 }
 
@@ -106,7 +111,12 @@ private fun ConnectionTitle(
         return
     }
     var open by remember { mutableStateOf(false) }
-    TextButton(onClick = { open = true }) { Text("${selected.name} ▾", style = MaterialTheme.typography.titleLarge, maxLines = 1) }
+    TextButton(onClick = { open = true }) {
+        Text(selected.name, style = MaterialTheme.typography.titleLarge, maxLines = 1)
+        Spacer(Modifier.width(4.dp))
+        // Iconoir の nav-arrow-down。色は周囲の文字色（LocalContentColor）に従う。
+        Icon(painterResource(R.drawable.ic_nav_arrow_down), contentDescription = null)
+    }
     DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
         connections.forEach { item ->
             DropdownMenuItem(text = { Text(item.name, maxLines = 1) }, onClick = {
@@ -126,7 +136,13 @@ private fun SessionTabs(
 ) {
     if (sessions.isEmpty()) return
     ScrollableTabRow(selectedTabIndex = sessions.indexOf(selected).coerceAtLeast(0), edgePadding = 8.dp) {
-        sessions.forEach { id -> Tab(selected = id == selected, onClick = { onSelect(id) }, text = { Text(id, maxLines = 1) }) }
+        sessions.forEach { id ->
+            Tab(
+                selected = id == selected,
+                onClick = { onSelect(id) },
+                text = { Text(id, style = MaterialTheme.typography.bodyMedium, maxLines = 1) },
+            )
+        }
     }
 }
 
@@ -151,8 +167,8 @@ private fun MainContent(
                 AttentionBar(report.attention, report.warnings, report.auth, state.stale)
                 PaneSection(report.panes, report.layout, report.attention, state.stale, wide)
             }
-            state.session == null && state.sessionsLoaded && state.failure == null -> MutedText("許可されたセッションがありません")
-            state.refreshing || state.failure == null -> MutedText("取得中…")
+            state.session == null && state.sessionsLoaded && state.failure == null -> NoticeText("許可されたセッションがありません")
+            state.refreshing || state.failure == null -> NoticeText("取得中…")
             else -> Unit
         }
     }
@@ -190,9 +206,9 @@ private fun StatusLine(
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (state.needsRepair) {
             Text(NEEDS_REPAIR_LABEL, color = MaterialTheme.colorScheme.error)
-            Button(onClick = onRepair) { Text("再ペアリング") }
+            AppButton(onClick = onRepair) { Text("再ペアリング") }
         }
-        state.failure?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+        state.failure?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
         if (snapshot != null) {
             val label = if (state.showsPreviousFetch) "前回取得" else "最終更新"
             MutedText("$label ${formatClock(snapshot.fetchedAt)}")

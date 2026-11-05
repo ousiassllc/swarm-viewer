@@ -37,7 +37,7 @@
 | NFR-SEC-6 | HTTP は平文だが、tailnet（WireGuard）の暗号化を前提とする。tailnet 外への送信を許すと token が平文で流れるため NFR-SEC-4 で防ぐ |
 | NFR-SEC-7 | ペアリング用の接続文字列・ディープリンクは token を含む。解析後はメモリ上の値をすぐ破棄し、貼り付け欄の内容を保存・ログ出力しない。ディープリンクは OS のプロセス引数・履歴に残りうるため、README で「発行した接続文字列は再利用しない」ことを案内する |
 | NFR-SEC-8 | トークン削除（切断）時は、秘密領域のエントリと、その接続に紐づく SQLite のレコードを削除する |
-| NFR-SEC-9 | フロントのコンテンツは同梱のローカルアセットのみ。外部 URL の読み込み・リモートスクリプト・インラインスクリプトを許さず、CSP（`default-src 'self'`、`script-src 'self'`、`style-src 'self'`、`connect-src 'self'`。`unsafe-eval`・`unsafe-inline` なし）で絞る。このため HTMX は `<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>` で eval とインラインスタイル注入を止め、eval を要する機能（トリガーフィルタ式、`hx-on:`・`js:` 構文）を使わない。状態変更ルートには CSRF トークンを要求する（`hx-headers` で配布）。フォントは同梱の Symbols Nerd Font（Nerd Fonts v3.5.1 の Symbols Only・Mono、woff2、`unicode-range` は私用領域 PUA だけ）を `/static/fonts/` から配り、それ以外の文字は OS のフォントで描く。CDN からは読まず、CSP の `font-src` は足さない（`default-src 'self'` が効く）。ライセンスは `THIRD_PARTY_NOTICES.md` |
+| NFR-SEC-9 | フロントのコンテンツは同梱のローカルアセットのみ。外部 URL の読み込み・リモートスクリプト・インラインスクリプトを許さず、CSP（`default-src 'self'`、`script-src 'self'`、`style-src 'self'`、`connect-src 'self'`。`unsafe-eval`・`unsafe-inline` なし）で絞る。このため HTMX は `<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>` で eval とインラインスタイル注入を止め、eval を要する機能（トリガーフィルタ式、`hx-on:`・`js:` 構文）を使わない。状態変更ルートには CSRF トークンを要求する（`hx-headers` で配布）。フォントはすべて同梱し、`/static/fonts/` から配る（SIL OFL）。UI の本文は Sora + Noto Sans JP（ウェイトは Regular 400 と SemiBold 600 のみ。Noto Sans JP は JIS X 0208 の全文字・ASCII・半角カナのサブセットで、範囲外の字は OS のフォントで描く）、コードと桁を揃える数値は JetBrains Mono（Regular 400）、ペインタイトルの Nerd Font アイコンは Symbols Nerd Font（Nerd Fonts v3.5.1 の Symbols Only・Mono、`unicode-range` は私用領域 PUA だけ）。いずれも woff2。CDN からは読まず、CSP の `font-src` は足さない（`default-src 'self'` が効く）。ライセンスは `THIRD_PARTY_NOTICES.md` |
 | NFR-SEC-10 | ツール応答の表示は常にテキストとして描画し、HTML としては解釈しない（`title`・`activity`・`note` は信頼できない入力として扱う） |
 | NFR-SEC-11 | ログに token を出さない。URL は host のみを記録し、完全な URL・クエリは出さない |
 
@@ -178,6 +178,30 @@ Android に**適用しない**デスクトップ版の要件: NFR-ENV-1・NFR-EN
 | NFR-AND-QLT-3 | `./gradlew lint ktlintCheck test` がクリーンに通る（Android Lint は警告もエラー扱い）。ポーリング・ワーカーのテストは固定時間の待ちに頼らない（NFR-QLT-3） |
 | NFR-AND-QLT-4 | 実機でしか確認できない項目（cleartext・Keystore・QR・Doze・Tailscale・折りたたみ・再起動後の再開）は、[アーキテクチャ設計 §11](../architecture/overview.md) #8〜#15 に未確認として残し、確認後に確定する |
 
+## 11. Ousiass デザインガイド準拠
+
+Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](https://ousiassllc.github.io/brand-guide/)、確認日 2026-11-05）に従う。ガイドと食い違ったらガイドが正で、下の逸脱だけを承認済みとする。
+
+| ID | 要件 |
+|----|------|
+| NFR-DSG-1 | 色はガイドのトークン（`--ink` `--bone` `--mute` `--surface` `--border` `--accent` `--accent-soft` `--focus` と状態色 `--success` `--warning` `--danger` `--info`）だけを使う。Web は `static/src/css/app.css` に定義し、Tailwind の既定パレットは無効にする。Android は `ui/theme/` の ColorScheme と状態色で持つ。独自の色・ハードコードの色を足さない |
+| NFR-DSG-2 | ライト / ダークはシステムの設定に追従する（Web は `prefers-color-scheme`、Android はシステムテーマ）。手動の切替 UI は持たない |
+| NFR-DSG-3 | フォントは NFR-SEC-9 のとおり同梱する。SemiBold は見出しとボタンだけに使い、Medium・Bold を使わない。本文は 14px 以上（説明・警告・エラーの文章を 12px にしない）。12px はバッジ・日時・ペイン番号などのキャプションだけ |
+| NFR-DSG-4 | 主操作・リンク・選択中タブはインク色（`--accent`）で、青などのアクセント色を使わない。`working` と `report_waiting` は無彩色で、状態はラベルで区別する。フォーカスは `--focus` の 2px（offset 2）、入力欄は `--focus` の 40% のリング |
+| NFR-DSG-5 | トーストは画面下中央・端から 24px・高さ 40・ピル・1 行の短文・3 秒で消え・同時に 1 つ。エラー（削除失敗など）はトーストにせず、インラインアラートで示す |
+| NFR-DSG-6 | モーションはガイドのトークン（出現 320ms ease-out、退出 240ms ease-in）。`prefers-reduced-motion: reduce` ではフェードを付けない（スピナーの回転は処理中表示のため維持する） |
+
+承認済みの逸脱（ガイドの値と異なるが、プロダクト固有の理由で維持するもの）:
+
+| 箇所 | 逸脱 | 理由 |
+|------|------|------|
+| 要対応ペインの強調（`ring-warning`、Android は 2dp の warning 枠） | ガイドに部品がない | 状態色（`--warning`）だけで組み、ガイドの追加提案を別途出す |
+| 古いデータのグレーアウト（`opacity-50 grayscale`、Android は `alpha`） | ガイドに規定がない | 状態を示す表示で、色だけに頼らず文言（「古いデータ」）を併記する |
+| 使用率バーのしきい値色（`warning` / `danger`） | ガイドの進捗は `--accent` 1 色 | 80% / 95% の警告を色で示す。数値と文言を併記する |
+| Nerd Font の PUA 用フォント | ガイドに「ユーザーデータ内の記号」の規定がない | ペインタイトルのアイコン（UI アイコンではない）。UI アイコンは Iconoir |
+| 状態色バッジ・警告帯のコントラスト（ライトの warning 文字は背景上 4:1 前後） | AA（4.5:1）未満 | ガイドのトークン値のまま使う。文言と併記しており色だけに頼らない。値の見直しはガイド側の課題 |
+| Android の `DropdownMenu` / `ScrollableTabRow` / `TopAppBar`（Material 部品） | ガイドのメニュー・タブ・ナビの仕様と形が違う | 色・文字・角丸・余白はトークンに揃え、形の差は案件ガイドの課題とする |
+
 ## 改訂履歴
 
 | 版 | 日付 | 変更内容 | 変更理由 |
@@ -190,3 +214,4 @@ Android に**適用しない**デスクトップ版の要件: NFR-ENV-1・NFR-EN
 | 1.5 | 2026-11-04 | NFR-DST-1 に配布物の形式（NSIS `.exe`・`.app` の zip・ユニバーサル）と `SHA256SUMS` を明記 | Issue #3（release.yml による配布の追加） |
 | 1.6 | 2026-11-05 | NFR-SEC-9 に、フォントは同梱の Symbols Nerd Font（PUA のみ）で、それ以外は OS のフォントと明記 | Issue #9（ペインタイトルの Nerd Font アイコンの表示） |
 | 1.7 | 2026-11-05 | §10「Android 版」を追加（NFR-AND-*）。最小 Android 10、cleartext のアプリ全体許可と URL 検証、Keystore、バックアップ除外、署名済み APK の配布 | Issue #15（Android 版の仕様書への反映） |
+| 1.8 | 2026-11-05 | NFR-SEC-9 のフォントを、ガイド指定の Sora・Noto Sans JP・JetBrains Mono の同梱（OS のフォントに頼らない）に改訂。§11「Ousiass デザインガイド準拠」を追加 | Issue #30（デザインガイド準拠。フォント同梱の承認済み） |

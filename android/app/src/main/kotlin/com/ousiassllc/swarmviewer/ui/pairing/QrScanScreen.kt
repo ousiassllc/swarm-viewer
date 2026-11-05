@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -40,6 +39,7 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -72,7 +72,7 @@ fun QrScanScreen(
         CameraPermission.Denied ->
             Centered {
                 Text("カメラの許可がないため、QR を読み取れません。接続文字列を貼り付けて接続してください。")
-                Button(onClick = onBack) { Text("貼り付けに戻る") }
+                AppButton(onClick = onBack) { Text("貼り付けに戻る") }
             }
     }
 }
@@ -139,7 +139,7 @@ private fun ScannerView(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text("接続文字列の QR コードを枠に映してください")
-            Button(onClick = onBack) { Text("貼り付けに戻る") }
+            AppButton(onClick = onBack) { Text("貼り付けに戻る") }
         }
     }
 }

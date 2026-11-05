@@ -80,7 +80,7 @@ func (h *Handler) settingsUpdate(c *gin.Context) {
 	}
 	h.render(c, http.StatusOK, templ.Join(
 		organisms.SettingsForm(h.settingsForm(st, "")),
-		atoms.Toast(atoms.ToastProps{Kind: atoms.ToastSuccess, Message: "設定を保存しました"}),
+		atoms.Toast(atoms.ToastProps{Message: "設定を保存しました"}),
 	))
 }
 

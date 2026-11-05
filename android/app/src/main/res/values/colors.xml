@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ページ背景（Ousiass デザインガイドの bone）。ダークは values-night。 -->
+    <color name="bone">#F5F5F4</color>
+</resources>

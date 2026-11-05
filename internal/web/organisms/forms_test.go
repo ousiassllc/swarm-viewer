@@ -77,9 +77,9 @@ func TestSettingsForm_DebugOnNotifyOffAndPermissions(t *testing.T) {
 	webtest.MustContain(t, html, "設定を保存できません", `role="alert"`)
 	// Granted・Unknown は許可状態の <p> を出さない（Denied のときだけ案内を出す）。
 	const deniedText = "OS が通知を許可していません。OS の設定で許可してください"
-	webtest.MustNotContain(t, html, deniedText, "OS の通知", "text-slate-400")
+	webtest.MustNotContain(t, html, deniedText, "OS の通知")
 	unknown := webtest.Render(t, organisms.SettingsForm(organisms.SettingsFormProps{Settings: domain.DefaultSettings()}))
-	webtest.MustNotContain(t, unknown, deniedText, "OS の通知", "text-slate-400")
+	webtest.MustNotContain(t, unknown, deniedText, "OS の通知")
 	denied := webtest.Render(t, organisms.SettingsForm(organisms.SettingsFormProps{Settings: domain.DefaultSettings(), Permission: organisms.NotifyPermissionDenied}))
 	webtest.MustContain(t, denied, deniedText)
 }

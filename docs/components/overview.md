@@ -397,7 +397,7 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 | atoms | `Badge` | `Text`・`Tone` | エージェント種別・状態・要対応 |
 | atoms | `ProgressBar` | `Percent`・`Tone` | 利用上限・ホスト負荷 |
 | atoms | `Spinner` | `Size` | `hx-indicator` 用 |
-| atoms | `Toast` | `Kind`・`Message` | OOB 用 |
+| atoms | `Toast` | `Message` | OOB 用。1 行の短文（エラー詳細には使わず、`Alert` かインラインアラートを使う） |
 | atoms | `Button` / `Input` | 通常の属性 | |
 | molecules | `PaneCard` | `Pane`・`Stale`・`Highlight`・`ReportWaiting` | 状態ラベル・activity・note 要約。`ReportWaiting` は state バッジの隣に「報告待ち」を出す。操作ボタンは**持たない** |
 | molecules | `UsageRow` | `Label`・`Slot` | `unit` で percent / usd を出し分け。`available: false` は「—」 |
@@ -410,7 +410,7 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 | organisms | `HostPanel` | `Host` | |
 | organisms | `AttentionBar` | `[]Attention`・`[]Warning`・`Auth` | ペイン関連とログイン関連の 2 グループに分け、グループ間とエージェントごとに区切り線を入れる（[機能要件 §7](../requirements/functional.md)） |
 | organisms | `SnapshotView` | `SnapshotResult`・`PollSeconds`・`Repair` | ポーリング属性（`hx-trigger`）を出す／出さないの判断を含む |
-| organisms | `ConnectionList` | `[]Connection` | |
+| organisms | `ConnectionList` | `[]Connection`・`Error` | `Error` があれば一覧の上にインラインアラートを出す（削除失敗） |
 | pages | `MainPage` | 接続・タブ・スナップショット | |
 | pages | `PairingPage` / `PairingDraftPage` / `ConnectionsPage` / `SettingsPage` / `NoSessionsPage` / `DraftExpiredPage` / `RecoveryPage`（DB 破損時） | | |
 | layout | `Base` | `Title`・`CSRFToken` | `<head>`（CSP は HTTP ヘッダで付与。`htmx-config` の meta を含む）、`<body hx-headers='{"X-CSRF-Token":"…"}'>`、`htmx.min.js`・`app.js`・`app.css` を読み込む |
