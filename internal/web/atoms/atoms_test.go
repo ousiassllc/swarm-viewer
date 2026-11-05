@@ -44,6 +44,9 @@ func TestToast(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, atoms.Toast(atoms.ToastProps{Message: "保存しました"}))
 	webtest.MustContain(t, html, `id="toasts"`, `hx-swap-oob="true"`, `role="status"`, "保存しました", "fade-in")
+	// ガイドの見本は高さ 40・左右 18px（S2）。
+	webtest.MustContain(t, html, "h-10", "px-[18px]", "rounded-full")
+	webtest.MustNotContain(t, html, "px-6")
 }
 
 // Alert は種類ごとにアイコン（装飾の svg）・文言・色を持ち、本文はエスケープされる（ガイド C4）。

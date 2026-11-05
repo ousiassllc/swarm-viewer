@@ -191,7 +191,7 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | NFR-DSG-5 | トーストは画面下中央・端から 24px・高さ 40・ピル・1 行の短文・3 秒で消え・同時に 1 つ。エラー（削除失敗など）はトーストにせず、インラインアラートで示す |
 | NFR-DSG-6 | モーションはガイドのトークン（出現 320ms ease-out、退出 240ms ease-in）。`prefers-reduced-motion: reduce` ではフェードを付けない（スピナーの回転は処理中表示のため維持する）。トースト・インラインアラートは出現でフェードイン、トーストは退出でフェードアウトする。ボタンの押下は小さなリップル（280ms ease-out）。Android は Compose の既定のアニメーション（ボタンのリップルを含む）に任せ、独自のモーションは持たない |
 | NFR-DSG-7 | 状態は色だけでなくアイコン（Iconoir）と文言で伝える。インラインアラート（エラー・警告・お知らせ・成功）は Web の `atoms.Alert`、Android の `AppAlert` に統一する。形はガイドの見本どおり、surface 地・1px の border・左 3px の状態色・角丸 `--r-md`・文字は `--ink`（状態色はアイコンと左の帯だけ）。`--mute` は補助テキスト・キャプションだけに使い、情報の文字（バッジの文字など）には使わない |
-| NFR-DSG-8 | 確認・破壊的操作（接続の削除・保存データの初期化・接続の追加の確認）は中央モーダルで取る。Web はネイティブ `<dialog>`（`--r-xl`・`--shadow-modal`・スクラムは外側クリックで閉じてフェードする）、Android は `AlertDialog`。`window.confirm`・全画面ページでの確認を使わない。確定の危険な操作のボタンは `--danger`（Web は `ButtonDanger`、Android は `AppDangerTextButton`） |
+| NFR-DSG-8 | 確認・破壊的操作（接続の削除・保存データの初期化・接続の追加の確認）は中央モーダルで取る。Web はネイティブ `<dialog>`（`--r-xl`・`--shadow-modal`・スクラムは外側クリックで閉じてフェードする）、Android は `AppDialog`（`BasicAlertDialog` に面・1dp の border・`extraLarge`・1dp の影を組んだもの。Material の `AlertDialog` は枠も影もないので使わない）。`window.confirm`・全画面ページでの確認を使わない。確定の危険な操作のボタンは `--danger`（Web は `ButtonDanger`、Android は `AppDangerTextButton`） |
 
 承認済みの逸脱（ガイドの値と異なるが、プロダクト固有の理由で維持するもの）:
 
@@ -225,3 +225,4 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | 2.2 | 2026-11-05 | §11 に NFR-DSG-8（確認はモーダル・危険ボタン）を追加 | Issue #37（デザインガイド O1・O2・O7） |
 | 2.3 | 2026-11-05 | §11 の承認済みの逸脱に「1 文で足りるインラインアラートは見出しなし」を追加 | Issue #42（デザインガイド O8） |
 | 2.4 | 2026-11-05 | NFR-DSG-7 にインラインアラートの形（surface 地・左 3px の状態色・文字は ink）を明記し、承認済みの逸脱から「警告帯のコントラスト」を外した | Issue #46（デザインガイド O8） |
+| 2.5 | 2026-11-05 | NFR-DSG-8 の Android の確認を `AppDialog`（枠・影つき）に改訂 | Issue #50（デザインガイド S3） |

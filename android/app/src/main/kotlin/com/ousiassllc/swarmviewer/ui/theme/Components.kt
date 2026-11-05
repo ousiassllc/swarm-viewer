@@ -4,20 +4,26 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -55,6 +61,50 @@ fun AppCard(
         border = BorderStroke(borderWidth, borderColor),
         content = content,
     )
+}
+
+/** 確認ダイアログの幅（Material の AlertDialog の下限・上限と同じ）。 */
+private val DialogMinWidth = 280.dp
+private val DialogMaxWidth = 560.dp
+
+/**
+ * 確認ダイアログ（ガイド O2）: surface の面・1dp の border・角丸 16dp（r-xl）・影は 1dp（`--shadow-modal`。影はモーダルだけ）。
+ * Material の `AlertDialog` は枠も影も持たないため、`BasicAlertDialog` に面を組んで置き換える。
+ * ボタンは `dismissButton`・`confirmButton` の順に右寄せで並べる。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppDialog(
+    onDismissRequest: () -> Unit,
+    title: @Composable () -> Unit,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: @Composable () -> Unit,
+    text: @Composable () -> Unit,
+) {
+    BasicAlertDialog(onDismissRequest = onDismissRequest) {
+        Surface(
+            modifier = Modifier.widthIn(min = DialogMinWidth, max = DialogMaxWidth),
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            tonalElevation = 0.dp,
+            shadowElevation = 1.dp,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        ) {
+            Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                ProvideTextStyle(MaterialTheme.typography.titleLarge) { title() }
+                ProvideTextStyle(MaterialTheme.typography.bodyMedium) { text() }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    dismissButton()
+                    confirmButton()
+                }
+            }
+        }
+    }
 }
 
 /** 無効のときの不透明度（ガイド O7: disabled は opacity .4。Web の `disabled:opacity-40`）。 */

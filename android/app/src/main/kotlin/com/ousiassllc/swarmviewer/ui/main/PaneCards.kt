@@ -43,12 +43,13 @@ fun PaneSection(
         return
     }
     val rows = if (wide) gridRows(layout, panes) else null
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    // ペインカード同士の間隔は 12dp（ガイドのグリッド密 `--gap-grid-dense`。Web の `PaneGrid` の `gap-3`）。
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (rows == null) {
             panes.forEach { PaneCard(it, attention, stale, Modifier.fillMaxWidth()) }
         } else {
             rows.forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     row.forEach { PaneCard(it, attention, stale, Modifier.weight(1f)) }
                 }
             }
