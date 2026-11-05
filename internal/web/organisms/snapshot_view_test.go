@@ -110,7 +110,7 @@ func TestSnapshotView_UnauthorizedStopsPollingAndOffersRepair(t *testing.T) {
 		p.Err = &domain.FetchError{Kind: kind}
 		html := webtest.Render(t, organisms.SnapshotView(p))
 		webtest.MustNotContain(t, html, "hx-trigger", "hx-sync", "次回再試行")
-		webtest.MustContain(t, html, `href="/pairing"`, "再ペアリング", "前回取得 11:58")
+		webtest.MustContain(t, html, `href="/pairing"`, "再ペアリング", "前回取得 11:58", `class="text-link hover-fade text-ink"`)
 	}
 }
 

@@ -140,7 +140,7 @@ templ SnapshotStatus(p SnapshotViewProps) {
 }
 
 templ repairLink() {
-	<a href={ templ.SafeURL(paths.Pairing) } hx-get={ paths.Pairing } hx-target="#main" class="text-ink underline decoration-mute underline-offset-2">再ペアリング</a>
+	<a href={ templ.SafeURL(paths.Pairing) } hx-get={ paths.Pairing } hx-target="#main" class="text-link hover-fade text-ink">再ペアリング</a>
 }
 
 // SnapshotBanner は取得失敗・前回値表示のバナー本体。Fresh のとき、および初回の読み込み中（isLoading）は何も描画しない。

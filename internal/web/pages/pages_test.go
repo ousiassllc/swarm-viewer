@@ -59,6 +59,16 @@ func TestMainPage_HoverableLinksFadeColors(t *testing.T) {
 	}
 }
 
+// ナビのテキストリンクは共通の .text-link（下線 --mute・3px・ホバーは下線の色だけ。ガイド O7）で、ホバーの面（bg-accent-soft）を持たない。
+func TestMainPage_NavLinksAreTextLinks(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, pages.MainPage(shell, mainProps()))
+	if n := strings.Count(html, `class="text-link hover-fade text-sm text-ink"`); n != 2 {
+		t.Errorf("ナビのテキストリンク（接続・設定）が 2 本のはず（%d 本）:\n%s", n, html)
+	}
+	webtest.MustNotContain(t, html, "underline-offset-2", "decoration-mute", `text-ink underline`)
+}
+
 func TestMainContent_SingleConnectionHasNoSwitcher(t *testing.T) {
 	t.Parallel()
 	p := mainProps()
