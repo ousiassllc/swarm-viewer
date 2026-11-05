@@ -71,7 +71,7 @@ func TestPairingPage(t *testing.T) {
 	html := webtest.Render(t, pages.PairingPage(shell, pages.PairingProps{HasConnections: true}))
 	webtest.MustContain(t, html, `id="pairing-form"`, `hx-post="/pairing"`, "保存済みの接続", "<html")
 	webtest.MustContain(t, html, "<summary", "注意", "<details", "発行した接続文字列は再利用しないでください。", "の出力を貼り付けてください。")
-	if !strings.Contains(html, "<summary class=\"cursor-pointer\">注意</summary>") || strings.Index(html, "<details") > strings.Index(html, "発行した接続文字列は再利用しないでください。") {
+	if !strings.Contains(html, "<summary>注意</summary>") || strings.Index(html, "<details") > strings.Index(html, "発行した接続文字列は再利用しないでください。") {
 		t.Error("再利用の注意は <details> の中にある")
 	}
 	webtest.MustNotContain(t, html, "が出力した接続文字列を貼り付けてください")

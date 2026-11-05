@@ -104,7 +104,7 @@ templ SnapshotRegion(p SnapshotViewProps) {
 	>
 		if p.isLoading() {
 			<div class="flex items-center gap-2 text-sm text-ink">
-				@atoms.Spinner(atoms.SpinnerProps{Size: atoms.SpinnerSmall})
+				@atoms.Spinner(atoms.SpinnerProps{})
 				<span role="status">{ emptyMessage(p) }</span>
 			</div>
 		} else if p.isEmpty() {
@@ -147,11 +147,11 @@ templ repairLink() {
 // 失敗種別の固定文言（swarm-console の message は出さない）に「最終更新 HH:MM」「次回再試行 N 秒後」を併記する。
 templ SnapshotBanner(p SnapshotViewProps) {
 	if !p.Fresh && !p.isLoading() {
-		@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: statusMessage(p), Attrs: templ.Attributes{"data-error-kind": errKind(p.Err)}}) {
+		@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Title: statusMessage(p), Attrs: templ.Attributes{"data-error-kind": errKind(p.Err)}}) {
 			<p>{ format.JoinNonEmpty(" / ", lastFetched(p), nextRetry(p)) }</p>
 			if p.Err != nil && p.Err.Code != "" {
 				<details>
-					<summary class="cursor-pointer">詳細</summary>
+					<summary>詳細</summary>
 					<code class="font-mono">{ p.Err.Code }</code>
 				</details>
 			}

@@ -83,7 +83,7 @@ templ SettingsForm(p SettingsFormProps) {
 		}
 		<div class="flex items-center gap-2">
 			@atoms.Button(atoms.ButtonProps{Label: "保存", Type: "submit", Variant: atoms.ButtonPrimary})
-			@atoms.Spinner(atoms.SpinnerProps{ID: "settings-spinner", Size: atoms.SpinnerSmall})
+			@atoms.Spinner(atoms.SpinnerProps{ID: "settings-spinner"})
 		</div>
 	</form>
 }

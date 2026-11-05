@@ -60,7 +60,10 @@ fun AppCard(
     )
 }
 
-/** 主ボタン（ガイド）: accent（ink 自身）の面・角丸 8dp（r-md）。文字は SemiBold（labelLarge）。 */
+/** 無効のときの不透明度（ガイド O7: disabled は opacity .4。Web の `disabled:opacity-40`）。 */
+private const val DISABLED_ALPHA = 0.4f
+
+/** 主ボタン（ガイド）: accent（ink 自身）の面・角丸 8dp（r-md）。文字は SemiBold（labelLarge）。無効のときは面も文字も不透明度 .4（O7）。 */
 @Composable
 fun AppButton(
     onClick: () -> Unit,
@@ -68,10 +71,22 @@ fun AppButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit,
 ) {
-    Button(onClick = onClick, modifier = modifier, enabled = enabled, shape = MaterialTheme.shapes.medium, content = content)
+    val scheme = MaterialTheme.colorScheme
+    Button(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        shape = MaterialTheme.shapes.medium,
+        colors =
+            ButtonDefaults.buttonColors(
+                disabledContainerColor = scheme.primary.copy(alpha = DISABLED_ALPHA),
+                disabledContentColor = scheme.onPrimary.copy(alpha = DISABLED_ALPHA),
+            ),
+        content = content,
+    )
 }
 
-/** 副ボタン（ガイド）: 枠だけ・角丸 8dp（r-md）。 */
+/** 副ボタン（ガイド）: 枠だけ・角丸 8dp（r-md）。無効のときは文字も枠も不透明度 .4（O7）。 */
 @Composable
 fun AppOutlinedButton(
     onClick: () -> Unit,
@@ -79,7 +94,16 @@ fun AppOutlinedButton(
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit,
 ) {
-    OutlinedButton(onClick = onClick, modifier = modifier, enabled = enabled, shape = MaterialTheme.shapes.medium, content = content)
+    val scheme = MaterialTheme.colorScheme
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        shape = MaterialTheme.shapes.medium,
+        colors = ButtonDefaults.outlinedButtonColors(disabledContentColor = scheme.primary.copy(alpha = DISABLED_ALPHA)),
+        border = BorderStroke(1.dp, if (enabled) scheme.outline else scheme.outline.copy(alpha = DISABLED_ALPHA)),
+        content = content,
+    )
 }
 
 /** 危険なテキストボタン（ガイド O7）: 文字を状態色の danger にする。削除など取り返しのつかない操作の確定・起点に使い、カード上で塗りつぶしを増やさない。 */
@@ -154,7 +178,8 @@ private fun AlertKind.iconRes(): Int =
 
 /**
  * インラインアラート（ガイド C4）: 状態色の枠と薄い地・Iconoir のアイコン＋文言。状態は色だけでなくアイコンと文言でも伝える。
- * [message] は信頼できない入力でもテキストとして描画する。続けて操作などを載せるときは [content] に書く。
+ * [title] は見出し（SemiBold・14sp）で、あれば [message] の前に出す（空なら出さない）。1 文で足りるときは [message] だけでよい。
+ * [title]・[message] は信頼できない入力でもテキストとして描画する。続けて操作などを載せるときは [content] に書く。
  * 出現は読み上げに通知する（Web の `role="alert"` / `role="status"` に当たる）。
  */
 @Composable
@@ -162,6 +187,7 @@ fun AppAlert(
     message: String,
     modifier: Modifier = Modifier,
     kind: AlertKind = AlertKind.Danger,
+    title: String = "",
     content: @Composable ColumnScope.() -> Unit = {},
 ) {
     val color = kind.color()
@@ -178,7 +204,8 @@ fun AppAlert(
         ) {
             Icon(painterResource(kind.iconRes()), contentDescription = null, modifier = Modifier.padding(top = 2.dp))
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(message, style = MaterialTheme.typography.bodyMedium)
+                if (title.isNotEmpty()) Text(title, style = MaterialTheme.typography.titleSmall)
+                if (message.isNotEmpty()) Text(message, style = MaterialTheme.typography.bodyMedium)
                 content()
             }
         }

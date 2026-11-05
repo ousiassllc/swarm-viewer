@@ -30,7 +30,7 @@ templ PairingContent(p PairingProps) {
 	@pageTitle("接続を追加")
 	<p class="text-sm text-ink"><code class="font-mono">swarm-console pair</code> の出力を貼り付けてください。</p>
 	<details class="text-sm text-ink">
-		<summary class="cursor-pointer">注意</summary>
+		<summary>注意</summary>
 		発行した接続文字列は再利用しないでください。
 	</details>
 	<div id={ organisms.PairingFormID }>
@@ -99,7 +99,7 @@ templ PairingDraftContent(p DraftProps) {
 				@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: p.Error})
 			}
 			<div class="flex items-center justify-end gap-2">
-				@atoms.Spinner(atoms.SpinnerProps{ID: "draft-spinner", Size: atoms.SpinnerSmall})
+				@atoms.Spinner(atoms.SpinnerProps{ID: "draft-spinner"})
 				@atoms.Button(atoms.ButtonProps{Label: "破棄", Attrs: templ.Attributes{
 					"id":              DraftDiscardID,
 					"hx-post":         paths.DraftDiscard(p.DraftID),

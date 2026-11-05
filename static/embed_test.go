@@ -109,6 +109,23 @@ func TestAppCSS_FontFaceIsSelfHosted(t *testing.T) {
 	}
 }
 
+// アコーディオン（<details>）は summary を SemiBold にし、ブラウザ既定の三角を消して CSS のシェブロンを付ける（ガイド §7）。
+// シェブロンは CSP（default-src 'self'）で data: URI の画像を使えないので、枠線の回転で描く。
+func TestAppCSS_Accordion(t *testing.T) {
+	t.Parallel()
+
+	data, err := fs.ReadFile(static.FS(), "css/app.css")
+	if err != nil {
+		t.Fatalf("css/app.css を読めない（先に task generate を実行する）: %v", err)
+	}
+	css := string(data)
+	for _, want := range []string{"details>summary{", "font-weight:600", "list-style:none", "details>summary::-webkit-details-marker{display:none}", "details>summary:before{", "details[open]>summary:before{transform:rotate(45deg)}"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("app.css に %q が無い", want)
+		}
+	}
+}
+
 // app.js は CSP（unsafe-eval なし）の下で動く必要があるため eval 系を含まない。
 func TestAppJS_NoEval(t *testing.T) {
 	t.Parallel()

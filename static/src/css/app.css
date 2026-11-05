@@ -126,6 +126,46 @@
 }
 
 /*
+ * アコーディオン（ガイド §7）: ネイティブ <details>・summary は SemiBold・開閉のシェブロンは CSS で描く。
+ * 三角のマーカーは消す。画像・data: URI は CSP（default-src 'self'）で使えないので、シェブロンは枠線の回転で作る。
+ * 閉じているときは右向き、開いているときは下向き。reduced-motion では回転を即時にする。
+ */
+@layer components {
+  details > summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+  }
+
+  details > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  details > summary::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-right: 2px solid currentcolor;
+    border-bottom: 2px solid currentcolor;
+    transform: rotate(-45deg);
+    transition: transform var(--motion-base) var(--ease-in-out);
+  }
+
+  details[open] > summary::before {
+    transform: rotate(45deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    details > summary::before {
+      transition: none;
+    }
+  }
+}
+
+/*
  * フォーカスリング: 2px solid --focus・offset 2（ガイド C3）。
  * 入力欄・select は atoms.FieldClass が outline を ring（--focus の 40%）に置き換える。
  */
