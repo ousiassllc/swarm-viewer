@@ -164,6 +164,12 @@ func TestAppCSS_MotionUsesTokensAndRespectsReducedMotion(t *testing.T) {
 		"animation:fade-out var(--motion-fade-out) var(--ease-in)",
 		"animation:ripple var(--motion-slow) var(--ease-out)",
 		"--motion-slow:",
+		// モーダルの出現は --motion-slow（280ms）。アラート・トーストの .fade-in（320ms）とは別（M5）。
+		".modal-in{animation:fade-in var(--motion-slow) var(--ease-out)",
+		"dialog.modal-in::backdrop{animation:backdrop-in var(--motion-slow) var(--ease-out)",
+		".fade-in.is-leaving,.modal-in.is-leaving{animation:fade-out var(--motion-fade-out) var(--ease-in)",
+		// スピナーの回転はガイドの 0.9s（M1）。
+		"--animate-spin:spin .9s linear infinite",
 	} {
 		if !strings.Contains(css, want) {
 			t.Errorf("app.css に %q が無い", want)
@@ -189,7 +195,7 @@ func TestAppJS_ToastLeavingAndRipple(t *testing.T) {
 		t.Fatalf("js/app.js を読めない（先に task generate を実行する）: %v", err)
 	}
 	src := string(data)
-	for _, want := range []string{"is-leaving", "animationend", "prefers-reduced-motion: reduce", `"pointerdown"`, `"ripple"`, "is-settled", "[data-alert]"} {
+	for _, want := range []string{"is-leaving", "animationend", "prefers-reduced-motion: reduce", `"pointerdown"`, `"ripple"`, "is-settled", "[data-alert]", `"leave-fade"`, `"htmx:beforeSwap"`, "swapOverride", "dialog[data-modal][open]"} {
 		if !strings.Contains(src, want) {
 			t.Errorf("app.js に %q が無い", want)
 		}

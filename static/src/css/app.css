@@ -124,6 +124,9 @@
   --radius-lg: var(--r-lg);
   --radius-xl: var(--r-xl);
 
+  /* スピナーの回転はガイドの 0.9s（tokens-preview の .spin）。keyframes は Tailwind の spin。 */
+  --animate-spin: spin 0.9s linear infinite;
+
   --shadow-*: initial;
   --shadow-modal: 0 1px 2px rgb(0 0 0 / 0.06);
 }

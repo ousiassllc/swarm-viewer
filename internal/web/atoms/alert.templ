@@ -25,7 +25,7 @@ type AlertProps struct {
 
 // alertClass はガイドの見本（tokens-preview の .al）の形: surface 地・1px の border・左 3px の状態色・--r-md・文字は ink。状態色はアイコンと左の帯だけに使う。
 func alertClass(k AlertKind) string {
-	const base = "fade-in flex items-start gap-2 rounded-md border border-border border-l-[3px] bg-surface px-4 py-3 text-sm text-ink "
+	const base = "fade-in flex items-start gap-3 rounded-md border border-border border-l-[3px] bg-surface px-4 py-3 text-sm text-ink "
 	switch k {
 	case AlertInfo:
 		return base + "border-l-info"

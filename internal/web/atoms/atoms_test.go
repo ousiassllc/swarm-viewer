@@ -70,6 +70,9 @@ func TestAlert_KindsHaveIconAndText(t *testing.T) {
 		webtest.MustContain(t, html, tt.role, tt.color, tt.icon, `<svg`, `aria-hidden="true"`, "&lt;b&gt;", "fade-in", "data-alert")
 		// ガイドの見本の形: surface 地・1px の border・左 3px の状態色・--r-md・文字は ink（状態色はアイコンと左の帯だけ）。
 		webtest.MustContain(t, html, "bg-surface", "border-border", "border-l-[3px]", "border-l-"+strings.TrimPrefix(tt.color, "text-"), "rounded-md", "text-ink")
+		// アイコンと文の間は見本の .al と同じ 12px（S2）。
+		webtest.MustContain(t, html, "items-start gap-3")
+		webtest.MustNotContain(t, html, "gap-2")
 		webtest.MustNotContain(t, html, "/10", "border-danger/60", "rounded-lg")
 		webtest.MustNotContain(t, html, "<b>")
 	}
@@ -132,6 +135,9 @@ func TestConfirmDialog(t *testing.T) {
 	// ボタン列は 8px（ガイド S2）。
 	webtest.MustContain(t, html, `class="flex items-center justify-end gap-2"`)
 	webtest.MustNotContain(t, html, "gap-3")
+	// 出現は --motion-slow の .modal-in。アラート・トーストの .fade-in（320ms）は使わない（M5）。
+	webtest.MustContain(t, html, "modal-in")
+	webtest.MustNotContain(t, html, "fade-in")
 }
 
 func TestButton(t *testing.T) {

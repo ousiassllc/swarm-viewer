@@ -189,7 +189,7 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | NFR-DSG-3 | フォントは NFR-SEC-9 のとおり同梱する。SemiBold は見出しとボタンだけに使い、Medium・Bold を使わない。本文は 14px 以上（説明・警告・エラーの文章を 12px にしない）。入力欄・select・textarea の文字は 16px（`atoms.FieldClass` の `text-base`）。Android のボタン（`labelLarge`）も標準の高さ 40dp に合わせて 16sp。12px はバッジ・日時・ペイン番号などのキャプションだけ |
 | NFR-DSG-4 | 主操作・リンク・選択中タブはインク色（`--accent`）で、青などのアクセント色を使わない。`working` と `report_waiting` は無彩色で、状態はラベルで区別する。フォーカスは `--focus` の 2px（offset 2）、入力欄とチェックボックスは `--focus` の 40% のリング（`--ring`。入力欄 2px・チェックボックス 3px） |
 | NFR-DSG-5 | トーストは画面下中央・端から 24px・高さ 40・ピル・1 行の短文・3 秒で消え・同時に 1 つ。エラー（削除失敗など）はトーストにせず、インラインアラートで示す |
-| NFR-DSG-6 | モーションはガイドのトークン（出現 320ms ease-out、退出 240ms ease-in）。`prefers-reduced-motion: reduce` ではフェードを付けない（スピナーの回転は処理中表示のため維持する）。トースト・インラインアラートは出現でフェードイン、トーストは退出でフェードアウトする。ボタンの押下は小さなリップル（280ms ease-out）。Android は Compose の既定のアニメーション（ボタンのリップルを含む）に任せ、独自のモーションは持たない |
+| NFR-DSG-6 | モーションはガイドのトークン（トースト・アラートの出現 320ms ease-out、モーダルの出現（本体とスクラム）は slow 帯の 280ms ease-out、退出 240ms ease-in）。`prefers-reduced-motion: reduce` ではフェードを付けない（スピナーの回転は処理中表示のため維持する。周期はガイドの 0.9s）。トースト・インラインアラートは出現でフェードイン、トースト・インラインアラート・モーダル（スクラムを含む）は退出でフェードアウトする。応答の差し替えで消えるアラートとモーダルは、フェードアウトを終えてから差し替える。ボタンの押下は小さなリップル（280ms ease-out）。Android は Compose の既定のアニメーション（ボタンのリップルを含む）に任せ、独自のモーションは持たない |
 | NFR-DSG-7 | 状態は色だけでなくアイコン（Iconoir）と文言で伝える。インラインアラート（エラー・警告・お知らせ・成功）は Web の `atoms.Alert`、Android の `AppAlert` に統一する。形はガイドの見本どおり、surface 地・1px の border・左 3px の状態色・角丸 `--r-md`・文字は `--ink`（状態色はアイコンと左の帯だけ）。`--mute` は補助テキスト・キャプションだけに使い、情報の文字（バッジの文字など）には使わない |
 | NFR-DSG-8 | 確認・破壊的操作（接続の削除・保存データの初期化・接続の追加の確認）は中央モーダルで取る。Web はネイティブ `<dialog>`（`--r-xl`・`--shadow-modal`・スクラムは外側クリックで閉じてフェードする）、Android は `AppDialog`（`BasicAlertDialog` に面・1dp の border・`extraLarge`・1dp の影を組んだもの。Material の `AlertDialog` は枠も影もないので使わない）。`window.confirm`・全画面ページでの確認を使わない。確定の危険な操作のボタンは `--danger`（Web は `ButtonDanger`、Android は `AppDangerTextButton`） |
 | NFR-DSG-9 | 部品は M3・OS の既定ではなく、ガイドの見本の形に揃える。select は OS の矢印を消し（`appearance-none`）、`--mute` のシェブロンを `linear-gradient` 2 本で右端に描く（`atoms.SelectClass`。CSP のため `data:` URI は使わない）。Android の使用率バー（`ToneBar`）は M3 の「塗りとトラックの隙間」と終端の点を消し（`gapSize = 0.dp`・`drawStopIndicator = {}`）、連続したトラックの上に塗りが載る形にする |
@@ -229,3 +229,4 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | 2.5 | 2026-11-05 | NFR-DSG-8 の Android の確認を `AppDialog`（枠・影つき）に改訂 | Issue #50（デザインガイド S3） |
 | 2.6 | 2026-11-05 | NFR-DSG-2 にデスクトップのウィンドウ背景色、NFR-DSG-4 にチェックボックスのフォーカスリングを追記 | Issue #52（デザインガイド C3・C5） |
 | 2.7 | 2026-11-05 | NFR-DSG-3 に Android のボタン 16sp を追記し、NFR-DSG-9（select のシェブロン・Android の使用率バー）を追加 | Issue #53・#56（デザインガイド T3・O8） |
+| 2.8 | 2026-11-05 | NFR-DSG-6 に、モーダルの出現は slow 帯（280ms）・モーダルとアラートの退出フェード・スピナーの回転 0.9s を明記 | Issue #55（デザインガイド M1・M5・O1） |
