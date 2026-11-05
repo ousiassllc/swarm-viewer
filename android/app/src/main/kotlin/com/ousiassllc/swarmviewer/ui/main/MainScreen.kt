@@ -123,10 +123,14 @@ private fun ConnectionTitle(
     }
     DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
         connections.forEach { item ->
-            DropdownMenuItem(text = { Text(item.name, maxLines = 1) }, onClick = {
-                open = false
-                onSelect(item.id)
-            })
+            DropdownMenuItem(
+                // labelLarge はボタン用の SemiBold。メニュー項目は Regular（T2）なので bodyMedium を明示する。
+                text = { Text(item.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1) },
+                onClick = {
+                    open = false
+                    onSelect(item.id)
+                },
+            )
         }
     }
 }
