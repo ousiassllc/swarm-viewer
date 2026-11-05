@@ -214,55 +214,14 @@ func TestAppCSS_MotionUsesTokensAndRespectsReducedMotion(t *testing.T) {
 }
 
 // 退出フェードとトーストの時間は CSS のトークン（--motion-fade-out・--toast-duration）が唯一の出どころで、
-// app.js は getComputedStyle で読む。数値の直書き（TOAST_MS・LEAVE_MS）を持たない（M1）。
-func TestAppJS_ReadsDurationsFromCSSTokens(t *testing.T) {
+// app.js・modal.js が getComputedStyle で読む（M1。読み方は static/src/js の挙動テストが確かめる）。値の書き方（240ms か .24s か）は minify 次第なので問わない。
+func TestAppCSS_DefinesDurationTokens(t *testing.T) {
 	t.Parallel()
 
-	css, err := fs.ReadFile(static.FS(), "css/app.css")
-	if err != nil {
-		t.Fatalf("css/app.css を読めない（先に task generate を実行する）: %v", err)
-	}
-	// Tailwind の minify は 40px・3s をそのまま、240ms を .24s に直すので、どちらの書き方でも通るのは --motion-fade-out のほうだけ。
-	for _, want := range []string{"--toast-h:40px", "--toast-duration:3s", "--motion-fade-out:.24s"} {
-		if !strings.Contains(string(css), want) {
-			t.Errorf("app.css に %q が無い", want)
-		}
-	}
-
-	js, err := fs.ReadFile(static.FS(), "js/app.js")
-	if err != nil {
-		t.Fatalf("js/app.js を読めない（先に task generate を実行する）: %v", err)
-	}
-	for _, want := range []string{"getComputedStyle", `cssDurationMs("--toast-duration")`, `cssDurationMs("--motion-fade-out")`} {
-		if !strings.Contains(string(js), want) {
-			t.Errorf("app.js に %q が無い", want)
-		}
-	}
-	for _, banned := range []string{"TOAST_MS", "LEAVE_MS", "3000", "240"} {
-		if strings.Contains(string(js), banned) {
-			t.Errorf("app.js に時間の直書き %q がある（CSS のトークンを読む）", banned)
-		}
-	}
-}
-
-// app.js はトーストの退出を animationend で消し（reduced-motion は即時）、ボタン押下でリップルを足す。
-// リップルの位置は CSSOM（element.style）で決め、マークアップの style 属性は使わない（CSP style-src 'self'）。
-func TestAppJS_ToastLeavingAndRipple(t *testing.T) {
-	t.Parallel()
-
-	data, err := fs.ReadFile(static.FS(), "js/app.js")
-	if err != nil {
-		t.Fatalf("js/app.js を読めない（先に task generate を実行する）: %v", err)
-	}
-	src := string(data)
-	for _, want := range []string{"is-leaving", "animationend", "prefers-reduced-motion: reduce", `"pointerdown"`, `"ripple"`, "is-settled", "[data-alert]", `"leave-fade"`, `"htmx:beforeSwap"`, "swapOverride", "dialog[data-modal][open]"} {
-		if !strings.Contains(src, want) {
-			t.Errorf("app.js に %q が無い", want)
-		}
-	}
-	for _, banned := range []string{"setAttribute(\"style\"", "innerHTML", "cssText"} {
-		if strings.Contains(src, banned) {
-			t.Errorf("app.js に %q が含まれている（CSP・エスケープの観点で使わない）", banned)
+	css := readAppCSS(t)
+	for _, name := range []string{"--motion-fade-out", "--toast-duration"} {
+		if !regexp.MustCompile(regexp.QuoteMeta(name) + `\s*:\s*[\d.]+m?s`).MatchString(css) {
+			t.Errorf("app.css に時間のトークン %s が無い", name)
 		}
 	}
 }

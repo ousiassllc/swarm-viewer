@@ -42,6 +42,7 @@ dev_mode:
       - "*.templ"
       - "*.css"
       - "app.js"
+      - "modal.js"
     git_ignore: true
   executes:
     - cmd: wails3 task generate
