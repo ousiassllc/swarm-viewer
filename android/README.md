@@ -38,6 +38,26 @@ push 前は `./gradlew lint ktlintCheck test` がクリーンに通ることを�
 
 挙動の一致は、リポジトリ直下の [`testdata/vectors/`](../testdata/vectors/README.md)（JSON）を Go と Kotlin の両方が読んで保つ。ケースを足す・変えるときは、`./gradlew test` と `go test ./internal/domain/... ./internal/web/format/...` の両方が通ることを確かめる。
 
+## data 層
+
+`app/src/main/kotlin/com/ousiassllc/swarmviewer/data/` は domain の下で、通信・token の保護・保存を持つ（`ui` / `work` から使う）。
+
+| パッケージ | 内容 |
+|------------|------|
+| `data/report` | swarm-console `/report` のクライアント（`ReportClient`）。OkHttp で MCP Streamable HTTP（JSON-RPC 2.0）の `POST` だけを送り、呼ぶツールは `sessions_list` と `report` だけ（許可リスト `ReportTools`。送信直前に `GuardInterceptor` が URL・メソッド・JSON-RPC・ツール名を再検査する）。失敗は domain の `FetchException`（`classify`）。タイムアウトは接続・応答の合計 10 秒、リトライなし |
+| `data/secret` | token の保護領域（`FileTokenStore`）。Android Keystore の AES-256-GCM 鍵（エクスポート不可。`KeystoreTokenCipher`）で暗号化し、`noBackupFilesDir/` に接続 ID ごとのファイルとして保存する（EncryptedSharedPreferences は使わない）。暗号文は接続 ID と結び付く。復号できない（鍵の消失・破損）token は `null` で、「再ペアリングが必要」として扱う |
+| `data/store` | Room（`SwarmDatabase`、DB 版 1）。`connections`・`settings`・`snapshots`・`notified_states`（主キー `(接続, セッション, ペイン, 状態)` が二重通知を防ぐ）。token の列は持たない。窓口は `ViewerStore`（Room 実装は `RoomViewerStore`）。`ConnectionRepository.delete` が token の削除、接続の行の削除の順に行う（`ON DELETE CASCADE` でスナップショット・通知済み状態も消える） |
+
+- Room のスキーマ JSON は `app/schemas/` に書き出してコミットする（最初の版で、マイグレーションはない）。スキーマを変えるときは DB の版を上げて `Migration` を書き、`fallbackToDestructiveMigration` は使わない
+- JVM のユニットテスト（`./gradlew test`）は、MockWebServer による client と許可リスト、`FileTokenStore`（メモリ上の鍵）、スナップショットの JSON、接続削除の順序を検査する。Keystore と Room（SQLite の制約・連鎖削除）は実機・エミュレータが要るため `app/src/androidTest/` に置き、`./gradlew connectedDebugAndroidTest`（接続済みのデバイスまたはエミュレータが必要）で実行する
+
+## service 層と画面（ペアリング・接続管理）
+
+- `service/PairingService`: 接続文字列（貼り付け・ディープリンク・QR のどれも `parse`）を検証して下書き（token はこの中だけ。有効 5 分・同時に 1 件）を作り、`confirm` が疎通確認（`sessions_list`）に成功したときだけ接続を保存する（token は `data/secret`、接続は `data/store`）。同じ URL の再ペアリングは接続 ID・`baselined_at` を保ったまま token を差し替える。保存のあと `baselined_at` が未記録なら最初の一巡（全許可セッションを順に取得し、今ある `asking` / `stalled` を通知せず通知済みとして記録）を行い、全セッションが取れたときだけ `baselined_at` を記録する（取れなければ未記録のまま、通知側（Issue #21）の次の取得が続きを行う）
+- `service/ConnectionService`: 一覧・切替・削除（token → 行の順。スナップショット・通知済み状態は外部キーで連鎖削除）と、401・403 で再ペアリングが必要な接続のメモリ上の記録
+- `ui/pairing`（貼り付け・確認・QR 読み取り）、`ui/connections`（S1）、`ui/navigation`（最小のナビゲーション。メイン画面 A2 は Issue #20 が拡張する）。ViewModel は固定文言（`ui/Messages.kt`。デスクトップ版と同じ文言）だけを画面に出し、token・完全な URL・貼り付けた文字列・例外の本文は出さない
+- QR 読み取りは CameraX + ML Kit の同梱モデル版（[アーキテクチャ設計 §11](../docs/architecture/overview.md) #10）。`AppContainer` が data 層とサービスを組み立てる（Application サブクラスは持たない）
+
 ## 依存の版について
 
 - `compileSdk` は 35 に固定している（親 Issue #7 の確定事項）。このため、`minCompileSdk` が 36 以上の版（Compose BOM 2025.08.00 以降・`activity-compose` 1.11 以降・`core-ktx` 1.17 以降・OkHttp 5.4 以降）は使えない。詳細は `gradle/libs.versions.toml` の先頭コメントを参照。
@@ -45,8 +65,9 @@ push 前は `./gradlew lint ktlintCheck test` がクリーンに通ることを�
 
 ## マニフェストの方針
 
-- アプリが宣言する権限は `INTERNET` のみ。WorkManager など依存ライブラリが自身のマニフェストで追加する権限（`WAKE_LOCK`・`ACCESS_NETWORK_STATE` など）は、マージ後のマニフェストに加わる。
+- アプリが宣言する権限は `INTERNET` と `CAMERA`（QR 読み取りを開始したときだけ実行時に要求する。`android.hardware.camera` は `required="false"`）。WorkManager など依存ライブラリが自身のマニフェストで追加する権限（`WAKE_LOCK`・`ACCESS_NETWORK_STATE` など）は、マージ後のマニフェストに加わる。
 - `allowBackup="false"` に加え、`dataExtractionRules`（Android 12 以降）と `fullBackupContent`（Android 11 以前）で全データをバックアップ・端末間転送から除外する。
+- `MainActivity` は `launchMode="singleTask"` で、`swarm-viewer://pair?...` の intent-filter（`VIEW`・`DEFAULT`・`BROWSABLE`）を 1 つだけ公開する。リンクは信頼できない入力として `parsePairing` で検証し、利用者が確認画面で確定するまで保存しない（処理後は Intent のデータを消す）。
 - cleartext（http）はアプリ全体で許可する（`res/xml/network_security_config.xml`）。tailnet の IP は範囲指定できないため。接続先 URL の検証は domain 層が担う。
 
 ## リリース署名

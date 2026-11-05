@@ -16,6 +16,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildFeatures {
@@ -40,6 +41,11 @@ kotlin {
     jvmToolchain(17)
 }
 
+// Room のスキーマ（JSON）を android/app/schemas/ に書き出す。版ごとに差分を追えるようにコミットする。
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 // Go と共有するテストベクタ（testdata/vectors）をテストの入力にする。宣言しないと、ベクタだけを変えたときに
 // Gradle が「入力に変更なし」としてテストを再実行せず（ビルドキャッシュも含む）、変更が静かに検証されない。
 tasks.withType<Test>().configureEach {
@@ -55,6 +61,14 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.mlkit.barcode.scanning)
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
@@ -68,4 +82,8 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.turbine)
+
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
 }

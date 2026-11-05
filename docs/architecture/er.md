@@ -210,7 +210,7 @@ Android 版は、§3 の 4 テーブル（`connections`・`settings`・`snapshot
 | 保存先 | 内容 | 備考 |
 |--------|------|------|
 | Room（SQLite 1 ファイル `viewer.db`） | 接続・設定・スナップショット・通知済み状態 | アプリ専用の内部ストレージ（`Context.getDatabasePath`）。他のアプリから読めない。token は入れない |
-| Android Keystore で保護した領域 | 接続ごとの token | §7.3。保存方式は[アーキテクチャ設計 §11](overview.md) #9 で確定する |
+| Android Keystore で保護した領域 | 接続ごとの token | §7.3。AES-256-GCM 鍵（Keystore、エクスポート不可）で暗号化した暗号文を `noBackupFilesDir` に保存（[アーキテクチャ設計 §11](overview.md) #9） |
 | Logcat | エラー・警告（デバッグ時は詳細） | ファイルには書かない。token・完全な URL・ペイン本文を出さない（NFR-AND-LOG-1） |
 
 ### 7.2 テーブル（Room のエンティティ）
@@ -235,7 +235,7 @@ Android 版は、§3 の 4 テーブル（`connections`・`settings`・`snapshot
 |------|----|
 | キー | `connection:{connections.id}`（デスクトップ版の秘密領域のキーと同じ形） |
 | 値 | report スコープの token。Android Keystore の鍵（エクスポート不可）で暗号化した暗号文だけを保存し、平文を DB・ファイル・ログに書かない |
-| 保存先 | Room とは別のアプリ専用領域（DB に入れない）。方式（Keystore の AES-GCM 鍵による自前の暗号化、または Tink など）は**未確認事項 #9**で確定する。確定するまで、この表の「暗号文だけを保存」と下の不変条件が正 |
+| 保存先 | アプリの `noBackupFilesDir` 配下（`tokens/<接続 ID>.token`。DB に入れず、バックアップ・端末間転送の対象外）。Keystore の AES-256-GCM 鍵（エクスポート不可）で暗号化した `IV（12 バイト）+ 暗号文 + 認証タグ` を、一時ファイルへ書いてから置き換える（EncryptedSharedPreferences は使わない）。接続 ID を認証データに含め、別の接続のファイルへ移しても復号できない。方式の確定は[アーキテクチャ設計 §11](overview.md) #9 |
 | 作成・差し替え | デスクトップ版の §4 と同じ。ペアリング確定後（疎通確認に成功した後）に作成し、同じ `url` の再ペアリングで上書きする |
 | 削除 | §4 と同じ順序。先に token を削除し、次に Room の行を削除する。token の削除に失敗したら接続は残したままエラーを返し、行の削除に失敗した場合は「token なし」（`needs_repair`）として扱う。接続の削除で、token・`snapshots`・`notified_states` がすべて消える（NFR-SEC-8） |
 | 起動時 | 保護領域に token がない・復号できない接続は「token なし」として扱い、メイン画面で再ペアリングを促す（401 と同じ導線） |

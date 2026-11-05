@@ -2,6 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- QR 読み取りを開始したときだけ実行時に要求する。カメラが無い端末でも貼り付け・ディープリンクで使える。 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
 
     <application
         android:allowBackup="false"
@@ -14,10 +20,20 @@
         android:theme="@style/Theme.SwarmViewer">
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- swarm-viewer://pair?... （接続文字列。API 仕様 §2.1）。他のアプリからも送れる信頼できない入力として扱う。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="swarm-viewer"
+                    android:host="pair" />
             </intent-filter>
         </activity>
     </application>
