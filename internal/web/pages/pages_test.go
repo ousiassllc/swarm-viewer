@@ -87,8 +87,23 @@ func TestPairingDraftPage_NoTokenAndRoutes(t *testing.T) {
 		`hx-post="/pairing/drafts/dr_AFT-1/confirm"`, `hx-post="/pairing/drafts/dr_AFT-1/discard"`,
 		"接続を保存", "破棄",
 	)
-	webtest.MustNotContain(t, html, "48120", "/report", "swarm-viewer://", "Bearer")
+	// 背面の貼り付け画面の書式のヒント（`swarm-viewer://pair?…`）は出るが、接続文字列そのもの（URL・token）は出さない。
+	webtest.MustNotContain(t, html, "48120", "/report", "swarm-viewer://pair?v=", "Bearer")
 	webtest.MustContain(t, webtest.Render(t, pages.PairingDraftContent(pages.DraftProps{DraftID: "d"})), "申告なし")
+}
+
+// 確認は全画面ページではなく、貼り付け画面の上に開く中央モーダル（ガイド O1・O2）。
+// 外側クリック・Esc は「破棄」ボタンの押下（data-dismiss）。app.js がモーダルへ引き上げるので open 付きで出す。
+func TestPairingDraft_IsModalOverPairingForm(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, pages.PairingDraftContent(pages.DraftProps{DraftID: "dr_1", Name: "devbox", Host: "100.64.0.5", HasConnections: true}))
+	webtest.MustContain(t, html,
+		"接続を追加", `id="pairing-form"`, `href="/connections"`, "保存済みの接続", // 背面の貼り付け画面
+		`<dialog open`, "data-modal", `data-dismiss="#draft-discard"`, `aria-labelledby="draft-title"`, "rounded-xl", "shadow-modal",
+		`id="draft-discard"`, "この接続を追加しますか？",
+	)
+	webtest.MustNotContain(t, html, "<h1 class=\"text-lg font-semibold text-ink\">この接続を追加しますか？")
+	webtest.MustNotContain(t, webtest.Render(t, pages.PairingDraftContent(pages.DraftProps{DraftID: "d"})), "保存済みの接続")
 }
 
 func TestPairingDraft_DraftIDIsEscapedInPath(t *testing.T) {
@@ -137,7 +152,8 @@ func TestRecoveryPage(t *testing.T) {
 		"whatever":                 "壊れている可能性",
 	} {
 		html := webtest.Render(t, pages.RecoveryPage(shell, pages.RecoveryProps{Reason: reason}))
-		webtest.MustContain(t, html, want, `hx-post="/recovery/reset"`, `hx-confirm=`, "保存データを初期化する", "秘密領域に残ります")
+		webtest.MustContain(t, html, want, `hx-post="/recovery/reset"`, `hx-confirm=`, "保存データを初期化する", "秘密領域に残ります",
+			`data-confirm-title="保存データを初期化"`, `data-confirm-label="初期化する"`)
 	}
 	webtest.MustContain(t, webtest.Render(t, pages.RecoveryContent(pages.RecoveryProps{Error: "初期化に失敗しました"})), "初期化に失敗しました")
 }

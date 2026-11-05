@@ -23,6 +23,7 @@ import com.ousiassllc.swarmviewer.domain.Layout
 import com.ousiassllc.swarmviewer.domain.Pane
 import com.ousiassllc.swarmviewer.domain.PaneState
 import com.ousiassllc.swarmviewer.ui.theme.AppCard
+import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
 import com.ousiassllc.swarmviewer.ui.theme.MonoFontFamily
 
 /**
@@ -38,7 +39,7 @@ fun PaneSection(
     wide: Boolean,
 ) {
     if (panes.isEmpty()) {
-        NoticeText("ペインがありません")
+        AppEmptyState("ペインがありません")
         return
     }
     val rows = if (wide) gridRows(layout, panes) else null

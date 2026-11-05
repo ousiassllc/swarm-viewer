@@ -24,3 +24,14 @@ swarm-viewer が同梱する第三者の成果物と、そのライセンス。
 | 加工 | 可変フォントから Regular（400）・SemiBold（600）を固定インスタンス化（fontTools の `instancer`）。Noto Sans JP は JIS X 0208 の全文字・ASCII・半角カナ・矢印などにサブセット化し、ヒンティングを除いた（Sora・JetBrains Mono は全グリフ）。Web は woff2、Android は ttf |
 | 用途 | UI の本文（Sora + Noto Sans JP）、コードと桁を揃える数値（JetBrains Mono） |
 | ライセンス | SIL Open Font License 1.1。原文は [`static/src/fonts/LICENSE-OFL-sora.txt`](static/src/fonts/LICENSE-OFL-sora.txt)・[`LICENSE-OFL-notosansjp.txt`](static/src/fonts/LICENSE-OFL-notosansjp.txt)・[`LICENSE-OFL-jetbrainsmono.txt`](static/src/fonts/LICENSE-OFL-jetbrainsmono.txt) |
+
+## Iconoir（UI アイコン）
+
+| 項目 | 内容 |
+|------|------|
+| 同梱物（Web） | `internal/web/atoms/icon.templ` に埋め込んだ `warning-circle`・`warning-triangle`・`info-circle`・`check-circle`・`check` の線画（インライン SVG） |
+| 同梱物（Android） | `android/app/src/main/res/drawable/` の `ic_alert_danger.xml`・`ic_alert_warning.xml`・`ic_alert_info.xml`・`ic_alert_success.xml`・`ic_nav_arrow_down.xml`（vector drawable に変換） |
+| 元 | [Iconoir](https://github.com/iconoir-icons/iconoir) |
+| 加工 | 線の太さ 1.5・丸い端のまま、色を `currentColor`（Android は使う側の tint）にした |
+| 用途 | インラインアラートの種別アイコン、メニューの矢印 |
+| ライセンス | MIT（Copyright (c) 2021 Luca Burgio） |

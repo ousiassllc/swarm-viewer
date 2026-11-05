@@ -223,7 +223,8 @@ func TestPaneGrid_InvalidLayoutFallsBackToList(t *testing.T) {
 
 func TestPaneGrid_Empty(t *testing.T) {
 	t.Parallel()
-	webtest.MustContain(t, webtest.Render(t, organisms.PaneGrid(organisms.PaneGridProps{})), "ペインがありません")
+	html := webtest.Render(t, organisms.PaneGrid(organisms.PaneGridProps{}))
+	webtest.MustContain(t, html, "ペインがありません", "border-dashed", "rounded-lg", "<svg")
 }
 
 func TestPaneGrid_HighlightsOnlyAskingAndStalled(t *testing.T) {

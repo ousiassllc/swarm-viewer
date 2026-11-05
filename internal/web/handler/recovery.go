@@ -74,5 +74,5 @@ func (r *Recovery) resetData(c *gin.Context) {
 		return
 	}
 	// 通常モードへの切替後のルートはこのハンドラの外にあるため、案内だけを返す（HX 以外の経路は実画面には無い）。
-	r.render(c, http.StatusOK, inLayout(r.shell(appTitle), atoms.Alert(resetDoneMessage)))
+	r.render(c, http.StatusOK, inLayout(r.shell(appTitle), atoms.Alert(atoms.AlertProps{Kind: atoms.AlertSuccess, Message: resetDoneMessage})))
 }

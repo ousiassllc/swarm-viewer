@@ -5,7 +5,6 @@ import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,6 +22,8 @@ import com.ousiassllc.swarmviewer.domain.ALLOWED_NOTIFY_POLL_MINUTES
 import com.ousiassllc.swarmviewer.domain.Settings
 import com.ousiassllc.swarmviewer.notify.NotificationPermission
 import com.ousiassllc.swarmviewer.ui.main.NoticeText
+import com.ousiassllc.swarmviewer.ui.theme.AlertKind
+import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 
 /** 通知確認間隔の下に常に出す注記（機能要件 §12.4、FR-AND-7）。 */
@@ -76,8 +77,7 @@ fun NotificationSettings(
 
 @Composable
 private fun PermissionGuide(context: Context) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(PERMISSION_GUIDE, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+    AppAlert(PERMISSION_GUIDE, kind = AlertKind.Warning) {
         AppOutlinedButton(
             onClick = { context.startActivity(NotificationPermission.appNotificationSettings(context)) },
         ) { Text("通知設定を開く") }

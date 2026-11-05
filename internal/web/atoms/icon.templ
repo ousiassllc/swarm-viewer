@@ -1,0 +1,50 @@
+package atoms
+
+// IconName はアイコンの種類。Iconoir（MIT。https://iconoir.com/ ）の線画で、線の太さ 1.5・丸い端・色は currentColor。
+type IconName string
+
+// IconName の値。
+const (
+	IconWarningCircle   IconName = "warning-circle"
+	IconWarningTriangle IconName = "warning-triangle"
+	IconInfoCircle      IconName = "info-circle"
+	IconCheckCircle     IconName = "check-circle"
+	IconCheck           IconName = "check"
+)
+
+// Icon ライン SVG のアイコン。インライン <svg>（外部ファイルを読まないので CSP に合う）で、装飾なので aria-hidden にする。
+// class は大きさ（例: "h-5 w-5"）。意味は隣の文言が伝える。未知の name は何も描画しない。
+templ Icon(name IconName, class string) {
+	<svg
+		xmlns="http://www.w3.org/2000/svg"
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="1.5"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+		focusable="false"
+		class={ "shrink-0", class }
+	>
+		switch name {
+			case IconWarningCircle:
+				<path d="M12 7V13"></path>
+				<path d="M12 17.01L12.01 16.9989"></path>
+				<path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"></path>
+			case IconWarningTriangle:
+				<path d="M12 7.5V12"></path>
+				<path d="M12 16.01L12.01 15.9989"></path>
+				<path d="M20.0429 21H3.95705C2.41902 21 1.45658 19.3364 2.22324 18.0031L10.2662 4.01533C11.0352 2.67792 12.9648 2.67791 13.7338 4.01532L21.7768 18.0031C22.5434 19.3364 21.581 21 20.0429 21Z"></path>
+			case IconInfoCircle:
+				<path d="M12 11.5V16.5"></path>
+				<path d="M12 7.51L12.01 7.49889"></path>
+				<path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"></path>
+			case IconCheckCircle:
+				<path d="M7 12.5L10 15.5L17 8.5"></path>
+				<path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"></path>
+			case IconCheck:
+				<path d="M5 13.3636L8.03559 16.3204C8.42388 16.6986 9.04279 16.6986 9.43108 16.3204L19 7"></path>
+		}
+	</svg>
+}

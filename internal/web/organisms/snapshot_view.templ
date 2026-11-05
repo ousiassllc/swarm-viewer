@@ -2,6 +2,7 @@ package organisms
 
 import (
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/format"
 	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
 	"strconv"
@@ -102,9 +103,12 @@ templ SnapshotRegion(p SnapshotViewProps) {
 		}
 	>
 		if p.isLoading() {
-			<p role="status" class="text-sm text-ink">{ emptyMessage(p) }</p>
+			<div class="flex items-center gap-2 text-sm text-ink">
+				@atoms.Spinner(atoms.SpinnerProps{Size: atoms.SpinnerSmall})
+				<span role="status">{ emptyMessage(p) }</span>
+			</div>
 		} else if p.isEmpty() {
-			<p class="text-sm text-ink">{ emptyMessage(p) }</p>
+			@atoms.EmptyState(atoms.EmptyStateProps{Message: emptyMessage(p)})
 		} else {
 			@AttentionBar(AttentionBarProps{Attention: p.Snapshot.Report.Attention, Warnings: p.Snapshot.Report.Warnings, Auth: p.Snapshot.Report.Auth})
 			@PaneGrid(PaneGridProps{Layout: p.Snapshot.Report.Layout, Panes: p.Snapshot.Report.Panes, Attention: p.Snapshot.Report.Attention, Stale: !p.Fresh})
@@ -143,13 +147,10 @@ templ repairLink() {
 // 失敗種別の固定文言（swarm-console の message は出さない）に「最終更新 HH:MM」「次回再試行 N 秒後」を併記する。
 templ SnapshotBanner(p SnapshotViewProps) {
 	if !p.Fresh && !p.isLoading() {
-		<div role="alert" class="rounded-md border border-danger/60 bg-danger/10 px-4 py-3 text-sm text-danger" data-error-kind={ errKind(p.Err) }>
-			<p>{ statusMessage(p) }</p>
-			<p class="text-sm text-danger">
-				{ format.JoinNonEmpty(" / ", lastFetched(p), nextRetry(p)) }
-			</p>
+		@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: statusMessage(p), Attrs: templ.Attributes{"data-error-kind": errKind(p.Err)}}) {
+			<p>{ format.JoinNonEmpty(" / ", lastFetched(p), nextRetry(p)) }</p>
 			if p.Err != nil && p.Err.Code != "" {
-				<details class="text-sm text-danger">
+				<details>
 					<summary class="cursor-pointer">詳細</summary>
 					<code class="font-mono">{ p.Err.Code }</code>
 				</details>
@@ -157,7 +158,7 @@ templ SnapshotBanner(p SnapshotViewProps) {
 			if !polling(p) {
 				@repairLink()
 			}
-		</div>
+		}
 	}
 }
 

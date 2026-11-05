@@ -28,10 +28,15 @@ func deleteConfirm(name string) string {
 templ ConnectionList(p ConnectionListProps) {
 	<div id={ ConnectionListID } class="flex flex-col gap-4">
 		if p.Error != "" {
-			@atoms.Alert(p.Error)
+			@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: p.Error})
 		}
 		if len(p.Connections) == 0 {
-			<p class="text-sm text-ink">保存済みの接続はありません</p>
+			@atoms.EmptyState(atoms.EmptyStateProps{Message: "保存済みの接続はありません"}) {
+				@atoms.Button(atoms.ButtonProps{Label: "接続を追加", Variant: atoms.ButtonPrimary, Attrs: templ.Attributes{
+					"hx-get":    paths.Pairing,
+					"hx-target": "#main",
+				}})
+			}
 		} else {
 			<ul class="flex flex-col divide-y divide-border rounded-lg border border-border bg-surface">
 				for _, c := range p.Connections {
@@ -49,11 +54,13 @@ templ ConnectionList(p ConnectionListProps) {
 							}})
 						}
 						@atoms.Button(atoms.ButtonProps{Label: "削除", Variant: atoms.ButtonDanger, Attrs: templ.Attributes{
-							"hx-delete":       paths.Connection(c.ID),
-							"hx-confirm":      deleteConfirm(c.Name),
-							"hx-target":       "#" + ConnectionListID,
-							"hx-swap":         "outerHTML",
-							"hx-disabled-elt": "this",
+							"hx-delete":          paths.Connection(c.ID),
+							"hx-confirm":         deleteConfirm(c.Name),
+							"data-confirm-title": "接続を削除",
+							"data-confirm-label": "削除",
+							"hx-target":          "#" + ConnectionListID,
+							"hx-swap":            "outerHTML",
+							"hx-disabled-elt":    "this",
 						}})
 					</li>
 				}
