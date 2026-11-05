@@ -124,6 +124,14 @@ func TestButton_HostsRipple(t *testing.T) {
 	webtest.MustContain(t, webtest.Render(t, atoms.Button(atoms.ButtonProps{Label: "保存"})), "relative", "overflow-clip")
 }
 
+// ボタンのホバーは色の遷移（.hover-fade。ガイド M1）を持つ。
+func TestButton_HoverFade(t *testing.T) {
+	t.Parallel()
+	for _, v := range []atoms.ButtonVariant{atoms.ButtonPrimary, atoms.ButtonSecondary, atoms.ButtonDanger} {
+		webtest.MustContain(t, webtest.Render(t, atoms.Button(atoms.ButtonProps{Label: "x", Variant: v})), "hover-fade")
+	}
+}
+
 // ConfirmDialog は確認・破壊的操作の中央モーダル（ネイティブ dialog・--r-xl・--shadow-modal）。確定は危険ボタン。
 // 文言・見出し・ラベルは app.js が htmx:confirm で textContent に差し込むので、描画時は空・既定値で、インライン script を持たない（O2・NFR-SEC-9）。
 func TestConfirmDialog(t *testing.T) {

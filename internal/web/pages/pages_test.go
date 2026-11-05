@@ -49,6 +49,16 @@ func TestMainPage(t *testing.T) {
 	webtest.MustNotContain(t, html, "100.64.0.5", "48120")
 }
 
+// ホバーされるナビリンクと接続切替は色の遷移（.hover-fade。ガイド M1）を持つ。
+func TestMainPage_HoverableLinksFadeColors(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, pages.MainPage(shell, mainProps()))
+	// ナビ（接続・設定）の 2 本と接続切替の 1 本以上。
+	if n := strings.Count(html, "hover-fade"); n < 3 {
+		t.Errorf("hover-fade が足りない（%d 回）:\n%s", n, html)
+	}
+}
+
 func TestMainContent_SingleConnectionHasNoSwitcher(t *testing.T) {
 	t.Parallel()
 	p := mainProps()

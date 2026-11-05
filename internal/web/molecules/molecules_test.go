@@ -218,9 +218,9 @@ func TestSessionTab(t *testing.T) {
 	html := webtest.Render(t, molecules.SessionTab(molecules.SessionTabProps{ConnectionID: "01ABC", Session: "dev work", Selected: true}))
 	webtest.MustContain(t, html, `hx-get="/connections/01ABC/sessions/dev%20work"`, `hx-target="#main"`, `aria-current="page"`, "dev work")
 	// 2px の下線は親の 1px の罫線に重ねる（-mb-px。ガイド §4・S4）。選択中も選択外も同じ。
-	webtest.MustContain(t, html, "-mb-px", "border-b-2", "border-accent")
+	webtest.MustContain(t, html, "-mb-px", "border-b-2", "border-accent", "hover-fade")
 	html = webtest.Render(t, molecules.SessionTab(molecules.SessionTabProps{ConnectionID: "01ABC", Session: "0"}))
-	webtest.MustContain(t, html, "-mb-px", "border-b-2", "border-transparent", "hover:text-ink")
+	webtest.MustContain(t, html, "-mb-px", "border-b-2", "border-transparent", "hover:text-ink", "hover-fade")
 	// 余白と形はガイドの見本どおり（上下 10px・左右 0・角丸とホバーの面なし。ガイド S1・S2）。
 	webtest.MustContain(t, html, "py-2.5")
 	webtest.MustNotContain(t, html, "px-", "rounded", "hover:bg-")

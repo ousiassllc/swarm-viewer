@@ -34,7 +34,8 @@
  * ボタンの押下は .ripple（クリック点から円が広がって消える 280ms・ease-out。ガイド M4）。円の大きさと位置は app.js が CSSOM で決める。
  * モーダル（dialog.modal。確認ダイアログとペアリング確認）は、本体を .modal-in（--motion-slow 280ms・ease-out）、スクラム（::backdrop）を
  * backdrop-in（同じ 280ms）で出し、退出は本体を .is-leaving・スクラムを backdrop-out の 240ms・ease-in でフェードさせる（ガイド O1・M5）。
- * reduced-motion ではどれも付けない（退出は app.js が即時に消す）。
+ * ホバーの色の遷移は .hover-fade（--motion-base 180ms・ease-out。ガイド M1）。
+ * reduced-motion ではどれも付けない（退出は app.js が即時に消す。ホバーの色の変化は残し、遷移だけ止める）。
  */
 @layer components {
   @keyframes fade-in {
@@ -130,6 +131,17 @@
     animation: ripple var(--motion-slow) var(--ease-out) forwards;
   }
 
+  /*
+   * ホバーされる要素（ボタン・リンク・タブ・接続切替）の色の遷移。色・背景・枠・下線の色だけを --motion-base（180ms）・ease-out で変える（ガイド M1）。
+   */
+  .hover-fade {
+    transition:
+      color var(--motion-base) var(--ease-out),
+      background-color var(--motion-base) var(--ease-out),
+      border-color var(--motion-base) var(--ease-out),
+      text-decoration-color var(--motion-base) var(--ease-out);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .fade-in,
     .fade-in.is-leaving,
@@ -142,6 +154,10 @@
 
     .ripple {
       display: none;
+    }
+
+    .hover-fade {
+      transition: none;
     }
   }
 }

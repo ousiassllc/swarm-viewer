@@ -63,7 +63,7 @@ func buttonType(t string) string {
 templ Button(p ButtonProps) {
 	<button
 		type={ buttonType(p.Type) }
-		class={ "relative inline-flex cursor-pointer items-center gap-2 overflow-clip rounded-md font-semibold disabled:cursor-not-allowed disabled:opacity-40", buttonSizeClass(p.Size), buttonClass(p.Variant) }
+		class={ "hover-fade relative inline-flex cursor-pointer items-center gap-2 overflow-clip rounded-md font-semibold disabled:cursor-not-allowed disabled:opacity-40", buttonSizeClass(p.Size), buttonClass(p.Variant) }
 		{ p.Attrs... }
 	>
 		{ p.Label }
