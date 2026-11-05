@@ -53,7 +53,12 @@ fun UsagePanel(
                 usage.fetchedAt?.let { MutedText("最終取得 " + formatDateTime(it)) }
             }
             if (usage.reason.isNotEmpty() && (status == UsageStatus.STALE || status == UsageStatus.UNAVAILABLE)) {
-                NoticeText(usage.reason) // `reason` はホスト由来の文字列。コードとしてそのまま出す
+                Text(
+                    usage.reason, // `reason` はホスト由来の文字列。コードとしてそのまま出す（Web の `font-mono` と同じ）
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontFamily = MonoFontFamily,
+                )
             }
         }
     }
