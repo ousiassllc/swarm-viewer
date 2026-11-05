@@ -29,7 +29,7 @@ swarm-viewer の開発環境・CI/CD・lint・format・Git Hooks を定める。
 swarm-viewer/
 ├── .github/workflows/ci.yml   # CI（§5.1〜§5.4）
 ├── .github/workflows/release.yml  # リリース（§5.5）
-├── .github/scripts/           # release.yml が使うスクリプト（plan-release.sh・set-version.sh）とそのテスト
+├── .github/scripts/           # release.yml が使うスクリプト（plan-release.sh・set-version.sh・install-nsis.sh）とそのテスト
 ├── .golangci.yml              # Go の lint / format（§6）
 ├── .linterly.yml              # 行数管理（§8）
 ├── .linterlyignore
@@ -139,7 +139,7 @@ graph LR
 | ジョブ | 内容 |
 |--------|------|
 | `lint` | チェックアウト → Go（`actions/setup-go`、`go-version-file: go.mod`）・bun（`oven-sh/setup-bun`）の準備 → `bun install --frozen-lockfile` → **`task generate`（最初の検査より前に必ず実行）** → `golangci-lint`（`golangci/golangci-lint-action` で導入。Linux では Wails 直下を除いたパッケージ、続けて `GOOS=windows CGO_ENABLED=0` で `./...`）→ `go tool templ fmt -fail .` → `bunx biome check .` → `bunx linterly check` |
-| `test` | 同じ準備 → **`task generate`** → `go vet`（Wails 直下を除く）→ Windows / macOS 向けの `go vet`（下記）→ `go test`（Wails 直下を除く。テストは固定時間の待ちに頼らない。[NFR-QLT-3](../requirements/non-functional.md)）→ `bash .github/scripts/plan-release_test.sh`（リリースの版を決める `plan-release.sh` の表駆動テスト。ネットワーク不要。§5.5） |
+| `test` | 同じ準備 → **`task generate`** → `go vet`（Wails 直下を除く）→ Windows / macOS 向けの `go vet`（下記）→ `go test`（Wails 直下を除く。テストは固定時間の待ちに頼らない。[NFR-QLT-3](../requirements/non-functional.md)）→ `bash .github/scripts/plan-release_test.sh`（リリースの版を決める `plan-release.sh` の表駆動テスト。ネットワーク不要。§5.5）→ `bash .github/scripts/install-nsis_test.sh`（NSIS の取得の再試行・sha256 検証のテスト。ネットワーク不要。§5.5） |
 | `build` | `lint`・`test` が成功したときだけ。同じ準備 → `task generate` → `GOOS=windows CGO_ENABLED=0 go build -tags production .`（Windows 向けのコンパイル確認。`wails3` CLI 自体が Linux で GTK 系の開発パッケージを要するため、CLI は使わず直接ビルドする。Linux 向けは上記の前提により現状行わない。成果物は配布しない） |
 
 - Windows / macOS 向けの `go vet`（`test` ジョブ内）: OS 別のビルドタグを持つコード（`go-keyring`・SQLite ドライバ・`filepath` まわりなど）を、Linux のランナーでもコンパイルして検査する安価な穴埋め。Wails 依存の `internal/app` 直下と `main.go` は、Windows なら CGO なしでコンパイルできるため windows の検査に含める（darwin は CGO が要るため対象外）。
@@ -189,7 +189,7 @@ Release の成果物の実機確認（手動確認項目）:
 | ランナー | `plan`・`verify`・`release` は `ubuntu-latest`、`build-windows` は `windows-latest`、`build-macos` は `macos-latest`（いずれも GitHub ホストランナー）。**CI（`ci.yml`）はセルフホステッドだが、リリースは GitHub ホストランナーを使う。リポジトリは private なので、リリースごとに Actions の分数を消費する**（macOS は倍率が大きい） |
 | 権限 | 既定は `contents: read`。`contents: write` を持つのは `release` ジョブだけ（タグも `gh release create --target <コミット>` でここで作る。手で打ったタグは `--verify-tag`）。`verify` は `gh run list` のために `actions: read` も持つ |
 | 同時実行 | `concurrency: group: release`、`cancel-in-progress: false`。次の版を既存のタグから決めるため、2 本を同時に動かさない |
-| ツール | Go・bun・Task は ci.yml と同じ action・版。`wails3` CLI は `go.mod` の版を `go install` する。NSIS（`makensis`）は `windows-latest`（Windows Server 2025）に入っていないため、無ければ `choco install nsis`（版は release.yml の `NSIS_VERSION` で固定）で入れる。使う action は GitHub 公式（`actions/*`）と `oven-sh/setup-bun`・`go-task/setup-task` だけ |
+| ツール | Go・bun・Task は ci.yml と同じ action・版。`wails3` CLI は `go.mod` の版を `go install` する。NSIS（`makensis`）は 3.11 系に固定する（release.yml の `NSIS_VERSION`）。`.github/scripts/install-nsis.sh` が、PATH か既定の場所の `makensis` の版が `NSIS_VERSION` と一致すればそれを使い、そうでなければ公式配布の `nsis-3.11.zip`（SourceForge の固定 URL）を取得して sha256（スクリプト内の `NSIS_SHA256`。公式配布物を実際に取得して確かめた値）を検証し、展開して PATH に足す。取得・検証の失敗は 10 秒・30 秒・60 秒の待ちを挟んで最大 4 回試し、試行し切ったあとだけ原因（HTTP エラーまたは sha256 の不一致）付きの `::error::` で失敗する。Chocolatey は使わない（一時障害の 503 でリリースが止まったため）。使った版は `makensis -VERSION` でログに出る（`install-nsis.sh` と `Build the NSIS installer`）。版を上げるときは `NSIS_VERSION` と `NSIS_SHA256` を一緒に直す。使う action は GitHub 公式（`actions/*`）と `oven-sh/setup-bun`・`go-task/setup-task` だけ |
 | 署名 | しない（unsigned。[NFR-DST-2](../requirements/non-functional.md)）。macOS は Taskfile 既定の ad-hoc 署名のまま。Release ノートの冒頭に、unsigned であることと README の回避手順への案内を入れる（`--notes` + `--generate-notes`） |
 
 ```mermaid
@@ -316,3 +316,4 @@ Lit を導入して `/api/v1/...` を Huma に登録する時点で、次を追�
 | 1.2 | 2026-11-04 | CI: Linux ランナーに GTK 系の開発パッケージが無いため Linux の検査から Wails 直下を外し Windows 向け検査で補う。`build` を `wails3 build` から Windows 向けの `go build` に変更。`setup-go` のキャッシュを無効化 | 実ランナーの環境と、post ステップの停止 |
 | 1.3 | 2026-11-04 | §5.5「リリース」を追加（release.yml のトリガー・版の決め方・ジョブ構成・ランナー・権限・成果物・`SHA256SUMS`）。§5.2 の `test` に `plan-release_test.sh` を追加。§5.3 を release.yml による配布に、§5.4 を Release の成果物での実機確認に更新 | Issue #3（Windows / macOS の配布物を CI で作り Releases へ載せる） |
 | 1.4 | 2026-11-05 | `task generate` に、フォント（`static/src/fonts/` → `static/dist/fonts/`）のコピーを追加 | Issue #9 |
+| 1.5 | 2026-11-05 | §5.5 の NSIS の導入を `choco install` から、公式配布 zip（3.11 固定・sha256 検証・再試行）を取得する `install-nsis.sh` に変更。§5.2 の `test` に `install-nsis_test.sh` を追加 | Issue #6（Chocolatey の一時障害でリリースが止まる） |
