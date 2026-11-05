@@ -18,6 +18,19 @@ func TestBadge(t *testing.T) {
 	webtest.MustNotContain(t, html, "<i>")
 }
 
+func TestBadge_Marker(t *testing.T) {
+	t.Parallel()
+	// 状態を示すバッジは、文言の前に文字と同じ色の 6px の点を置く（ガイドのステータスピルの見本）。
+	html := webtest.Render(t, atoms.Badge(atoms.BadgeProps{Text: "待機", Tone: format.ToneSuccess, Marker: true}))
+	webtest.MustContain(t, html, `<span class="me-1.5 size-1.5 shrink-0 rounded-full bg-current" aria-hidden="true"></span>`, "待機", "text-success")
+	if strings.Index(html, "bg-current") > strings.Index(html, "待機") {
+		t.Errorf("点は文言の前にある: %s", html)
+	}
+	// 状態でないバッジ（エージェント名など）には点がない。
+	html = webtest.Render(t, atoms.Badge(atoms.BadgeProps{Text: "claude", Tone: format.ToneMuted}))
+	webtest.MustNotContain(t, html, "bg-current", "size-1.5")
+}
+
 func TestProgressBar_ValueClampedAndNoStyleAttr(t *testing.T) {
 	t.Parallel()
 	for _, tt := range []struct {

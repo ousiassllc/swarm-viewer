@@ -34,6 +34,18 @@ func TestPaneCard_StateLabels(t *testing.T) {
 	}
 }
 
+// 状態を示すバッジには点（マーカー）があり、エージェント名のバッジにはない（C4）。
+func TestPaneCard_StateBadgeHasMarkerAgentBadgeDoesNot(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: domain.Pane{Pos: "T1", Agent: str("claude"), State: domain.StateIdle, Title: "t"}}))
+	if got := strings.Count(html, "bg-current"); got != 1 {
+		t.Fatalf("点は状態のバッジだけに 1 つ: %d\n%s", got, html)
+	}
+	if strings.Index(html, "claude") > strings.Index(html, "bg-current") {
+		t.Errorf("エージェント名のバッジ（点なし）が先にある: %s", html)
+	}
+}
+
 // ペインカードは読み取り専用（FR-PANE・機能要件 §4.4）。
 func TestPaneCard_HasNoActionableElements(t *testing.T) {
 	t.Parallel()

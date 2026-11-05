@@ -47,7 +47,7 @@ templ ConnectionList(p ConnectionListProps) {
 						</div>
 						<div class="flex items-center gap-2">
 							if c.ID == p.CurrentID {
-								@atoms.Badge(atoms.BadgeProps{Text: "表示中", Tone: format.ToneAccent})
+								@atoms.Badge(atoms.BadgeProps{Text: "表示中", Tone: format.ToneAccent, Marker: true})
 							} else {
 								@atoms.Button(atoms.ButtonProps{Label: "切替", Size: atoms.ButtonSmall, Attrs: templ.Attributes{
 									"hx-get":    paths.Connection(c.ID),

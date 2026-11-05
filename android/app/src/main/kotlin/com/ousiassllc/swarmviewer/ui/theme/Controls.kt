@@ -29,6 +29,9 @@ private val SwitchThumbInset = 2.dp
 private val RadioSize = 18.dp
 private val RadioDotSize = 6.dp
 
+/** 設定行（ラジオ・スイッチ）の最小の高さ（ガイド `--list-row-h`）。 */
+val ListRowMinHeight = 48.dp
+
 /**
  * スイッチ（ガイド `.sw2`）: 36×20dp・角丸 full のトラックに 14dp のつまみ。
  * オフはトラック accent-soft（surfaceVariant）・1dp の border の枠・つまみ surface、オンはトラック accent（primary）・つまみ bone（background）。

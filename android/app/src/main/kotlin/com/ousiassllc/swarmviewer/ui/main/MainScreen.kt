@@ -162,11 +162,13 @@ private fun SessionTabs(
     onSelect: (String) -> Unit,
 ) {
     if (sessions.isEmpty()) return
-    ScrollableTabRow(selectedTabIndex = sessions.indexOf(selected).coerceAtLeast(0), edgePadding = 8.dp) {
+    ScrollableTabRow(selectedTabIndex = sessions.indexOf(selected).coerceAtLeast(0), edgePadding = LocalGutter.current) {
         sessions.forEach { id ->
             Tab(
                 selected = id == selected,
                 onClick = { onSelect(id) },
+                selectedContentColor = MaterialTheme.colorScheme.onSurface,
+                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 text = { Text(id, style = MaterialTheme.typography.bodyMedium, maxLines = 1) },
             )
         }

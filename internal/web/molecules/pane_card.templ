@@ -61,9 +61,9 @@ templ PaneCard(p PaneCardProps) {
 			if name := agentName(p.Pane.Agent); name != "" {
 				@atoms.Badge(atoms.BadgeProps{Text: name, Tone: format.ToneMuted})
 			}
-			@atoms.Badge(atoms.BadgeProps{Text: format.StateLabel(p.Pane.State), Tone: format.StateTone(p.Pane.State)})
+			@atoms.Badge(atoms.BadgeProps{Text: format.StateLabel(p.Pane.State), Tone: format.StateTone(p.Pane.State), Marker: true})
 			if p.ReportWaiting {
-				@atoms.Badge(atoms.BadgeProps{Text: format.AttentionLabel("report_waiting"), Tone: format.AttentionTone("report_waiting")})
+				@atoms.Badge(atoms.BadgeProps{Text: format.AttentionLabel("report_waiting"), Tone: format.AttentionTone("report_waiting"), Marker: true})
 			}
 			if p.Pane.State == domain.StateStalled && p.Pane.ChangedAgo != "" {
 				<span class="text-xs text-mute">{ p.Pane.ChangedAgo }</span>

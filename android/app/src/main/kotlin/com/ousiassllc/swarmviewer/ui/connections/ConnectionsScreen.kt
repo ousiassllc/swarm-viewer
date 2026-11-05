@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ousiassllc.swarmviewer.service.ConnectionItem
 import com.ousiassllc.swarmviewer.ui.NEEDS_REPAIR_LABEL
+import com.ousiassllc.swarmviewer.ui.main.Badge
+import com.ousiassllc.swarmviewer.ui.main.DisplayTone
 import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppCard
@@ -30,6 +32,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
 import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
+import com.ousiassllc.swarmviewer.ui.theme.MonoFontFamily
 
 /**
  * 接続管理（S1）。保存済み接続の一覧（表示名と URL の host のみ。token は出さない）、切替、削除（確認つき）、
@@ -95,8 +98,8 @@ private fun ConnectionCard(
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(item.name, style = MaterialTheme.typography.titleMedium)
-            Text(item.host, style = MaterialTheme.typography.bodyMedium)
-            if (item.selected) Text("選択中", color = MaterialTheme.colorScheme.primary)
+            Text(item.host, style = MaterialTheme.typography.bodyMedium, fontFamily = MonoFontFamily)
+            if (item.selected) Badge("表示中", DisplayTone.Accent, marker = true)
             if (item.needsRepair) AppAlert(NEEDS_REPAIR_LABEL)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (!item.selected) AppOutlinedButton(onClick = onSelect) { Text("切り替える") }

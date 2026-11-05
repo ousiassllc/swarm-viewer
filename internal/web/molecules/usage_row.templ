@@ -44,7 +44,7 @@ templ UsageRow(p UsageRowProps) {
 				<span class="text-mute">{ format.Dash }</span>
 			}
 			if p.Slot.Available && p.Slot.Status == domain.SlotStatusExhausted {
-				@atoms.Badge(atoms.BadgeProps{Text: "上限到達", Tone: format.ToneError})
+				@atoms.Badge(atoms.BadgeProps{Text: "上限到達", Tone: format.ToneError, Marker: true})
 			}
 		</div>
 		if p.Slot.Available && p.Slot.ResetsAt != nil {

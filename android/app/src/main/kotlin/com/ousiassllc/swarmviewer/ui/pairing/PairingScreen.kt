@@ -16,8 +16,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ousiassllc.swarmviewer.service.PairingDraft
@@ -28,6 +31,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 import com.ousiassllc.swarmviewer.ui.theme.AppTextField
 import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
+import com.ousiassllc.swarmviewer.ui.theme.MonoFontFamily
 
 /**
  * ペアリング画面。貼り付け欄（伏せ字。token を含むため画面に出さない）と「QR を読み取る」から入り、
@@ -122,7 +126,13 @@ private fun ConfirmDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("表示名: ${draft.name}")
-                Text("接続先: ${draft.host}")
+                // host は桁と区切りを読む値なので JetBrains Mono にする（T5。Web の確認モーダルと同じ）。
+                Text(
+                    buildAnnotatedString {
+                        append("接続先: ")
+                        withStyle(SpanStyle(fontFamily = MonoFontFamily)) { append(draft.host) }
+                    },
+                )
                 if (draft.sessionsHint.isNotEmpty()) Text("ホストが申告した許可セッション: ${draft.sessionsHint.joinToString(", ")}")
                 if (draft.replacesExisting) Text("同じ接続先が保存済みです。token を差し替えます。")
                 message?.let { AppAlert(it) }

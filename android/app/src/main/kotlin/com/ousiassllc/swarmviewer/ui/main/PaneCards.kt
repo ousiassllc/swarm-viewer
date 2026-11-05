@@ -103,8 +103,8 @@ private fun PaneHeader(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(pane.pos, style = MaterialTheme.typography.bodyMedium, fontFamily = MonoFontFamily)
         pane.agent?.takeIf { it.isNotEmpty() }?.let { Badge(it, DisplayTone.Muted) }
-        Badge(pane.state.label, stateTone(pane.state))
-        if (reportWaiting) Badge(attentionLabel("report_waiting"), attentionTone("report_waiting"))
+        Badge(pane.state.label, stateTone(pane.state), marker = true)
+        if (reportWaiting) Badge(attentionLabel("report_waiting"), attentionTone("report_waiting"), marker = true)
         if (pane.state == PaneState.Stalled && pane.changedAgo.isNotEmpty()) MutedText(pane.changedAgo)
         if (pane.elapsed.isNotEmpty()) {
             Spacer(Modifier.weight(1f))
