@@ -35,7 +35,7 @@ templ AttentionItem(p AttentionItemProps) {
 			<span class="truncate text-slate-300" title={ d }>{ d }</span>
 		}
 		if !p.AuthExpiresAt.IsZero() {
-			<span class="text-xs text-slate-400">{ "期限 " + format.DateTime(p.AuthExpiresAt) }</span>
+			<span class="text-xs text-slate-400">{ "期限 " + format.DateTimeWithYear(p.AuthExpiresAt) }</span>
 		}
 	</li>
 }

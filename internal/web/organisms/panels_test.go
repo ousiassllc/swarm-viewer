@@ -254,7 +254,7 @@ func TestAttentionBar(t *testing.T) {
 		Warnings: []domain.Warning{{Code: "layout_changed", Message: "レイアウトが変わりました"}},
 		Auth:     domain.Auth{Agents: []domain.AuthAgent{{Agent: "claude", ExpiresAt: &exp}, {Agent: "codex"}}},
 	}))
-	webtest.MustContain(t, html, "レイアウトが変わりました", `data-warning-code="layout_changed"`, "答え待ち", "期限 11/04 08:00")
+	webtest.MustContain(t, html, "レイアウトが変わりました", `data-warning-code="layout_changed"`, "答え待ち", "期限 2026/11/04 08:00")
 	if strings.Count(html, "期限 ") != 1 {
 		t.Error("expires_at がある agent だけ期限を併記する")
 	}

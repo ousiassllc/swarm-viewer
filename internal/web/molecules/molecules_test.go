@@ -220,5 +220,5 @@ func TestAttentionItem(t *testing.T) {
 	// auth: pane は空、expires_at を併記。
 	exp := time.Date(2026, 11, 5, 9, 30, 0, 0, time.Local)
 	html = webtest.Render(t, molecules.AttentionItem(molecules.AttentionItemProps{Attention: domain.Attention{Kind: "auth_expiring", Detail: "claude"}, AuthExpiresAt: exp}))
-	webtest.MustContain(t, html, "ログイン期限間近", "claude", "期限 11/05 09:30")
+	webtest.MustContain(t, html, "ログイン期限間近", "claude", "期限 2026/11/05 09:30")
 }

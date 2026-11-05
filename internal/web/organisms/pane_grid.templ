@@ -3,6 +3,7 @@ package organisms
 import (
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
 	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
+	"slices"
 )
 
 // PaneGridProps は PaneGrid の入力。
@@ -31,13 +32,13 @@ func gridRows(l domain.Layout, panes []domain.Pane) [][]domain.Pane {
 	return rows
 }
 
-// highlighted は attention の asking / stalled に該当するペイン位置か。
-func highlighted(att []domain.Attention, pos string) bool {
+// hasAttention は attention のうち pane が pos で、kind が kinds のどれかに一致する項目があるか。
+func hasAttention(att []domain.Attention, pos string, kinds ...string) bool {
 	if pos == "" {
 		return false
 	}
 	for _, a := range att {
-		if a.Pane == pos && (a.Kind == "asking" || a.Kind == "stalled") {
+		if a.Pane == pos && slices.Contains(kinds, a.Kind) {
 			return true
 		}
 	}
@@ -45,7 +46,12 @@ func highlighted(att []domain.Attention, pos string) bool {
 }
 
 func cardProps(p PaneGridProps, pane domain.Pane) molecules.PaneCardProps {
-	return molecules.PaneCardProps{Pane: pane, Stale: p.Stale, Highlight: highlighted(p.Attention, pane.Pos)}
+	return molecules.PaneCardProps{
+		Pane:          pane,
+		Stale:         p.Stale,
+		Highlight:     hasAttention(p.Attention, pane.Pos, "asking", "stalled"),
+		ReportWaiting: hasAttention(p.Attention, pane.Pos, "report_waiting"),
+	}
 }
 
 // PaneGrid はペインカードの配置。layout が成立すれば段ごとの列数に従う T*/B* 配置、

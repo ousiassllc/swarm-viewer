@@ -1,8 +1,11 @@
 package organisms
 
 import (
+	"cmp"
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
 	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
+	"slices"
+	"strconv"
 	"time"
 )
 
@@ -18,7 +21,7 @@ type AttentionBarProps struct {
 
 // authExpiresAt は auth_expired / auth_expiring の detail（エージェント名）に対応する expires_at。無ければ零値。
 func authExpiresAt(auth domain.Auth, a domain.Attention) time.Time {
-	if a.Kind != "auth_expired" && a.Kind != "auth_expiring" {
+	if !isAuthKind(a.Kind) {
 		return time.Time{}
 	}
 	for _, ag := range auth.Agents {
@@ -29,7 +32,89 @@ func authExpiresAt(auth domain.Auth, a domain.Attention) time.Time {
 	return time.Time{}
 }
 
+func isAuthKind(kind string) bool {
+	return kind == "auth_expired" || kind == "auth_expiring"
+}
+
+// agentAttention は 1 エージェント分のログイン関連の要対応（API が返した順）。
+type agentAttention struct {
+	Agent string
+	Items []domain.Attention
+}
+
+// attentionGroups は要対応バーの 2 グループ（機能要件 §7）。
+type attentionGroups struct {
+	// Panes はペイン関連（pane が付く項目）。ペイン位置順（T1…T4、B1…B4）。
+	Panes []domain.Attention
+	// Agents はエージェント・ログイン関連。エージェント名順で、同じエージェントの項目は 1 ブロックにまとめる。
+	Agents []agentAttention
+}
+
+// groupAttention は attention[] を 2 グループに分ける。API が返す順は保証がないので並べ替える。
+// auth_expired / auth_expiring は pane に関わらずログイン関連。pane の無い項目（未知の kind を含む）もログイン関連に入る。
+func groupAttention(att []domain.Attention) attentionGroups {
+	var g attentionGroups
+	for _, a := range att {
+		if a.Pane != "" && !isAuthKind(a.Kind) {
+			g.Panes = append(g.Panes, a)
+			continue
+		}
+		if i := slices.IndexFunc(g.Agents, func(ag agentAttention) bool { return ag.Agent == a.Detail }); i >= 0 {
+			g.Agents[i].Items = append(g.Agents[i].Items, a)
+		} else {
+			g.Agents = append(g.Agents, agentAttention{Agent: a.Detail, Items: []domain.Attention{a}})
+		}
+	}
+	slices.SortStableFunc(g.Panes, func(x, y domain.Attention) int { return comparePanePos(x.Pane, y.Pane) })
+	slices.SortStableFunc(g.Agents, func(x, y agentAttention) int { return cmp.Compare(x.Agent, y.Agent) })
+	return g
+}
+
+// comparePanePos はペイン位置を T → B → その他の順、同じ段なら番号順に比べる。
+func comparePanePos(a, b string) int {
+	ra, na := panePosKey(a)
+	rb, nb := panePosKey(b)
+	return cmp.Or(cmp.Compare(ra, rb), cmp.Compare(na, nb), cmp.Compare(a, b))
+}
+
+func panePosKey(pos string) (rank, num int) {
+	if pos == "" {
+		return 2, 0
+	}
+	switch pos[0] {
+	case 'T':
+		rank = 0
+	case 'B':
+		rank = 1
+	default:
+		return 2, 0
+	}
+	n, err := strconv.Atoi(pos[1:])
+	if err != nil {
+		return 2, 0
+	}
+	return rank, n
+}
+
+// attentionBoxClass は 2 グループの間にだけ区切り線（divide-y）を入れる。片方だけなら線を出さない。
+func attentionBoxClass(g attentionGroups) string {
+	base := "flex flex-col rounded-md border border-slate-700 bg-slate-900"
+	if len(g.Panes) > 0 && len(g.Agents) > 0 {
+		return base + " divide-y divide-slate-700"
+	}
+	return base
+}
+
+// attentionAgentsClass はエージェントの間に、グループ間より薄い区切り線を入れる。
+func attentionAgentsClass(g attentionGroups) string {
+	if len(g.Agents) > 1 {
+		return "flex flex-col divide-y divide-slate-700/60"
+	}
+	return "flex flex-col"
+}
+
 // AttentionBar は要対応（attention）と警告（warnings）。どちらも空なら何も描画しない。
+// attention はペイン関連とログイン関連の 2 グループに分け、間とエージェントごとに区切り線を入れる。
 templ AttentionBar(p AttentionBarProps) {
 	if len(p.Attention) > 0 || len(p.Warnings) > 0 {
 		<section class="flex flex-col gap-2" aria-label="要対応">
@@ -43,12 +128,31 @@ templ AttentionBar(p AttentionBarProps) {
 				</ul>
 			}
 			if len(p.Attention) > 0 {
-				<ul class="flex flex-col gap-1 rounded-md border border-slate-700 bg-slate-900 px-3 py-2">
-					for _, a := range p.Attention {
-						@molecules.AttentionItem(molecules.AttentionItemProps{Attention: a, AuthExpiresAt: authExpiresAt(p.Auth, a)})
-					}
-				</ul>
+				@attentionList(groupAttention(p.Attention), p.Auth)
 			}
 		</section>
 	}
+}
+
+templ attentionList(g attentionGroups, auth domain.Auth) {
+	<div class={ attentionBoxClass(g) }>
+		if len(g.Panes) > 0 {
+			<ul class="flex flex-col gap-1 px-3 py-2" data-attention-group="panes">
+				for _, a := range g.Panes {
+					@molecules.AttentionItem(molecules.AttentionItemProps{Attention: a, AuthExpiresAt: authExpiresAt(auth, a)})
+				}
+			</ul>
+		}
+		if len(g.Agents) > 0 {
+			<div class={ attentionAgentsClass(g) } data-attention-group="agents">
+				for _, ag := range g.Agents {
+					<ul class="flex flex-col gap-1 px-3 py-2" data-attention-agent={ ag.Agent }>
+						for _, a := range ag.Items {
+							@molecules.AttentionItem(molecules.AttentionItemProps{Attention: a, AuthExpiresAt: authExpiresAt(auth, a)})
+						}
+					</ul>
+				}
+			</div>
+		}
+	</div>
 }
