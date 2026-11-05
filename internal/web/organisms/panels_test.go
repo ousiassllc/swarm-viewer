@@ -51,6 +51,15 @@ func TestUsagePanel_ToneBoundaries(t *testing.T) {
 	}
 }
 
+// アカウント名の見出し（h3）は本文なので 14px（T3）。
+func TestUsagePanel_AccountHeadingIs14px(t *testing.T) {
+	t.Parallel()
+	slot := domain.Slot{Available: true, Used: fp(42), Unit: domain.UnitPercent}
+	html := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: usageWith(domain.UsageOK, slot), Now: now}))
+	webtest.MustContain(t, html, `<h3 class="text-sm text-ink">Claude · main</h3>`, `<h3 class="text-sm text-ink">Codex · cx</h3>`, `<h3 class="text-sm text-ink">Cursor · cur</h3>`)
+	webtest.MustNotContain(t, html, `<h3 class="text-xs`)
+}
+
 func TestUsagePanel_StatusBranches(t *testing.T) {
 	t.Parallel()
 	slot := domain.Slot{Available: true, Used: fp(42), Unit: domain.UnitPercent}

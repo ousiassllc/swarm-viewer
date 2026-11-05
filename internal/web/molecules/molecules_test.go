@@ -40,6 +40,43 @@ func TestUsageRow_Percent(t *testing.T) {
 	}
 }
 
+// 行の本文（ラベル・値）は 14px（T3）。12px は日時のキャプション（リセット）だけ。
+func TestUsageRow_BodyIs14pxAndCaptionIs12px(t *testing.T) {
+	t.Parallel()
+	reset := now.Add(2 * time.Hour)
+	slot := domain.Slot{Available: true, Used: f(10), Unit: domain.UnitPercent, Status: "ok", ResetsAt: &reset}
+	html := webtest.Render(t, molecules.UsageRow(molecules.UsageRowProps{Label: "5 時間枠", Slot: slot, Now: now}))
+	root := webtest.Elements(t, html, "div")[0]
+	if class, _ := webtest.Attr(root, "class"); !slices.Contains(strings.Fields(class), "text-sm") || slices.Contains(strings.Fields(class), "text-xs") {
+		t.Errorf("行の本文は text-sm のはず: %q", class)
+	}
+	var captions int
+	for _, p := range webtest.Elements(t, html, "p") {
+		if class, _ := webtest.Attr(p, "class"); slices.Contains(strings.Fields(class), "text-xs") {
+			captions++
+		}
+	}
+	if captions != 1 {
+		t.Errorf("12px（text-xs）は日時のキャプション 1 つだけのはず（%d 個）:\n%s", captions, html)
+	}
+}
+
+// 桁をそろえる補足（「12.3 GB 空き」など）は Mono（T5）。
+func TestHostRow_DetailIsMono(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, molecules.HostRow(molecules.HostRowProps{Label: "/", Percent: 87, Available: true, Detail: "108.5 GB 空き"}))
+	for _, span := range webtest.Elements(t, html, "span") {
+		if span.FirstChild == nil || span.FirstChild.Data != "108.5 GB 空き" {
+			continue
+		}
+		if class, _ := webtest.Attr(span, "class"); !slices.Contains(strings.Fields(class), "font-mono") {
+			t.Errorf("補足は font-mono のはず: %q", class)
+		}
+		return
+	}
+	t.Errorf("補足の span が見つからない:\n%s", html)
+}
+
 func TestUsageRow_Exhausted(t *testing.T) {
 	t.Parallel()
 	slot := domain.Slot{Available: true, Used: f(10), Unit: domain.UnitPercent, Status: domain.SlotStatusExhausted}

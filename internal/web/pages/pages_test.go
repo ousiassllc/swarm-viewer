@@ -1,6 +1,7 @@
 package pages_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -47,6 +48,26 @@ func TestMainPage(t *testing.T) {
 		"csrf-test-token",
 	)
 	webtest.MustNotContain(t, html, "100.64.0.5", "48120")
+}
+
+// 接続の切替リンクは操作対象のラベルなので 14px（T3）。
+func TestMainPage_ConnectionSwitcherIs14px(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, pages.MainContent(mainProps()))
+	var checked int
+	for _, a := range webtest.Elements(t, html, "a") {
+		if href, _ := webtest.Attr(a, "href"); href != "/connections/01A" && href != "/connections/01B" {
+			continue
+		}
+		class, _ := webtest.Attr(a, "class")
+		if !slices.Contains(strings.Fields(class), "text-sm") || slices.Contains(strings.Fields(class), "text-xs") {
+			t.Errorf("接続の切替リンクは text-sm のはず: %q", class)
+		}
+		checked++
+	}
+	if checked != 2 {
+		t.Errorf("接続の切替リンクが 2 本のはず（%d 本）:\n%s", checked, html)
+	}
 }
 
 // ホバーされるナビリンクと接続切替は色の遷移（.hover-fade。ガイド M1）を持つ。
