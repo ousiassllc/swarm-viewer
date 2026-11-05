@@ -28,16 +28,16 @@ func valueClass(t format.Tone) string {
 // UsageRow は利用上限の 1 枠。unit が percent ならバー＋数値、usd なら金額のみ。
 // available: false は「—」（バー・数値なし）。
 templ UsageRow(p UsageRowProps) {
-	<div class="flex flex-col gap-1 text-xs">
+	<div class="flex flex-col gap-1 text-sm">
 		<div class="flex items-center gap-2">
-			<span class="w-16 shrink-0 text-mute">{ p.Label }</span>
+			<span class="w-20 shrink-0 text-mute">{ p.Label }</span>
 			if !p.Slot.Available {
 				<span class="text-mute" aria-label="取得できません">{ format.Dash }</span>
 			} else if p.Slot.Unit == domain.UnitPercent && p.Slot.Used != nil {
 				<div class="min-w-0 flex-1">
 					@atoms.ProgressBar(atoms.ProgressBarProps{Percent: *p.Slot.Used, Tone: format.SlotTone(p.Slot), Label: p.Label})
 				</div>
-				<span class={ "w-12 shrink-0 text-right font-mono", valueClass(format.SlotTone(p.Slot)) }>{ format.Percent(*p.Slot.Used) }</span>
+				<span class={ "w-14 shrink-0 text-right font-mono", valueClass(format.SlotTone(p.Slot)) }>{ format.Percent(*p.Slot.Used) }</span>
 			} else if p.Slot.Unit == domain.UnitUSD && p.Slot.Used != nil {
 				<span class={ "font-mono", valueClass(format.SlotTone(p.Slot)) }>{ format.USD(*p.Slot.Used) }</span>
 			} else {
@@ -48,7 +48,7 @@ templ UsageRow(p UsageRowProps) {
 			}
 		</div>
 		if p.Slot.Available && p.Slot.ResetsAt != nil {
-			<p class="pl-[4.5rem] text-mute">
+			<p class="pl-[5.5rem] text-xs text-mute">
 				{ "リセット " + format.DateTime(*p.Slot.ResetsAt) + "（" + format.Until(*p.Slot.ResetsAt, p.Now) + "）" }
 			</p>
 		}

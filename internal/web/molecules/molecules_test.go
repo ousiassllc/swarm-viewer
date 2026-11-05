@@ -165,7 +165,7 @@ func TestHostRow_ThreeColumnGrid(t *testing.T) {
 
 		root := webtest.Elements(t, out, "div")[0]
 		class, _ := webtest.Attr(root, "class")
-		for _, want := range []string{"grid", "grid-cols-[4rem_minmax(0,1fr)_10rem]"} {
+		for _, want := range []string{"grid", "grid-cols-[4.5rem_minmax(0,1fr)_12rem]", "text-sm"} {
 			if !slices.Contains(strings.Fields(class), want) {
 				t.Errorf("%s: 行の class に %q が無い: %q", tt.name, want, class)
 			}
