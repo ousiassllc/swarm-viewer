@@ -15,7 +15,7 @@ swarm-viewer の Android 版（Kotlin + Jetpack Compose）。親 Issue は [#7](
 - **JDK 17**（`JAVA_HOME` を設定する）
 - **Android SDK**（`ANDROID_HOME` を設定するか、`android/local.properties` に `sdk.dir=<パス>` を書く。`local.properties` はコミットしない）
   - `platforms;android-35` と `build-tools;35.0.0` 以降
-- 導入手順は [`docs/environment/setup.md`](../docs/environment/setup.md) の環境構築に従う（Android 向けの記述は Issue #15 の仕様書更新で追加される）
+- 導入手順は [`docs/environment/setup.md`](../docs/environment/setup.md) §11 の Android 版に従う。設計は [`docs/android/overview.md`](../docs/android/overview.md)
 
 Gradle 本体はラッパー（`./gradlew`）が取得するため、別途インストールしない。
 
@@ -31,6 +31,12 @@ Gradle 本体はラッパー（`./gradlew`）が取得するため、別途イ�
 | `./gradlew test` | JVM 上のユニットテスト |
 
 push 前は `./gradlew lint ktlintCheck test` がクリーンに通ることを確認する。
+
+## domain 層とテストベクタ
+
+`app/src/main/kotlin/com/ousiassllc/swarmviewer/domain/` は、デスクトップ版（Go の `internal/domain`）と同じ責務の純 Kotlin（Android API・OkHttp・Room を import しない）。接続文字列と URL の検証（`parsePairing`・`validateUrl`）、`report` / `sessions_list` の解析（`parseReport`・`parseSessions`）、通知判定（`detect`）、エラー分類（`classify`）、しきい値の判定（`usageTone`）を持つ。token は `PairingPayload` だけが持ち、`toString`・例外メッセージには出さない。
+
+挙動の一致は、リポジトリ直下の [`testdata/vectors/`](../testdata/vectors/README.md)（JSON）を Go と Kotlin の両方が読んで保つ。ケースを足す・変えるときは、`./gradlew test` と `go test ./internal/domain/... ./internal/web/format/...` の両方が通ることを確かめる。
 
 ## 依存の版について
 

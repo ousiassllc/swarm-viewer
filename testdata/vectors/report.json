@@ -1,0 +1,83 @@
+{
+  "description": "report・sessions_list の解析、レイアウトの成立判定、state の表示ラベル。expect は正規化した Report の部分木（README.md）。input は JSON の値、input_raw は本文そのまま",
+  "parse_report": [
+    {"name": "固定サンプル（未知キー・null・欠落・未知の state を含む）", "input": {"at": "2026-10-31T22:10:05+09:00", "future_key": {"x": 1}, "host": {"load1": 98.2, "mem_free_gb": 41.3, "cpu": {"available": true, "used_percent": 42}, "mem": {"available": true, "total_gb": 128, "used_gb": 41.3, "used_percent": 32.3}, "swap": {"available": true, "total_gb": 8.0, "used_gb": 0.4, "used_percent": 5}, "disk": [{"mount": "/", "available": true, "free_gb": 120, "total_gb": 450, "used_percent": 73}, {"mount": "/mnt/nvme", "available": false, "free_gb": null, "total_gb": null, "used_percent": null}]}, "layout": {"rows": 2, "cols": [4, 4]}, "panes": [{"pos": "T1", "id": "%1", "agent": "omp", "state": "working", "title": "t", "cwd": "/w", "elapsed": "42m", "activity": "Running go test", "truncated": true, "changed_ago": "20s", "note": {"from": "agent-b", "origin": "agent", "repo": "o/r", "items": ["#1", "#2"], "next": "n"}}, {"pos": "T2", "id": "%2", "agent": null, "state": "asking", "title": "", "cwd": "", "elapsed": null, "activity": null, "changed_ago": null, "note": null}, {"pos": "T3", "id": "%3", "agent": "newagent", "state": "brand-new-state"}, {"pos": "T4", "id": "%4", "agent": "claude", "state": null}, {"pos": "T5", "id": "%5", "agent": "codex", "state": 7}, {"pos": "T6", "id": "%6", "agent": "codex"}], "attention": [{"kind": "asking", "pane": "T2", "detail": "?"}, {"kind": "auth_expired", "pane": "", "detail": "claude"}, {"kind": "future_kind", "pane": "T1", "detail": "x"}], "usage": {"status": "ok", "reason": null, "fetched_at": "2026-10-31T22:09:30+09:00", "claude": [{"account": "acct-a", "five_hour": {"available": false, "used": null, "unit": null, "status": null, "resets_at": null}, "seven_day": {"available": true, "used": 48, "unit": "percent", "status": "ok", "resets_at": "2026-11-01T07:00:00+09:00"}}], "cursor": [{"account": "acct-a", "window": "monthly", "models": {"available": true, "used": 0.0, "unit": "percent", "status": "ok", "resets_at": null}}, {"account": "acct-b", "window": null, "models": {"available": true, "used": 12.5, "unit": "usd", "status": "exhausted", "resets_at": null}}], "codex": [{"account": "acct-a", "five_hour": {"available": true, "used": 96.0, "unit": "percent", "status": "ok", "resets_at": null}, "weekly": {"available": true, "used": 1.0, "unit": "percent", "status": "ok", "resets_at": null}}]}, "omp": {"status": "up_to_date"}, "update": {"status": "up_to_date"}, "auth": {"agents": [{"agent": "claude", "status": "expired", "expires_at": null}, {"agent": "codex", "status": "expiring_soon", "expires_at": "2026-11-01T08:10:00+09:00"}]}, "warnings": [{"code": "layout_changed", "message": "m"}]}, "expect": {"at": "2026-10-31T13:10:05Z", "layout": {"rows": 2, "cols": [4, 4]}, "panes": [{"pos": "T1", "id": "%1", "agent": "omp", "state": "working", "title": "t", "cwd": "/w", "elapsed": "42m", "activity": "Running go test", "truncated": true, "changed_ago": "20s", "note": {"from": "agent-b", "repo": "o/r", "items": ["#1", "#2"], "next": "n"}}, {"pos": "T2", "id": "%2", "agent": null, "state": "asking", "title": "", "cwd": "", "elapsed": "", "activity": "", "truncated": false, "changed_ago": "", "note": null}, {"pos": "T3", "id": "%3", "agent": "newagent", "state": "unknown", "title": "", "cwd": "", "elapsed": "", "activity": "", "truncated": false, "changed_ago": "", "note": null}, {"pos": "T4", "id": "%4", "agent": "claude", "state": "unknown", "title": "", "cwd": "", "elapsed": "", "activity": "", "truncated": false, "changed_ago": "", "note": null}, {"pos": "T5", "id": "%5", "agent": "codex", "state": "unknown", "title": "", "cwd": "", "elapsed": "", "activity": "", "truncated": false, "changed_ago": "", "note": null}, {"pos": "T6", "id": "%6", "agent": "codex", "state": "unknown", "title": "", "cwd": "", "elapsed": "", "activity": "", "truncated": false, "changed_ago": "", "note": null}], "attention": [{"kind": "asking", "pane": "T2", "detail": "?"}, {"kind": "auth_expired", "pane": "", "detail": "claude"}, {"kind": "future_kind", "pane": "T1", "detail": "x"}], "warnings": [{"code": "layout_changed", "message": "m"}], "host": {"cpu": {"available": true, "used_percent": 42}, "mem": {"available": true, "total_gb": 128, "used_gb": 41.3, "used_percent": 32.3}, "swap": {"available": true, "total_gb": 8, "used_gb": 0.4, "used_percent": 5}, "disk": [{"mount": "/", "available": true, "free_gb": 120, "total_gb": 450, "used_percent": 73}, {"mount": "/mnt/nvme", "available": false, "free_gb": 0, "total_gb": 0, "used_percent": 0}]}, "usage": {"status": "ok", "reason": "", "fetched_at": "2026-10-31T13:09:30Z", "claude": [{"account": "acct-a", "five_hour": {"available": false, "used": null, "unit": "", "status": "", "resets_at": null}, "seven_day": {"available": true, "used": 48, "unit": "percent", "status": "ok", "resets_at": "2026-10-31T22:00:00Z"}, "reason": null}], "codex": [{"account": "acct-a", "five_hour": {"available": true, "used": 96, "unit": "percent", "status": "ok", "resets_at": null}, "seven_day": {"available": false, "used": null, "unit": "", "status": "", "resets_at": null}, "reason": null}], "cursor": [{"account": "acct-a", "window": "monthly", "models": {"available": true, "used": 0, "unit": "percent", "status": "ok", "resets_at": null}, "reason": null}, {"account": "acct-b", "window": null, "models": {"available": true, "used": 12.5, "unit": "usd", "status": "exhausted", "resets_at": null}, "reason": null}]}, "auth": {"agents": [{"agent": "claude", "status": "expired", "expires_at": null}, {"agent": "codex", "status": "expiring_soon", "expires_at": "2026-10-31T23:10:00Z"}]}}},
+    {"name": "空オブジェクトは既定値", "input": {}, "expect": {"at": null, "layout": {"rows": 0, "cols": []}, "panes": [], "attention": [], "warnings": [], "usage": {"status": "unavailable", "reason": "", "fetched_at": null, "claude": [], "codex": [], "cursor": []}, "host": {"cpu": {"available": false, "used_percent": 0}, "mem": {"available": false, "total_gb": 0, "used_gb": 0, "used_percent": 0}, "swap": {"available": false, "total_gb": 0, "used_gb": 0, "used_percent": 0}, "disk": []}, "auth": {"agents": []}}},
+    {"name": "全部 null は既定値", "input": {"at": null, "layout": null, "panes": null, "attention": null, "usage": null, "host": null, "warnings": null, "auth": null}, "expect": {"at": null, "layout": {"rows": 0, "cols": []}, "panes": [], "attention": [], "warnings": [], "usage": {"status": "unavailable", "reason": "", "fetched_at": null, "claude": [], "codex": [], "cursor": []}, "host": {"cpu": {"available": false, "used_percent": 0}, "mem": {"available": false, "total_gb": 0, "used_gb": 0, "used_percent": 0}, "swap": {"available": false, "total_gb": 0, "used_gb": 0, "used_percent": 0}, "disk": []}, "auth": {"agents": []}}},
+    {"name": "null 要素は既定のペイン・要対応・警告", "input": {"panes": [null], "attention": [null], "warnings": [null]}, "expect": {"panes": [{"pos": "", "id": "", "agent": null, "state": "unknown", "title": "", "cwd": "", "elapsed": "", "activity": "", "truncated": false, "changed_ago": "", "note": null}], "attention": [{"kind": "", "pane": "", "detail": ""}], "warnings": [{"code": "", "message": ""}]}},
+    {"name": "usage.status は未知なら unavailable", "input": {"usage": {"status": "future", "reason": "timeout"}}, "expect": {"usage": {"status": "unavailable", "reason": "timeout"}}},
+    {"name": "usage.status は null なら unavailable", "input": {"usage": {"status": null}}, "expect": {"usage": {"status": "unavailable"}}},
+    {"name": "usage.status の大文字は未知", "input": {"usage": {"status": "OK"}}, "expect": {"usage": {"status": "unavailable"}}},
+    {"name": "usage.status stale", "input": {"usage": {"status": "stale", "reason": "timeout"}}, "expect": {"usage": {"status": "stale", "reason": "timeout"}}},
+    {"name": "usage.status pending", "input": {"usage": {"status": "pending"}}, "expect": {"usage": {"status": "pending"}}},
+    {"name": "usage.status disabled", "input": {"usage": {"status": "disabled"}}, "expect": {"usage": {"status": "disabled"}}},
+    {"name": "available:false の枠は null の項目を既定値にする", "input": {"usage": {"status": "ok", "claude": [{"account": "a", "five_hour": {"available": false, "used": null, "unit": null, "status": null, "resets_at": null}}], "codex": [{"account": "b"}], "cursor": [{"account": "c", "window": null, "models": null}]}, "host": {"cpu": {"available": false, "used_percent": null}, "swap": {"available": false, "total_gb": null, "used_gb": null, "used_percent": null}}}, "expect": {"usage": {"claude": [{"account": "a", "five_hour": {"available": false, "used": null, "unit": "", "status": "", "resets_at": null}, "seven_day": {"available": false, "used": null, "unit": "", "status": "", "resets_at": null}}], "codex": [{"account": "b", "five_hour": {"available": false, "used": null, "unit": "", "status": "", "resets_at": null}, "seven_day": {"available": false, "used": null, "unit": "", "status": "", "resets_at": null}}], "cursor": [{"account": "c", "window": null, "models": {"available": false, "used": null, "unit": "", "status": "", "resets_at": null}}]}, "host": {"cpu": {"available": false, "used_percent": 0}, "swap": {"available": false, "total_gb": 0}}}},
+    {"name": "スワップ無し（total_gb 0 でも available）", "input": {"host": {"swap": {"available": true, "total_gb": 0, "used_gb": 0, "used_percent": 0}}}, "expect": {"host": {"swap": {"available": true, "total_gb": 0}}}},
+    {"name": "host.mem", "input": {"host": {"mem": {"available": true, "total_gb": 128, "used_gb": 41.3, "used_percent": 32.3}}}, "expect": {"host": {"mem": {"available": true, "total_gb": 128, "used_gb": 41.3, "used_percent": 32.3}}}},
+    {"name": "host.mem が無い古い swarm-console は available:false", "input": {"host": {"cpu": {"available": true, "used_percent": 1}}}, "expect": {"host": {"mem": {"available": false, "total_gb": 0, "used_gb": 0, "used_percent": 0}}}},
+    {"name": "host.mem が null は available:false", "input": {"host": {"mem": null}}, "expect": {"host": {"mem": {"available": false}}}},
+    {"name": "アカウントの reason（null・欠落は理由なし、未知の値もそのまま保持）", "input": {"usage": {"status": "ok", "claude": [{"account": "a", "reason": "without_usage"}, {"account": "b", "reason": null}, {"account": "c"}], "codex": [{"account": "d", "reason": "no_email"}], "cursor": [{"account": "e", "reason": "x"}]}}, "expect": {"usage": {"claude": [{"reason": "without_usage"}, {"reason": null}, {"reason": null}], "codex": [{"reason": "no_email"}], "cursor": [{"reason": "x"}]}}},
+    {"name": "7 日枠のキーは seven_day（weekly は無視）", "input": {"usage": {"status": "ok", "codex": [{"account": "a", "weekly": {"available": true, "used": 1, "unit": "percent", "status": "ok"}}]}}, "expect": {"usage": {"codex": [{"seven_day": {"available": false, "used": null, "unit": "", "status": "", "resets_at": null}}]}}},
+    {"name": "state: 6 値すべて", "input": {"panes": [{"id": "%0", "state": "working"}, {"id": "%1", "state": "asking"}, {"id": "%2", "state": "idle"}, {"id": "%3", "state": "stalled"}, {"id": "%4", "state": "shell"}, {"id": "%5", "state": "unknown"}]}, "expect": {"panes": [{"state": "working"}, {"state": "asking"}, {"state": "idle"}, {"state": "stalled"}, {"state": "shell"}, {"state": "unknown"}]}},
+    {"name": "state: 大文字・前後空白・空文字・未知・数値・オブジェクトは unknown", "input": {"panes": [{"state": "Asking"}, {"state": " asking"}, {"state": ""}, {"state": "done"}, {"state": 7}, {"state": {"x": 1}}, {"state": true}]}, "expect": {"panes": [{"state": "unknown"}, {"state": "unknown"}, {"state": "unknown"}, {"state": "unknown"}, {"state": "unknown"}, {"state": "unknown"}, {"state": "unknown"}]}},
+    {"name": "agent は未知の値もそのまま", "input": {"panes": [{"agent": "future-agent"}]}, "expect": {"panes": [{"agent": "future-agent"}]}},
+    {"name": "時刻は UTC に正規化（小数秒つき・Z 表記）", "input": {"at": "2026-10-31T22:10:05.123+09:00", "usage": {"fetched_at": "2026-10-31T13:09:30Z"}}, "expect": {"at": "2026-10-31T13:10:05Z", "usage": {"fetched_at": "2026-10-31T13:09:30Z"}}}
+  ],
+  "parse_report_invalid": [
+    {"name": "空", "input_raw": ""},
+    {"name": "空白", "input_raw": "  "},
+    {"name": "null", "input_raw": "null"},
+    {"name": "配列", "input_raw": "[]"},
+    {"name": "文字列", "input_raw": "\"x\""},
+    {"name": "数値", "input_raw": "1"},
+    {"name": "壊れた JSON", "input_raw": "{\"panes\":["},
+    {"name": "panes が型違い", "input_raw": "{\"panes\":\"x\"}"},
+    {"name": "at が型違い", "input_raw": "{\"at\":\"not-a-time\"}"},
+    {"name": "layout が型違い", "input_raw": "{\"layout\":[]}"},
+    {"name": "テキスト", "input_raw": "Error: boom"},
+    {"name": "pane の項目が型違い（title が数値）", "input_raw": "{\"panes\":[{\"title\":1}]}"},
+    {"name": "usage.claude が型違い", "input_raw": "{\"usage\":{\"claude\":{}}}"},
+    {"name": "host.cpu.available が型違い", "input_raw": "{\"host\":{\"cpu\":{\"available\":\"yes\"}}}"}
+  ],
+  "parse_sessions": [
+    {"name": "許可セッションだけ・重複と空 id は捨てる・順序は応答のまま", "input": {"sessions": [{"id": "0", "allowed": true, "operable": false, "layout": {"rows": 2, "cols": [3, 3]}, "panes": ["T1"]}, {"id": "secret", "allowed": false}, {"id": "1", "allowed": true}, {"id": "0", "allowed": true}, {"id": "", "allowed": true}, {"id": "2"}], "extra": 1}, "want": ["0", "1"]},
+    {"name": "空配列", "input": {"sessions": []}, "want": []},
+    {"name": "allowed なしだけ", "input": {"sessions": [{"id": "x", "allowed": false}]}, "want": []}
+  ],
+  "parse_sessions_invalid": [
+    {"name": "空", "input_raw": ""},
+    {"name": "null", "input_raw": "null"},
+    {"name": "配列", "input_raw": "[]"},
+    {"name": "sessions なし", "input_raw": "{}"},
+    {"name": "sessions が null", "input_raw": "{\"sessions\":null}"},
+    {"name": "sessions がオブジェクト", "input_raw": "{\"sessions\":{}}"},
+    {"name": "要素が数値", "input_raw": "{\"sessions\":[1]}"},
+    {"name": "JSON でない", "input_raw": "not json"},
+    {"name": "壊れた JSON", "input_raw": "{\"sessions\":["}
+  ],
+  "layout_valid": [
+    {"name": "2x3", "rows": 2, "cols": [3, 3], "pane_count": 6, "want": true},
+    {"name": "不揃い", "rows": 2, "cols": [4, 2], "pane_count": 6, "want": true},
+    {"name": "1 段", "rows": 1, "cols": [1], "pane_count": 1, "want": true},
+    {"name": "ペイン数が多い", "rows": 2, "cols": [3, 3], "pane_count": 7, "want": false},
+    {"name": "ペイン数が少ない", "rows": 2, "cols": [3, 3], "pane_count": 5, "want": false},
+    {"name": "零値", "rows": 0, "cols": [], "pane_count": 0, "want": false},
+    {"name": "rows と cols 長の不一致", "rows": 3, "cols": [3, 3], "pane_count": 6, "want": false},
+    {"name": "cols が rows より長い", "rows": 1, "cols": [3, 3], "pane_count": 6, "want": false},
+    {"name": "空の段", "rows": 2, "cols": [6, 0], "pane_count": 6, "want": false},
+    {"name": "負の列", "rows": 2, "cols": [7, -1], "pane_count": 6, "want": false},
+    {"name": "負の rows", "rows": -1, "cols": [], "pane_count": 0, "want": false},
+    {"name": "cols 空", "rows": 1, "cols": [], "pane_count": 0, "want": false}
+  ],
+  "state_labels": [
+    {"state": "working", "label": "作業中"},
+    {"state": "asking", "label": "答え待ち"},
+    {"state": "idle", "label": "指示待ち"},
+    {"state": "stalled", "label": "止まってるかも"},
+    {"state": "shell", "label": "空き"},
+    {"state": "unknown", "label": "判定できない"},
+    {"state": "brand-new-state", "label": "判定できない"},
+    {"state": "", "label": "判定できない"},
+    {"state": "Asking", "label": "判定できない"}
+  ]
+}
