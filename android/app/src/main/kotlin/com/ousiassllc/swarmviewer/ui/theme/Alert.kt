@@ -73,7 +73,7 @@ fun AppAlert(
                 Modifier
                     .drawBehind { drawRect(color, size = Size(AlertAccentWidth.toPx(), size.height)) }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Icon(painterResource(kind.iconRes()), contentDescription = null, tint = color, modifier = Modifier.padding(top = 2.dp))
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
