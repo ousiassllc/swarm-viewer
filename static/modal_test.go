@@ -91,6 +91,20 @@ func TestAppCSS_ShadowModalIsOverriddenInDark(t *testing.T) {
 	}
 }
 
+// ダークの --shadow-modal は、モーダルの規則が var(--shadow-modal) で読んで初めて効く。Tailwind v4 の @theme に置くと値がクラスに埋め込まれ、
+// ダークの上書きは読まれない（#82）。生成された CSS に var(--shadow-modal) を読む規則があり、.shadow-modal の埋め込みが無いことを見る。
+func TestAppCSS_ModalShadowReadsToken(t *testing.T) {
+	t.Parallel()
+
+	css := readAppCSS(t)
+	if !strings.Contains(css, "box-shadow:var(--shadow-modal)") {
+		t.Error("var(--shadow-modal) を box-shadow に読む規則が無い（ダークの影が効かない）")
+	}
+	if strings.Contains(css, ".shadow-modal") {
+		t.Error(".shadow-modal がある（@theme の値がクラスに埋め込まれ、ダークの上書きが効かない）")
+	}
+}
+
 // モーダルのスクラム（::backdrop）はトークン --scrim の色で、出現と退出のフェードのキーフレームを持つ（ガイド O1）。
 func TestAppCSS_ModalBackdropUsesScrimToken(t *testing.T) {
 	t.Parallel()

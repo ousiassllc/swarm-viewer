@@ -61,20 +61,20 @@ func SlotTone(slot domain.Slot) Tone {
 }
 
 // BadgeClass はバッジ（背景・文字・リング）の Tailwind クラスを返す。未知の Tone は muted。
-// 色はガイドのトークン（accent は無彩色の ink、状態色は success / warning / danger）。背景・リングはトークンの低 alpha。
+// 色はガイドのトークン（accent は無彩色の ink、状態色は success / warning / danger）。背景はトークンの 10%・リングは 40%（ガイド C4 のピル）。
 // muted の文字は情報（エージェント名・shell / unknown の状態）なので --mute でなく ink にする（--mute は 12px の文字で AA に届かない。ガイド C6）。
 func BadgeClass(t Tone) string {
 	switch t {
 	case ToneAccent:
-		return "bg-ink/10 text-ink ring-ink/30"
+		return "bg-ink/10 text-ink ring-ink/40"
 	case ToneWarning:
-		return "bg-warning/15 text-warning ring-warning/40"
+		return "bg-warning/10 text-warning ring-warning/40"
 	case ToneSuccess:
-		return "bg-success/15 text-success ring-success/40"
+		return "bg-success/10 text-success ring-success/40"
 	case ToneError:
-		return "bg-danger/15 text-danger ring-danger/40"
+		return "bg-danger/10 text-danger ring-danger/40"
 	default:
-		return "bg-mute/15 text-ink ring-mute/40"
+		return "bg-mute/10 text-ink ring-mute/40"
 	}
 }
 
