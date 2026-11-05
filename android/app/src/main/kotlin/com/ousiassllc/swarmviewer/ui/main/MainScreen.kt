@@ -42,6 +42,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
 import java.time.Instant
+import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 
 /**
  * メイン画面（A2。機能要件 §12.2）。接続名（複数あるときは切替）と設定、セッションのタブ、要対応・警告、ペイン、利用上限、ホスト負荷。
@@ -72,8 +73,8 @@ fun MainScreen(
             TopAppBar(
                 title = { ConnectionTitle(state.connections, viewModel::selectConnection) },
                 actions = {
-                    TextButton(onClick = onManageConnections) { Text("接続") }
-                    TextButton(onClick = onSettings) { Text("設定") }
+                    AppNavTextButton("接続", onManageConnections)
+                    AppNavTextButton("設定", onSettings)
                 },
             )
         },

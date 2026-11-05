@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ousiassllc.swarmviewer.service.PairingDraft
 import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
+import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 import com.ousiassllc.swarmviewer.ui.theme.AppTextField
 
@@ -67,7 +68,7 @@ fun PairingScreen(
             val draft = state.draft
             // 確定の失敗は、確認モーダルの中に出す（背面のアラートはスクラムに隠れる）。
             if (draft == null) state.message?.let { AppAlert(it) }
-            TextButton(onClick = leave) { Text("戻る") }
+            AppNavTextButton("戻る", leave)
         }
     }
 

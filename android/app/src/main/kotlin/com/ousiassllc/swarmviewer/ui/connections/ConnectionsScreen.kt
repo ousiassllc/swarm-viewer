@@ -28,6 +28,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppCard
 import com.ousiassllc.swarmviewer.ui.theme.AppDangerTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
+import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 
 /**
@@ -46,7 +47,7 @@ fun ConnectionsScreen(
     LaunchedEffect(Unit) { viewModel.refresh() } // ペアリングから戻ったときに読み直す
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("接続") }, navigationIcon = { TextButton(onClick = onBack) { Text("戻る") } }) },
+        topBar = { TopAppBar(title = { Text("接続") }, navigationIcon = { AppNavTextButton("戻る", onBack) }) },
     ) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),

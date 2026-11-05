@@ -123,6 +123,19 @@ fun AppDangerTextButton(
     )
 }
 
+/**
+ * 画面の移動先を示すだけのテキスト操作（接続管理・設定・戻る。ガイド T2）: ナビ・リンクは Regular。
+ * SemiBold はボタンの文字だけなので、ダイアログの確定・キャンセルなど操作の [TextButton] は既定のまま使う。
+ */
+@Composable
+fun AppNavTextButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    TextButton(onClick = onClick, modifier = modifier) { Text(label, style = MaterialTheme.typography.bodyMedium) }
+}
+
 /** 入力欄（ガイド）: 地は surface（Web の `bg-surface` と同じ）。フォーカス中の枠と caret はフォーカスリング色（[ExtraColors.focus]）。 */
 @Composable
 fun AppTextField(
