@@ -32,6 +32,14 @@ func recoveryMessage(r RecoveryReason) string {
 	return "保存データを開けませんでした（壊れている可能性があります）。保存データを初期化すると、接続と設定が消えます。"
 }
 
+// recoveryKind はアラートの種類。壊れている（開けない）は danger、新しい版で作られた保存データは更新で解決しうるので warning。未知の値は corrupt と同じ。
+func recoveryKind(r RecoveryReason) atoms.AlertKind {
+	if r == RecoverySchemaTooNew {
+		return atoms.AlertWarning
+	}
+	return atoms.AlertDanger
+}
+
 // RecoveryPage は DB 破損・スキーマが新しすぎるときの初期化導線（NFR-AVL-5、CMP-4）。
 // recovery モードでは `/` がこの画面を返す。初期化は `POST /recovery/reset`（paths.RecoveryReset）。
 // token は秘密領域に残る（初期化後は孤立エントリになり、再ペアリングで置き換わる）。
@@ -44,7 +52,7 @@ templ RecoveryPage(shell layout.BaseProps, p RecoveryProps) {
 // RecoveryContent は初期化導線のフラグメント。
 templ RecoveryContent(p RecoveryProps) {
 	@pageTitle("保存データを開けません")
-	<p class="text-sm text-ink" data-recovery-reason={ string(p.Reason) }>{ recoveryMessage(p.Reason) }</p>
+	@atoms.Alert(atoms.AlertProps{Kind: recoveryKind(p.Reason), Message: recoveryMessage(p.Reason), Attrs: templ.Attributes{"data-recovery-reason": string(p.Reason)}})
 	<p class="text-sm text-ink">保存していた token は OS の秘密領域に残ります。初期化後に接続をペアリングし直してください。</p>
 	if p.Error != "" {
 		@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: p.Error})
