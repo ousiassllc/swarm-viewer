@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +26,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AlertKind
 import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 import com.ousiassllc.swarmviewer.ui.theme.AppSwitch
+import com.ousiassllc.swarmviewer.ui.theme.ListRowMinHeight
 
 /** 通知確認間隔の下に常に出す注記（機能要件 §12.4、FR-AND-7）。 */
 const val DOZE_NOTE = "Doze・バッテリー最適化により、通知は設定した間隔より遅れることがあります"
@@ -48,7 +50,7 @@ fun NotificationSettings(
     SettingsSection("通知") {
         Row(
             modifier =
-                Modifier.fillMaxWidth().toggleable(
+                Modifier.fillMaxWidth().heightIn(min = ListRowMinHeight).toggleable(
                     value = settings.notificationsEnabled,
                     role = Role.Switch,
                     onValueChange = { enabled ->

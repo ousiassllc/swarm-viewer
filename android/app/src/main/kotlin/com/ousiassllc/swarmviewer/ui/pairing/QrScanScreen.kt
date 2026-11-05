@@ -42,6 +42,7 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
+import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -82,7 +83,7 @@ fun QrScanScreen(
 @Composable
 private fun Centered(content: @Composable () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(LocalGutter.current),
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) { content() }
@@ -136,7 +137,7 @@ private fun ScannerView(
             },
         )
         Column(
-            modifier = Modifier.align(Alignment.BottomCenter).padding(24.dp),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(LocalGutter.current),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {

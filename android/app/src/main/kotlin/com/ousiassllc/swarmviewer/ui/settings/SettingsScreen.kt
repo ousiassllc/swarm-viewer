@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -35,6 +36,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 import com.ousiassllc.swarmviewer.ui.theme.AppRadio
+import com.ousiassllc.swarmviewer.ui.theme.ListRowMinHeight
 import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
 
 /**
@@ -109,7 +111,11 @@ internal fun RadioRow(
     onSelect: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().selectable(selected = selected, onClick = onSelect, role = Role.RadioButton),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = ListRowMinHeight)
+                .selectable(selected = selected, onClick = onSelect, role = Role.RadioButton),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AppRadio(selected = selected)
