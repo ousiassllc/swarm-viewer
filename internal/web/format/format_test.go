@@ -68,7 +68,7 @@ func TestToneClasses_AllTonesAndUnknown(t *testing.T) {
 func TestBadgeClass_MutedTextIsInk(t *testing.T) {
 	t.Parallel()
 	cls := format.BadgeClass(format.ToneMuted)
-	for _, want := range []string{"text-ink", "bg-mute/15", "ring-mute/40"} {
+	for _, want := range []string{"text-ink", "bg-mute/10", "ring-mute/40"} {
 		if !strings.Contains(cls, want) {
 			t.Errorf("BadgeClass(muted) = %q に %q が無い", cls, want)
 		}

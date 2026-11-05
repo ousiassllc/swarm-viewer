@@ -22,7 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 
-private const val BADGE_BACKGROUND_ALPHA = 0.15f
+private const val BADGE_BACKGROUND_ALPHA = 0.10f
 private const val BADGE_BORDER_ALPHA = 0.4f
 private const val PILL_PERCENT = 50
 private const val STALE_ALPHA = 0.5f
