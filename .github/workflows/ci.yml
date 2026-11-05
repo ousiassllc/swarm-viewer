@@ -2,7 +2,7 @@
 # セルフホステッドランナー（Linux）で実行する。ランナーのホストには Wails の依存
 # （gcc・gtk4・webkitgtk-6.0 の開発パッケージ）を事前に導入しておく。ジョブ内で apt / sudo は使わない。
 # ランナーのラベルは登録するランナーに合わせて確定する（現状は self-hosted, linux, x64）。
-# Android（android/）のジョブには JDK 17 と Android SDK（ANDROID_HOME）も事前に導入しておく（docs/environment/setup.md §11.1）。
+# Android（android/）のジョブの JDK 17 と Android SDK は、ジョブの最初に無ければダウンロードする（docs/environment/setup.md §11.2）。
 # Go 側と Android 側のジョブは、変更されたファイルに応じて changes ジョブの結果で出し分ける（workflow の paths は使わない）。
 name: CI
 
@@ -205,8 +205,9 @@ jobs:
           GOOS: windows
 
   # --- Android（android/。docs/environment/setup.md §11.2）---
-  # ランナーのホストに JDK 17 と Android SDK（ANDROID_HOME）を事前に導入しておく。ジョブ内で apt / sudo / sdkmanager は使わない。
-  # 未導入のときは check-android-env.sh が不足を 1 行で示して失敗する（運用作業。ランナーが整うまでは Android のジョブが赤になる）。
+  # ランナーのホストには何も導入しない。各ジョブの最初に setup-android-toolchain.sh が、環境（JAVA_HOME・ANDROID_HOME）に JDK 17 と
+  # Android SDK が無ければ固定版をダウンロードして使う（導入先はランナーのツールキャッシュで、2 回目以降は再利用する。apt / sudo は使わない）。
+  # check-android-env.sh は、その結果（JDK 17・SDK）を確かめる。
   # Gradle のキャッシュは保存するステップを置かず、ランナーのローカル（GRADLE_USER_HOME）に任せる。署名鍵などのシークレットは使わない。
   android-lint:
     if: needs.changes.outputs.android == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
@@ -217,6 +218,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           clean: true
+      - run: bash .github/scripts/setup-android-toolchain.sh
       - run: bash .github/scripts/check-android-env.sh
       # Kotlin の手書きソースにも linterly の行数上限が掛かる。Go 側の lint ジョブは android/ だけの変更では動かないため、ここでも検査する。
       - uses: oven-sh/setup-bun@v2
@@ -236,6 +238,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           clean: true
+      - run: bash .github/scripts/setup-android-toolchain.sh
       - run: bash .github/scripts/check-android-env.sh
       - run: ./gradlew test
         working-directory: android
@@ -249,6 +252,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           clean: true
+      - run: bash .github/scripts/setup-android-toolchain.sh
       - run: bash .github/scripts/check-android-env.sh
       # コンパイルできることの確認だけ。debug 署名の APK は配布しない（成果物はアップロードしない）。
       - run: ./gradlew assembleDebug

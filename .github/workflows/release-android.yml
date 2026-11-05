@@ -1,7 +1,7 @@
 # Android の署名済み APK を作る（release.yml の build-android ジョブが呼ぶ。docs/environment/setup.md §11.4）。
 # 単独では動かない（workflow_call だけ）。release.yml が 300 行の上限（linterly）に収まるよう、別のファイルに分けている。
 #
-# ランナーは既存の Linux セルフホステッドランナー（JDK 17・Android SDK を事前に導入済みの前提。ci.yml と同じ。GitHub ホストランナーでは
+# ランナーは既存の Linux セルフホステッドランナー（JDK 17・Android SDK が無ければ setup-android-toolchain.sh がダウンロードする。ci.yml と同じ。GitHub ホストランナーでは
 # Android をビルドしない）。呼ぶのは release.yml の verify を通った main の履歴のコミットだけなので、セルフホステッドでも信頼できないコードは動かない。
 # 署名鍵のシークレットを参照するのは、gate（登録の有無の真偽値だけ）と署名の step だけ。呼び出し側の release ジョブ（書き込みトークン）には渡さない。
 # ANDROID_KEYSTORE_BASE64 が未登録のときは、ビルドも署名もせずに成功で終わり（Release には APK を載せない）、デスクトップ版のリリースを止めない。
@@ -58,7 +58,10 @@ jobs:
           clean: true # 前のビルドの成果物（android/**/build/）を残さない
           persist-credentials: false
       - if: steps.gate.outputs.signed == 'true'
-        name: Check the JDK and the Android SDK on the runner
+        name: Download the JDK and the Android SDK if the runner has none
+        run: bash .github/scripts/setup-android-toolchain.sh
+      - if: steps.gate.outputs.signed == 'true'
+        name: Check the JDK and the Android SDK
         run: bash .github/scripts/check-android-env.sh
         env:
           CHECK_SIGNING_TOOLS: "true"
