@@ -28,6 +28,17 @@ internal fun isGoControl(c: Char): Boolean = Character.getType(c) == Character.C
 
 internal fun String.trimGoSpace(): String = trim(::isGoSpace)
 
+/**
+ * 1 文字ずつ小文字にした文字列（Go の strings.ToLower と同じ単純な 1 文字対応）。Kotlin の lowercase() は `İ` を 2 文字にするため使わない。
+ */
+internal fun String.lowercaseEachChar(): String = String(CharArray(length) { this[it].lowercaseChar() })
+
+/** ASCII の英字だけ大文字小文字を区別せずに [prefix]（小文字の ASCII）で始まるか。Kotlin の ignoreCase は `ſ`・`ı` を `s`・`i` と同一視する。 */
+internal fun String.startsWithAsciiIgnoreCase(prefix: String): Boolean =
+    length >= prefix.length && prefix.indices.all { asciiLower(this[it]) == prefix[it] }
+
+private fun asciiLower(c: Char): Char = if (c in 'A'..'Z') c + ('a' - 'A') else c
+
 internal fun String.hasControl(): Boolean = any(::isGoControl)
 
 /** UTF-8 にしたときのバイト数。対になっていないサロゲートを含む文字列は null（Go の utf8.ValidString が偽）。 */

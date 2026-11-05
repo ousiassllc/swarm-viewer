@@ -19,7 +19,7 @@ swarm-viewer の Android 版（Kotlin + Jetpack Compose）に固有の設計を�
 | applicationId / パッケージ | `com.ousiassllc.swarmviewer`（ソースは `android/app/src/main/kotlin/com/ousiassllc/swarmviewer/`） |
 | minSdk / targetSdk / compileSdk | 29（Android 10）/ 35 / 35 |
 | UI | Jetpack Compose + Material 3 |
-| 対象端末 | まず Galaxy Fold7（折りたたみ時・展開時の両方）。ほかの Android 10 以降の端末・タブレットでも動くように、画面の切替は端末名でなく WindowSizeClass（§4）で行う |
+| 対象端末 | まず Galaxy Fold7（折りたたみ時・展開時の両方）。ほかの Android 10 以降の端末・タブレットでも動くように、画面の切替は端末名でなく WindowSizeClass（§6）で行う |
 | 通信 | OkHttp。`/report` への `POST` のみ。呼ぶツールは `sessions_list` と `report` だけ（NFR-SEC-1）。`/ops` と `tools/list` のコードパスを持たない |
 | 読み取り専用 | 操作系のコントロール（ペインへの送信・選択・起動・終了）を持たない |
 
@@ -36,7 +36,7 @@ android/app/src/main/kotlin/com/ousiassllc/swarmviewer/
 └── ui/       # Compose 画面（接続管理・メイン・設定）、WindowSizeClass による切替
 ```
 
-- `domain/` の純粋ロジック（`parseReport`・`parseSessions`・`parsePairing`・`validateUrl`・`detect`・`classify`・`usageTone`）は、デスクトップの Go 実装とテストベクタ（§7）で挙動の一致を保つ。Go のコードは共有しない
+- `domain/` の純粋ロジック（`parseReport`・`parseSessions`・`parsePairing`・`validateUrl`・`detect`・`classify`・`usageTone`）は、デスクトップの Go 実装とテストベクタ（§8）で挙動の一致を保つ。Go のコードは共有しない
 - token は `data/` の中だけで扱う。`domain` の `Connection` は token を持たず、`PairingPayload` は `toString` で token を伏せる
 - 実装は Issue #17（domain）、#18（データ層）、#19（ペアリングと接続管理）、#20（メイン画面・更新・設定）、#21（バックグラウンド通知）、#22（CI とリリース）に分かれる。本書はその共通の設計
 

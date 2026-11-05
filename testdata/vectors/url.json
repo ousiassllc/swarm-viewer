@@ -37,6 +37,8 @@
     {"name": "CGNAT の外（100.0.0.1）", "input": "http://100.0.0.1:48120/report", "want": null},
     {"name": "IPv4 射影 v6", "input": "http://[::ffff:100.64.0.5]:48120/report", "want": null},
     {"name": "IPv6 ゾーン", "input": "http://[fe80::1%25eth0]:48120/report", "want": null},
+    {"name": "角括弧つき IPv4（tailnet）は不可", "input": "http://[100.64.0.5]:48120/report", "want": null},
+    {"name": "角括弧つき IPv4（ループバック）は不可", "input": "http://[127.0.0.1]:8080/report", "want": null},
     {"name": "10 進 IP", "input": "http://1684275205:48120/report", "want": null},
     {"name": "省略形の IPv4", "input": "http://127.1:8080/report", "want": null},
     {"name": "先頭ゼロの IPv4 オクテット", "input": "http://100.064.0.5:48120/report", "want": null},

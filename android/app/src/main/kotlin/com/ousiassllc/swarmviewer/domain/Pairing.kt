@@ -104,14 +104,15 @@ private fun pairingParams(text: String): Map<String, String> {
     // Go の url.Parse は ASCII の制御文字を含む URL を拒否する。
     if (text.any { it.code < 0x20 || it.code == 0x7F }) throw PairingException(PairingError.Format)
     val prefix = "$PAIRING_SCHEME://"
-    if (!text.startsWith(prefix, ignoreCase = true)) throw PairingException(PairingError.Format)
+    // Go の url.Parse は scheme を ASCII の英字に限って小文字にする。Kotlin の ignoreCase は `ſ`・`ı` を `s`・`i` と同一視するため使わない。
+    if (!text.startsWithAsciiIgnoreCase(prefix)) throw PairingException(PairingError.Format)
     val rest = text.substring(prefix.length)
     val query = rest.substringAfter('?', "")
     val authorityAndPath = rest.substringBefore('?')
     val slash = authorityAndPath.indexOf('/')
     val authority = if (slash < 0) authorityAndPath else authorityAndPath.substring(0, slash)
     val path = if (slash < 0) "" else authorityAndPath.substring(slash)
-    if (!authority.equals(PAIRING_HOST, ignoreCase = true) || (path != "" && path != "/")) {
+    if (authority.lowercaseEachChar() != PAIRING_HOST || (path != "" && path != "/")) {
         throw PairingException(PairingError.Format)
     }
     return parseQuery(query)

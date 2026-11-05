@@ -94,3 +94,6 @@ auth{agents[]{agent, status, expires_at}}
 ## 既知の差
 
 - Go の `encoding/json` はキーの大文字小文字を区別せずに読むが、Kotlin 側は区別する。swarm-console の応答のキーは小文字固定のため、ベクタには含めない
+- Kotlin 側は、`%FF` のように UTF-8 として不正なバイト列に復号されるクエリ値を `format` で拒否する（Go は通す）。Go の `ParsePairing` は入力が有効な UTF-8 かだけを見るため。token に不正なバイトは入れないので、ベクタには含めない
+- `report` の時刻（`at`・`fetched_at`・`resets_at`・`expires_at`）は、正しい RFC 3339（`2026-10-31T13:10:05Z`・小数秒は 9 桁まで・`+09:00` 形式のオフセット）では両実装が同じ値になる。崩れた表記は違う。Go が拒否し Kotlin が通す: 小文字の `t`・`z`、秒の省略、`+09`、`+09:00:30`、5 桁の年（`+12026-…`）。Go が通し Kotlin が拒否する: 9 桁を超える小数秒、`,` 区切りの小数秒、`+24:00`。swarm-console は RFC 3339 の標準形を出すため、ベクタには含めない
+- JSON の数値は、Go は `.5`・`01` を不正とし、Kotlin は通す。`layout.rows` などの整数は、Go は 64 ビット、Kotlin は 32 ビットの範囲で読む。swarm-console の応答では起きないため、ベクタには含めない

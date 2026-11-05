@@ -58,7 +58,7 @@ fun validateUrl(raw: String): String {
     val text = raw.trimGoSpace()
     // Go の url.Parse は ASCII の制御文字を含む URL を拒否する。
     if (text.isEmpty() || text.contains('#') || text.any { it.code < 0x20 || it.code == 0x7F }) throw InvalidUrlException()
-    if (!text.startsWith(SCHEME_PREFIX, ignoreCase = true)) throw InvalidUrlException()
+    if (!text.startsWithAsciiIgnoreCase(SCHEME_PREFIX)) throw InvalidUrlException()
     val rest = text.substring(SCHEME_PREFIX.length)
     val slash = rest.indexOf('/')
     val authority = if (slash < 0) rest else rest.substring(0, slash)
@@ -81,6 +81,8 @@ private fun splitHostPort(authority: String): Pair<String, String> {
         val end = authority.indexOf(']')
         if (end < 0) throw InvalidUrlException()
         host = authority.substring(1, end)
+        // Go の url.Parse（1.25 以降）は角括弧の中が IPv6 でないホスト（`[127.0.0.1]`）を拒否する。
+        if (!host.contains(':')) throw InvalidUrlException()
         tail = authority.substring(end + 1)
     } else {
         val colon = authority.indexOf(':')
