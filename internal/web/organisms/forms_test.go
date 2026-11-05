@@ -39,6 +39,10 @@ func TestConnectionList(t *testing.T) {
 	if strings.Count(html, `<li class="flex items-center gap-3 px-4 py-3">`) != 2 || strings.Count(html, `<div class="flex items-center gap-2">`) != 2 {
 		t.Errorf("行は gap-3、ボタンの列は gap-2: %s", html)
 	}
+	// 接続名と host の 2 行は、タイトル→キャプションの 2px（--list-title-caption-gap）を空ける（ガイド S2）。
+	if strings.Count(html, "flex-col gap-(--list-title-caption-gap)") != 2 {
+		t.Errorf("接続名と host の間に --list-title-caption-gap がある: %s", html)
+	}
 }
 
 func TestConnectionList_Empty(t *testing.T) {

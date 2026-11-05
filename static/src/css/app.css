@@ -42,10 +42,11 @@
   --r-xl: 16px;
   --r-full: 9999px; /* ピル・アバター・円（バッジ・進捗バー・スピナー・トースト・リップル） */
 
-  /* テキストリスト（ガイド §4）: 項目間 8・記号→文字 10・記号は 5px の点（--mute）。 */
+  /* テキストリスト（ガイド §4）: 項目間 8・記号→文字 10・記号は 5px の点（--mute）・2 行リストのタイトル→キャプション 2。 */
   --list-gap: 8px;
   --list-marker-gap: 10px;
   --list-marker-size: 5px;
+  --list-title-caption-gap: 2px;
 
   --motion-fast: 120ms;
   --motion-base: 180ms;

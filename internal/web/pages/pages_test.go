@@ -158,6 +158,8 @@ func TestConnectionsAndNoSessions(t *testing.T) {
 	html = webtest.Render(t, pages.NoSessionsPage(shell, "devbox"))
 	webtest.MustContain(t, html, "許可されたセッションがありません", "接続「devbox」:", "ホスト側でトークンの許可セッションを確認してください。")
 	webtest.MustNotContain(t, html, "見られるセッションがありません")
+	// 許可セッション 0 件も空状態の部品（破線の枠。ガイド S4）で出す。
+	webtest.MustContain(t, html, "border-dashed")
 	empty := webtest.Render(t, pages.NoSessionsContent(""))
 	webtest.MustContain(t, empty, "許可されたセッションがありません", "ホスト側でトークンの許可セッションを確認してください。")
 	webtest.MustNotContain(t, empty, "接続「")

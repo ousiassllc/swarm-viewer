@@ -1,6 +1,7 @@
 package com.ousiassllc.swarmviewer.ui.theme
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
@@ -245,10 +247,11 @@ fun AppTextField(
 
 private const val DASH_LENGTH_DP = 6f
 private val EmptyStatePadding = 24.dp
-private val EmptyStateIconSize = 32.dp
+private val EmptyStateCircleSize = 48.dp
+private val EmptyStateIconSize = 24.dp
 
 /**
- * 空状態（ガイド S4・§4）: 1dp の破線の枠・角丸 12dp（r-lg）・余白 24dp・32dp のアイコン＋文言。次の操作（主ボタンなど）は [content] に書く。
+ * 空状態（ガイド S4・§4）: 1dp の破線の枠・角丸 12dp（r-lg）・余白 24dp・48dp の accent-soft の円に載せた 24dp のアイコン＋文言。次の操作（主ボタンなど）は [content] に書く。
  * ローディングは空状態ではないので、これではなく進捗表示を使う。[message] は信頼できない入力でもテキストとして描画する。
  */
 @Composable
@@ -277,12 +280,17 @@ fun AppEmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Icon(
-            painterResource(R.drawable.ic_alert_info),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(EmptyStateIconSize),
-        )
+        Box(
+            modifier = Modifier.size(EmptyStateCircleSize).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painterResource(R.drawable.ic_alert_info),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(EmptyStateIconSize),
+            )
+        }
         Text(message, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
         content()
     }

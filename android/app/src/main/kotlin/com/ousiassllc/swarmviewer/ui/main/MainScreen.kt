@@ -197,7 +197,7 @@ private fun MainContent(
                 AttentionBar(report.attention, report.warnings, report.auth, state.stale)
                 PaneSection(report.panes, report.layout, report.attention, state.stale, wide)
             }
-            state.session == null && state.sessionsLoaded && state.failure == null -> NoticeText("許可されたセッションがありません")
+            state.session == null && state.sessionsLoaded && state.failure == null -> AppEmptyState("許可されたセッションがありません")
             state.refreshing || state.failure == null -> NoticeText("取得中…")
             else -> Unit
         }
