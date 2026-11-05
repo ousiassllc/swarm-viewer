@@ -17,7 +17,11 @@ private const val STALE_ALPHA = 0.5f
 /** 取得に失敗して直前の内容を残しているとき、見た目を薄くする（グレーアウト）。 */
 fun Modifier.grayedOut(stale: Boolean): Modifier = if (stale) alpha(STALE_ALPHA) else this
 
-/** 状態・agent・要対応の種別を示す小さなバッジ。色だけに依存せず、必ずラベルを持つ。[text] は常にテキストとして描画する。 */
+/**
+ * 状態・agent・要対応の種別を示す小さなバッジ。色だけに依存せず、必ずラベルを持つ。[text] は常にテキストとして描画する。
+ * muted の文字は情報（agent 名・shell / unknown の状態）なので、`onSurfaceVariant`（mute）でなく `onSurface`（ink）で描く（ガイド C6）。
+ * 地は mute のまま。
+ */
 @Composable
 fun Badge(
     text: String,
@@ -25,10 +29,11 @@ fun Badge(
     modifier: Modifier = Modifier,
 ) {
     val color = tone.color()
+    val textColor = if (tone == DisplayTone.Muted) MaterialTheme.colorScheme.onSurface else color
     Surface(color = color.copy(alpha = BADGE_BACKGROUND_ALPHA), shape = MaterialTheme.shapes.small, modifier = modifier) {
         Text(
             text,
-            color = color,
+            color = textColor,
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
         )

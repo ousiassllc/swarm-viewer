@@ -2,6 +2,7 @@ package format_test
 
 import (
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -60,6 +61,20 @@ func TestToneClasses_AllTonesAndUnknown(t *testing.T) {
 		if fn(format.Tone("???")) != fn(format.ToneMuted) {
 			t.Errorf("%s: 未知の Tone は muted と同じになるべき", name)
 		}
+	}
+}
+
+// muted バッジの文字は情報なので ink で組む（--mute は 12px で AA に届かない。ガイド C6）。枠と地は mute のまま。
+func TestBadgeClass_MutedTextIsInk(t *testing.T) {
+	t.Parallel()
+	cls := format.BadgeClass(format.ToneMuted)
+	for _, want := range []string{"text-ink", "bg-mute/15", "ring-mute/40"} {
+		if !strings.Contains(cls, want) {
+			t.Errorf("BadgeClass(muted) = %q に %q が無い", cls, want)
+		}
+	}
+	if strings.Contains(cls, "text-mute") {
+		t.Errorf("BadgeClass(muted) = %q は文字色に mute を使わない", cls)
 	}
 }
 
