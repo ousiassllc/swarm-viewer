@@ -34,7 +34,7 @@ fun HostPanel(
     stale: Boolean,
 ) {
     AppCard(modifier = Modifier.fillMaxWidth().grayedOut(stale)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("ホスト", style = MaterialTheme.typography.titleMedium)
             hostRows(host).forEach { HostRow(it) }
         }
@@ -52,7 +52,7 @@ private fun HostRow(row: HostRowModel) {
             }
             row.noBar -> {
                 Spacer(Modifier.weight(1f))
-                ValueText(row.detail)
+                ValueText(row.detail, MaterialTheme.colorScheme.onSurface)
             }
             else -> {
                 val tone = displayTone(percentTone(row.percent))

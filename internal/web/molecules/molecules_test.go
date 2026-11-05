@@ -32,11 +32,49 @@ func TestUsageRow_Percent(t *testing.T) {
 	for _, tt := range tests {
 		slot := domain.Slot{Available: true, Used: f(tt.used), Unit: domain.UnitPercent, Status: "ok"}
 		html := webtest.Render(t, molecules.UsageRow(molecules.UsageRowProps{Label: "5 時間枠", Slot: slot, Now: now}))
-		webtest.MustContain(t, html, "<progress", tt.want, "5 時間枠")
+		// 塗りの両端も丸い（ガイド §4 進捗の `border-radius: inherit`。S1）。
+		webtest.MustContain(t, html, "<progress", tt.want, "5 時間枠", "[&amp;::-webkit-progress-value]:rounded-full", "[&amp;::-moz-progress-bar]:rounded-full")
 		if tt.name == "79.9" {
 			webtest.MustNotContain(t, html, "[&amp;::-webkit-progress-value]:bg-warning", "[&amp;::-webkit-progress-value]:bg-danger")
 		}
 	}
+}
+
+// 行の本文（ラベル・値）は 14px（T3）。12px は日時のキャプション（リセット）だけ。
+func TestUsageRow_BodyIs14pxAndCaptionIs12px(t *testing.T) {
+	t.Parallel()
+	reset := now.Add(2 * time.Hour)
+	slot := domain.Slot{Available: true, Used: f(10), Unit: domain.UnitPercent, Status: "ok", ResetsAt: &reset}
+	html := webtest.Render(t, molecules.UsageRow(molecules.UsageRowProps{Label: "5 時間枠", Slot: slot, Now: now}))
+	root := webtest.Elements(t, html, "div")[0]
+	if class, _ := webtest.Attr(root, "class"); !slices.Contains(strings.Fields(class), "text-sm") || slices.Contains(strings.Fields(class), "text-xs") {
+		t.Errorf("行の本文は text-sm のはず: %q", class)
+	}
+	var captions int
+	for _, p := range webtest.Elements(t, html, "p") {
+		if class, _ := webtest.Attr(p, "class"); slices.Contains(strings.Fields(class), "text-xs") {
+			captions++
+		}
+	}
+	if captions != 1 {
+		t.Errorf("12px（text-xs）は日時のキャプション 1 つだけのはず（%d 個）:\n%s", captions, html)
+	}
+}
+
+// 桁をそろえる補足（「12.3 GB 空き」など）は Mono（T5）。
+func TestHostRow_DetailIsMono(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, molecules.HostRow(molecules.HostRowProps{Label: "/", Percent: 87, Available: true, Detail: "108.5 GB 空き"}))
+	for _, span := range webtest.Elements(t, html, "span") {
+		if span.FirstChild == nil || span.FirstChild.Data != "108.5 GB 空き" {
+			continue
+		}
+		if class, _ := webtest.Attr(span, "class"); !slices.Contains(strings.Fields(class), "font-mono") {
+			t.Errorf("補足は font-mono のはず: %q", class)
+		}
+		return
+	}
+	t.Errorf("補足の span が見つからない:\n%s", html)
 }
 
 func TestUsageRow_Exhausted(t *testing.T) {
@@ -165,7 +203,7 @@ func TestHostRow_ThreeColumnGrid(t *testing.T) {
 
 		root := webtest.Elements(t, out, "div")[0]
 		class, _ := webtest.Attr(root, "class")
-		for _, want := range []string{"grid", "grid-cols-[4rem_minmax(0,1fr)_10rem]"} {
+		for _, want := range []string{"grid", "grid-cols-[4.5rem_minmax(0,1fr)_12rem]", "text-sm"} {
 			if !slices.Contains(strings.Fields(class), want) {
 				t.Errorf("%s: 行の class に %q が無い: %q", tt.name, want, class)
 			}
@@ -195,11 +233,34 @@ func TestHostRow_ThreeColumnGrid(t *testing.T) {
 	webtest.MustContain(t, out, "tabular-nums", `title="87% 108.5 GB 空き"`)
 }
 
+// 補足（メモリの「1 GB / 4 GB」など）は読み取りたい値そのものなので --mute にしない（NFR-DSG-7）。
+func TestHostRow_DetailIsInk(t *testing.T) {
+	t.Parallel()
+	out := webtest.Render(t, molecules.HostRow(molecules.HostRowProps{Label: "メモリ", Percent: 41, Available: true, Detail: "41.3 GB / 128 GB"}))
+	for _, span := range webtest.Elements(t, out, "span") {
+		if textOf(span) != "41.3 GB / 128 GB" {
+			continue
+		}
+		class, _ := webtest.Attr(span, "class")
+		if !slices.Contains(strings.Fields(class), "text-ink") || strings.Contains(class, "text-mute") {
+			t.Errorf("補足は text-ink（text-mute にしない）: %q", class)
+		}
+		return
+	}
+	t.Fatalf("補足の span が無い:\n%s", out)
+}
+
 func TestSessionTab(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, molecules.SessionTab(molecules.SessionTabProps{ConnectionID: "01ABC", Session: "dev work", Selected: true}))
 	webtest.MustContain(t, html, `hx-get="/connections/01ABC/sessions/dev%20work"`, `hx-target="#main"`, `aria-current="page"`, "dev work")
+	// 2px の下線は親の 1px の罫線に重ねる（-mb-px。ガイド §4・S4）。選択中も選択外も同じ。
+	webtest.MustContain(t, html, "-mb-px", "border-b-2", "border-accent", "hover-fade")
 	html = webtest.Render(t, molecules.SessionTab(molecules.SessionTabProps{ConnectionID: "01ABC", Session: "0"}))
+	webtest.MustContain(t, html, "-mb-px", "border-b-2", "border-transparent", "hover:text-ink", "hover-fade")
+	// 余白と形はガイドの見本どおり（上下 10px・左右 0・角丸とホバーの面なし。ガイド S1・S2）。
+	webtest.MustContain(t, html, "py-2.5")
+	webtest.MustNotContain(t, html, "px-", "rounded", "hover:bg-")
 	webtest.MustNotContain(t, html, "aria-current")
 }
 

@@ -5,13 +5,12 @@ import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,7 +22,11 @@ import com.ousiassllc.swarmviewer.domain.ALLOWED_NOTIFY_POLL_MINUTES
 import com.ousiassllc.swarmviewer.domain.Settings
 import com.ousiassllc.swarmviewer.notify.NotificationPermission
 import com.ousiassllc.swarmviewer.ui.main.NoticeText
+import com.ousiassllc.swarmviewer.ui.theme.AlertKind
+import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
+import com.ousiassllc.swarmviewer.ui.theme.AppSwitch
+import com.ousiassllc.swarmviewer.ui.theme.ListRowMinHeight
 
 /** 通知確認間隔の下に常に出す注記（機能要件 §12.4、FR-AND-7）。 */
 const val DOZE_NOTE = "Doze・バッテリー最適化により、通知は設定した間隔より遅れることがあります"
@@ -47,7 +50,7 @@ fun NotificationSettings(
     SettingsSection("通知") {
         Row(
             modifier =
-                Modifier.fillMaxWidth().toggleable(
+                Modifier.fillMaxWidth().heightIn(min = ListRowMinHeight).toggleable(
                     value = settings.notificationsEnabled,
                     role = Role.Switch,
                     onValueChange = { enabled ->
@@ -63,7 +66,7 @@ fun NotificationSettings(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text("答え待ち・止まってるかもを通知する")
-            Switch(checked = settings.notificationsEnabled, onCheckedChange = null)
+            AppSwitch(checked = settings.notificationsEnabled)
         }
         if (state.showsPermissionGuide) PermissionGuide(context)
         Text("通知確認間隔（バックグラウンド）", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
@@ -76,8 +79,7 @@ fun NotificationSettings(
 
 @Composable
 private fun PermissionGuide(context: Context) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(PERMISSION_GUIDE, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+    AppAlert(PERMISSION_GUIDE, kind = AlertKind.Warning) {
         AppOutlinedButton(
             onClick = { context.startActivity(NotificationPermission.appNotificationSettings(context)) },
         ) { Text("通知設定を開く") }

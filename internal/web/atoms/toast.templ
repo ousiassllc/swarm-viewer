@@ -18,15 +18,8 @@ const ToastContainerClass = "pointer-events-none fixed bottom-[var(--toast-offse
 // 見た目はガイドどおり、高さ 40・ピル・ink 地に bone 字・1 行。
 templ Toast(p ToastProps) {
 	<div id={ ToastContainerID } hx-swap-oob="true" class={ ToastContainerClass } aria-live="polite">
-		<div role="status" class="inline-flex h-10 max-w-[calc(100vw-3rem)] items-center rounded-full bg-ink px-6 text-sm text-bone">
+		<div role="status" class="fade-in inline-flex h-(--toast-h) max-w-[calc(100vw-3rem)] items-center rounded-full bg-ink px-[18px] text-sm text-bone">
 			<span class="truncate">{ p.Message }</span>
 		</div>
-	</div>
-}
-
-// Alert は汎用のエラー通知（インラインアラート）。応答全体の失敗（Recover・CSRF・404 など）に使う。
-templ Alert(message string) {
-	<div role="alert" class="rounded-lg border border-danger/60 bg-danger/10 px-4 py-3 text-sm text-danger">
-		{ message }
 	</div>
 }

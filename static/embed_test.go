@@ -20,6 +20,7 @@ func TestFS_EmbedsRequiredAssets(t *testing.T) {
 		"js/htmx.min.js",
 		"js/response-targets.min.js",
 		"js/app.js",
+		"js/modal.js",
 	} {
 		data, err := fs.ReadFile(assets, name)
 		if err != nil {
@@ -109,18 +110,118 @@ func TestAppCSS_FontFaceIsSelfHosted(t *testing.T) {
 	}
 }
 
-// app.js は CSP（unsafe-eval なし）の下で動く必要があるため eval 系を含まない。
-func TestAppJS_NoEval(t *testing.T) {
+// アコーディオン（<details>）は summary を SemiBold にし、ブラウザ既定の三角を消して CSS のシェブロンを付ける（ガイド §7）。
+// シェブロンは見本（tokens-preview の .acc）どおり右端（::after）・閉じて下向き（45deg）・開いて上向き（-135deg）。
+// CSP（default-src 'self'）で data: URI の画像を使えないので、枠線の回転で描く。
+func TestAppCSS_Accordion(t *testing.T) {
 	t.Parallel()
 
-	data, err := fs.ReadFile(static.FS(), "js/app.js")
+	data, err := fs.ReadFile(static.FS(), "css/app.css")
 	if err != nil {
-		t.Fatalf("js/app.js を読めない（先に task generate を実行する）: %v", err)
+		t.Fatalf("css/app.css を読めない（先に task generate を実行する）: %v", err)
 	}
-	src := string(data)
-	for _, banned := range []string{"eval(", "new Function", "setTimeout(\"", "setInterval(\""} {
-		if strings.Contains(src, banned) {
-			t.Errorf("app.js に %q が含まれている", banned)
+	css := string(data)
+	for _, want := range []string{"details>summary{", "justify-content:space-between", "font-weight:600", "list-style:none", "details>summary::-webkit-details-marker{display:none}", "details>summary:after{",
+		"transition:transform var(--motion-base) var(--ease-out)", "transform:rotate(45deg)", "details[open]>summary:after{margin-top:.25rem;transform:rotate(-135deg)}"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("app.css に %q が無い", want)
+		}
+	}
+	if strings.Contains(css, "summary:before") {
+		t.Error("シェブロンは右端の ::after で、::before は使わない")
+	}
+	// 開閉マークの線はアイコンのストローク（≈1.5）で、色は --mute（ガイド I2）。
+	for _, want := range []string{"border-right:1.5px solid var(--mute)", "border-bottom:1.5px solid var(--mute)"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("開閉マークの線に %q が無い", want)
+		}
+	}
+}
+
+// 角丸の --r-full（9999px）は他の --r-* と同じく :root のトークンで、@theme（--radius-full）経由で Tailwind の rounded-full になる。
+// リップルは数値を直書きせず --r-full を使う（ガイド S1）。
+func TestAppCSS_RadiusFullIsToken(t *testing.T) {
+	t.Parallel()
+
+	data, err := fs.ReadFile(static.FS(), "css/app.css")
+	if err != nil {
+		t.Fatalf("css/app.css を読めない（先に task generate を実行する）: %v", err)
+	}
+	css := string(data)
+	for _, want := range []string{"--r-full:9999px", "--radius-full:var(--r-full)", ".ripple{border-radius:var(--r-full)"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("app.css に %q が無い", want)
+		}
+	}
+	if strings.Contains(css, "border-radius:9999px") {
+		t.Error("app.css に角丸 9999px の直書きがある（--r-full を使う）")
+	}
+}
+
+// app.js・modal.js は CSP（unsafe-eval なし）の下で動く必要があるため eval 系を含まない。
+func TestJS_NoEval(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"js/app.js", "js/modal.js"} {
+		data, err := fs.ReadFile(static.FS(), name)
+		if err != nil {
+			t.Fatalf("%s を読めない（先に task generate を実行する）: %v", name, err)
+		}
+		src := string(data)
+		for _, banned := range []string{"eval(", "new Function", "setTimeout(\"", "setInterval(\""} {
+			if strings.Contains(src, banned) {
+				t.Errorf("%s に %q が含まれている", name, banned)
+			}
+		}
+	}
+}
+
+// 出現・退出・リップルのモーションはガイドのトークン（320ms ease-out / 240ms ease-in / 280ms）で、
+// reduced-motion では付かない（M3・M4・M5、NFR-DSG-6）。
+func TestAppCSS_MotionUsesTokensAndRespectsReducedMotion(t *testing.T) {
+	t.Parallel()
+
+	data, err := fs.ReadFile(static.FS(), "css/app.css")
+	if err != nil {
+		t.Fatalf("css/app.css を読めない（先に task generate を実行する）: %v", err)
+	}
+	css := string(data)
+	for _, want := range []string{
+		"@keyframes fade-in", "@keyframes fade-out", "@keyframes ripple",
+		"animation:fade-in var(--motion-fade-in) var(--ease-out)",
+		"animation:fade-out var(--motion-fade-out) var(--ease-in)",
+		"animation:ripple var(--motion-slow) var(--ease-out)",
+		"--motion-slow:",
+		// モーダルの出現は --motion-slow（280ms）。アラート・トーストの .fade-in（320ms）とは別（M5）。
+		".modal-in{animation:fade-in var(--motion-slow) var(--ease-out)",
+		"dialog.modal-in::backdrop{animation:backdrop-in var(--motion-slow) var(--ease-out)",
+		".fade-in.is-leaving,.modal-in.is-leaving{animation:fade-out var(--motion-fade-out) var(--ease-in)",
+		// スピナーの回転はガイドの 0.9s（M1）。
+		"--animate-spin:spin .9s linear infinite",
+	} {
+		if !strings.Contains(css, want) {
+			t.Errorf("app.css に %q が無い", want)
+		}
+	}
+	// reduced-motion のブロックに、フェードとリップルを止める指定がある。
+	idx := strings.LastIndex(css, "@media (prefers-reduced-motion:reduce){.fade-in")
+	if idx < 0 {
+		t.Fatal("app.css に .fade-in を止める prefers-reduced-motion のブロックが無い")
+	}
+	if block := css[idx:]; !strings.Contains(block, ".ripple{display:none}") {
+		t.Errorf("reduced-motion のブロックが .ripple を止めていない: %s", block)
+	}
+}
+
+// 退出フェードとトーストの時間は CSS のトークン（--motion-fade-out・--toast-duration）が唯一の出どころで、
+// app.js・modal.js が getComputedStyle で読む（M1。読み方は static/src/js の挙動テストが確かめる）。値の書き方（240ms か .24s か）は minify 次第なので問わない。
+func TestAppCSS_DefinesDurationTokens(t *testing.T) {
+	t.Parallel()
+
+	css := readAppCSS(t)
+	for _, name := range []string{"--motion-fade-out", "--toast-duration"} {
+		if !regexp.MustCompile(regexp.QuoteMeta(name) + `\s*:\s*[\d.]+m?s`).MatchString(css) {
+			t.Errorf("app.css に時間のトークン %s が無い", name)
 		}
 	}
 }

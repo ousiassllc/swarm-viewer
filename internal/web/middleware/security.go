@@ -70,5 +70,5 @@ func renderAlert(c *gin.Context, status int, message string) {
 	c.Status(status)
 	c.Abort()
 	// 書き込み失敗（クライアント切断）は握りつぶす。応答は既に中断済みで、呼び出し元に返せる処理がない。
-	_ = atoms.Alert(message).Render(c.Request.Context(), c.Writer)
+	_ = atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: message}).Render(c.Request.Context(), c.Writer)
 }

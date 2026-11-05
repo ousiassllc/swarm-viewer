@@ -50,7 +50,7 @@ templ MainContent(p MainProps) {
 						href={ templ.SafeURL(paths.Connection(c.ID)) }
 						hx-get={ paths.Connection(c.ID) }
 						hx-target="#main"
-						class="rounded-md border border-border px-2 py-1 text-xs text-ink hover:bg-accent-soft aria-[current=true]:bg-accent-soft"
+						class="hover-fade rounded-md border border-border px-2 py-1 text-sm text-ink hover:bg-accent-soft aria-[current=true]:bg-accent-soft"
 						if c.ID == p.Connection.ID {
 							aria-current="true"
 						}
@@ -59,8 +59,8 @@ templ MainContent(p MainProps) {
 			</nav>
 		}
 		<div class="ml-auto flex items-center gap-2">
-			@atoms.Spinner(atoms.SpinnerProps{ID: "main-spinner", Size: atoms.SpinnerSmall})
-			@atoms.Button(atoms.ButtonProps{Label: "更新", Attrs: templ.Attributes{
+			@atoms.Spinner(atoms.SpinnerProps{ID: "main-spinner"})
+			@atoms.Button(atoms.ButtonProps{Label: "更新", Size: atoms.ButtonSmall, Attrs: templ.Attributes{
 				"hx-get":       paths.Session(p.Connection.ID, p.Selected),
 				"hx-target":    "#main",
 				"hx-indicator": "#main-spinner",

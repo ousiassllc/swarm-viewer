@@ -110,7 +110,7 @@ func TestSnapshotView_UnauthorizedStopsPollingAndOffersRepair(t *testing.T) {
 		p.Err = &domain.FetchError{Kind: kind}
 		html := webtest.Render(t, organisms.SnapshotView(p))
 		webtest.MustNotContain(t, html, "hx-trigger", "hx-sync", "次回再試行")
-		webtest.MustContain(t, html, `href="/pairing"`, "再ペアリング", "前回取得 11:58")
+		webtest.MustContain(t, html, `href="/pairing"`, "再ペアリング", "前回取得 11:58", `class="text-link hover-fade text-ink"`)
 	}
 }
 
@@ -123,13 +123,14 @@ func TestSnapshotView_StaleIsGrayedWithBanner(t *testing.T) {
 	webtest.MustContain(t, html,
 		`id="snapshot" class="flex flex-col gap-4 opacity-50 grayscale"`,
 		`id="snapshot-status" hx-swap-oob="true"`,
-		"ホストに届きません。Tailscale 接続を確認してください",
+		// 失敗の種別は見出し（SemiBold）、前回取得・次回再試行は本文（ガイド §4 のインラインアラート）。
+		`<p class="font-semibold">ホストに届きません。Tailscale 接続を確認してください</p>`,
 		"前回取得 11:58", "次回再試行 10 秒後", "timeout",
 		`hx-trigger="every 10s, refresh from:body"`, // 到達不可は自動再試行する
 	)
-	// カードもグレーアウト。
-	if strings.Count(html, "opacity-50") < 4 {
-		t.Errorf("ペインカードと利用上限のグレーアウトが足りない:\n%s", html)
+	// グレーアウトは領域の 1 回だけ。カードや利用上限で重ねると opacity が掛け算になる（ガイド C5）。
+	if n := strings.Count(html, "opacity-50"); n != 1 {
+		t.Errorf("opacity-50 は領域の 1 か所だけのはず（%d 回）:\n%s", n, html)
 	}
 }
 
@@ -154,7 +155,7 @@ func TestSnapshotView_EmptyState(t *testing.T) {
 	t.Parallel()
 	p := organisms.SnapshotViewProps{Fresh: false, Err: &domain.FetchError{Kind: domain.ErrUnreachable}, PollSeconds: 10, ConnectionID: "c", Session: "0", Now: now}
 	html := webtest.Render(t, organisms.SnapshotView(p))
-	webtest.MustContain(t, html, "表示できるデータがありません", "ホストに届きません")
+	webtest.MustContain(t, html, "表示できるデータがありません", "ホストに届きません", "border-dashed")
 	webtest.MustNotContain(t, html, "<progress", "<article")
 }
 
@@ -174,7 +175,9 @@ func TestSnapshotView_InitialWithoutErrorShowsPreviousNotice(t *testing.T) {
 	region := webtest.Render(t, organisms.SnapshotRegion(p))
 	webtest.MustContain(t, region, "読み込み中…")
 	webtest.MustNotContain(t, region, "表示できるデータがありません")
-	webtest.MustContain(t, region, `role="status"`)
+	// 読み込み中は空状態ではなくスピナー（ガイド S4）。
+	webtest.MustContain(t, region, `role="status"`, "htmx-indicator", "animate-spin")
+	webtest.MustNotContain(t, region, "border-dashed")
 	// ポーリング応答（SnapshotView）でも OOB のバナーは空になる。
 	oob := webtest.Render(t, organisms.SnapshotView(p))
 	webtest.MustContain(t, oob, `hx-swap-oob="true"`, "読み込み中…")

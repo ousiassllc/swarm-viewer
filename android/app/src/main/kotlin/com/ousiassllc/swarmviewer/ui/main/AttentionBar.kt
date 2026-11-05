@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.dp
 import com.ousiassllc.swarmviewer.domain.Attention
 import com.ousiassllc.swarmviewer.domain.Auth
 import com.ousiassllc.swarmviewer.domain.Warning
+import com.ousiassllc.swarmviewer.ui.theme.AlertKind
+import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppCard
 import com.ousiassllc.swarmviewer.ui.theme.MonoFontFamily
 import java.time.Instant
@@ -41,9 +43,7 @@ fun AttentionBar(
 
 @Composable
 private fun WarningBanner(message: String) {
-    AppCard(borderColor = DisplayTone.Warning.color(), modifier = Modifier.fillMaxWidth()) {
-        Text(message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-    }
+    AppAlert(message, kind = AlertKind.Warning)
 }
 
 @Composable
@@ -54,14 +54,14 @@ private fun AttentionList(
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Column {
             if (groups.panes.isNotEmpty()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     groups.panes.forEach { AttentionRow(it, auth) }
                 }
             }
             if (groups.panes.isNotEmpty() && groups.agents.isNotEmpty()) HorizontalDivider()
             groups.agents.forEachIndexed { index, agent ->
                 if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     agent.items.forEach { AttentionRow(it, auth) }
                 }
             }
@@ -75,7 +75,7 @@ private fun AttentionRow(
     auth: Auth,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Badge(attentionLabel(item.kind), attentionTone(item.kind))
+        Badge(attentionLabel(item.kind), attentionTone(item.kind), marker = true)
         if (item.pane.isNotEmpty()) Text(item.pane, style = MaterialTheme.typography.bodyMedium, fontFamily = MonoFontFamily)
         val detail = attentionDetail(item.kind, item.detail)
         if (detail.isNotEmpty()) {

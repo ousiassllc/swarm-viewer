@@ -10,6 +10,13 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/web/webtest"
 )
 
+// アラートの種類を見分けるアイコン（Iconoir の warning-triangle・warning-circle・info-circle の path の一部）。
+const (
+	warningIcon = "M20.0429 21H3.95705"
+	dangerIcon  = "M12 7V13"
+	infoIcon    = "M12 11.5V16.5"
+)
+
 func fp(v float64) *float64 { return &v }
 
 func usageWith(status string, five domain.Slot) domain.Usage {
@@ -44,6 +51,15 @@ func TestUsagePanel_ToneBoundaries(t *testing.T) {
 	}
 }
 
+// アカウント名の見出し（h3）は本文なので 14px（T3）。
+func TestUsagePanel_AccountHeadingIs14px(t *testing.T) {
+	t.Parallel()
+	slot := domain.Slot{Available: true, Used: fp(42), Unit: domain.UnitPercent}
+	html := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: usageWith(domain.UsageOK, slot), Now: now}))
+	webtest.MustContain(t, html, `<h3 class="text-sm text-ink">Claude · main</h3>`, `<h3 class="text-sm text-ink">Codex · cx</h3>`, `<h3 class="text-sm text-ink">Cursor · cur</h3>`)
+	webtest.MustNotContain(t, html, `<h3 class="text-xs`)
+}
+
 func TestUsagePanel_StatusBranches(t *testing.T) {
 	t.Parallel()
 	slot := domain.Slot{Available: true, Used: fp(42), Unit: domain.UnitPercent}
@@ -55,24 +71,29 @@ func TestUsagePanel_StatusBranches(t *testing.T) {
 	html := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now}))
 	webtest.MustContain(t, html, "Claude · main", "Codex · cx", "Cursor · cur", "月間", "$20.00", "42%", "最終取得 11/03 11:00", "5 時間枠", "7 日枠", "—")
 	webtest.MustNotContain(t, html, "opacity-50", "古いデータ", "<details")
+	// アカウント名（h3）から本文までは 8px（ガイド §3 見出し→本文）。
+	webtest.MustContain(t, html, `<div class="flex flex-col gap-2"><h3 class="text-sm text-ink">Claude · main</h3>`, `<div class="flex flex-col gap-2"><h3 class="text-sm text-ink">Cursor · cur</h3>`)
 
 	// stale: グレーアウト + 古いデータ + fetched_at + reason は折りたたみ。
 	u.Status = domain.UsageStale
 	html = webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now}))
 	webtest.MustContain(t, html, "opacity-50", "古いデータ", "最終取得 11/03 11:00", "<details", "timeout", "42%")
+	// 取得状態は状態色のアラート（アイコン＋文言。ガイド C4）。stale は注意。
+	webtest.MustContain(t, html, `role="alert"`, "data-alert", warningIcon)
+	webtest.MustNotContain(t, html, `<p class="text-sm text-ink">古いデータ`)
 
-	// unavailable・pending・disabled・未知: 数字を出さない。
-	for status, label := range map[string]string{
-		domain.UsageUnavailable: "取得できません",
-		domain.UsagePending:     "取得中",
-		domain.UsageDisabled:    "利用上限の取得は無効です",
-		"brand-new":             "取得できません",
-		"":                      "取得できません",
+	// unavailable・pending・disabled・未知: 数字を出さない。unavailable・未知はエラー、pending・disabled はお知らせ（role="status"）。
+	for _, tt := range []struct{ status, label, role, icon string }{
+		{domain.UsageUnavailable, "取得できません", `role="alert"`, dangerIcon},
+		{domain.UsagePending, "取得中", `role="status"`, infoIcon},
+		{domain.UsageDisabled, "利用上限の取得は無効です", `role="status"`, infoIcon},
+		{"brand-new", "取得できません", `role="alert"`, dangerIcon},
+		{"", "取得できません", `role="alert"`, dangerIcon},
 	} {
-		u.Status = status
+		u.Status = tt.status
 		html = webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now}))
-		webtest.MustContain(t, html, label)
-		webtest.MustNotContain(t, html, "42%", "<progress", "$20.00", "Claude", "最終取得")
+		webtest.MustContain(t, html, tt.label, "data-alert", tt.role, tt.icon)
+		webtest.MustNotContain(t, html, "42%", "<progress", "$20.00", "Claude", "最終取得", `<p class="text-sm text-ink">`+tt.label)
 	}
 
 	// reason は unavailable のときだけ折りたたみ（pending・disabled では出さない）。
@@ -80,6 +101,12 @@ func TestUsagePanel_StatusBranches(t *testing.T) {
 	webtest.MustContain(t, webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now})), "<details", "timeout")
 	u.Status = domain.UsagePending
 	webtest.MustNotContain(t, webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now})), "<details")
+
+	// 通常のカード: padding 24・まとまり同士 24（ガイド §3 --pad-card・--gap-card-section）。
+	u.Status = domain.UsageOK
+	html = webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now}))
+	webtest.MustContain(t, html, "gap-6", "p-6")
+	webtest.MustNotContain(t, html, "p-4", "gap-3")
 }
 
 func TestUsagePanel_BothSlotsUnavailableIsOneLine(t *testing.T) {
@@ -91,7 +118,7 @@ func TestUsagePanel_BothSlotsUnavailableIsOneLine(t *testing.T) {
 
 	// 2 枠とも取れない（reason なし・古い swarm-console）: 「取得できません」1 行。「—」・枠ラベルは出ない。
 	html := render(domain.AgentAccount{Account: "account-1"})
-	webtest.MustContain(t, html, "Claude · account-1", "取得できません")
+	webtest.MustContain(t, html, "Claude · account-1", "取得できません", "data-alert", `role="alert"`, warningIcon)
 	webtest.MustNotContain(t, html, "—", "5 時間枠", "7 日枠", "ログイン切れ")
 	if n := strings.Count(html, "取得できません"); n != 1 {
 		t.Errorf("「取得できません」は 1 回のはず: %d 回\n%s", n, html)
@@ -130,11 +157,17 @@ func TestUsagePanel_CodexBothSlotsUnavailable(t *testing.T) {
 	webtest.MustNotContain(t, html, "—", "5 時間枠")
 }
 
-func TestUsagePanel_StaleFlagGraysOut(t *testing.T) {
+// 領域（#snapshot）が既にグレーアウトしているとき、usage.status が stale のパネルは重ねてグレーアウトしない（opacity が掛け算になる。ガイド C5）。
+func TestUsagePanel_RegionGrayedSkipsOwnGrayOut(t *testing.T) {
 	t.Parallel()
-	html := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: domain.Usage{Status: domain.UsageOK}, Stale: true, Now: now}))
-	webtest.MustContain(t, html, "opacity-50")
-	webtest.MustNotContain(t, html, "古いデータ")
+	u := domain.Usage{Status: domain.UsageStale}
+	own := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now}))
+	webtest.MustContain(t, own, "opacity-50", "古いデータ")
+	inRegion := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, RegionGrayed: true, Now: now}))
+	webtest.MustContain(t, inRegion, "古いデータ")
+	webtest.MustNotContain(t, inRegion, "opacity-50")
+	ok := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: domain.Usage{Status: domain.UsageOK}, RegionGrayed: true, Now: now}))
+	webtest.MustNotContain(t, ok, "opacity-50")
 }
 
 func TestUsagePanel_CursorNullWindow(t *testing.T) {
@@ -158,6 +191,9 @@ func TestHostPanel(t *testing.T) {
 	html := webtest.Render(t, organisms.HostPanel(organisms.HostPanelProps{Host: h}))
 	webtest.MustContain(t, html, "CPU", "96%", "[&amp;::-webkit-progress-value]:bg-danger", "メモリ", "32.3%", "41.3 GB / 128 GB", "スワップ", "なし", "12.3 GB 空き", "[&amp;::-webkit-progress-value]:bg-warning", "/data", "—")
 	webtest.MustNotContain(t, html, "load")
+	// 画面の半分幅を占める通常のカードなので、padding は 24（ガイド §3 --pad-card）。
+	webtest.MustContain(t, html, "p-6")
+	webtest.MustNotContain(t, html, "p-4")
 	// 表示順: CPU → メモリ → スワップ → ディスク。
 	cpu, mem, swap, disk := strings.Index(html, "CPU"), strings.Index(html, "メモリ"), strings.Index(html, "スワップ"), strings.Index(html, "/data")
 	if cpu >= mem || mem >= swap || swap >= disk {
@@ -188,100 +224,4 @@ func TestHostPanel_Mem(t *testing.T) {
 		webtest.MustContain(t, html, "メモリ", "—", "スワップ", "1 GB / 4 GB", "25%")
 		webtest.MustNotContain(t, html, "8 GB", "50%")
 	}
-}
-
-func TestPaneGrid_Layout(t *testing.T) {
-	t.Parallel()
-	panes := []domain.Pane{{Pos: "T1", State: domain.StateIdle}, {Pos: "T2", State: domain.StateIdle}, {Pos: "B1", State: domain.StateIdle}}
-	html := webtest.Render(t, organisms.PaneGrid(organisms.PaneGridProps{Layout: domain.Layout{Rows: 2, Cols: []int{2, 1}}, Panes: panes}))
-	webtest.MustContain(t, html, `data-layout="grid"`)
-	if strings.Count(html, `<div class="flex gap-3">`) != 2 {
-		t.Errorf("段の数が layout と一致しない:\n%s", html)
-	}
-	if strings.Index(html, "T1") > strings.Index(html, "T2") || strings.Index(html, "T2") > strings.Index(html, "B1") {
-		t.Error("ペイン順が崩れている")
-	}
-}
-
-func TestPaneGrid_InvalidLayoutFallsBackToList(t *testing.T) {
-	t.Parallel()
-	panes := []domain.Pane{{Pos: "T1", State: domain.StateIdle}, {Pos: "T2", State: domain.StateIdle}, {Pos: "B1", State: domain.StateIdle}}
-	for name, layout := range map[string]domain.Layout{
-		"欠落（零値）":          {},
-		"列数の合計が合わない":      {Rows: 2, Cols: []int{2, 2}},
-		"rows と Cols の長さ": {Rows: 3, Cols: []int{2, 1}},
-		"0 列の段":           {Rows: 2, Cols: []int{3, 0}},
-	} {
-		html := webtest.Render(t, organisms.PaneGrid(organisms.PaneGridProps{Layout: layout, Panes: panes}))
-		webtest.MustContain(t, html, `data-layout="list"`, "T1", "T2", "B1")
-		webtest.MustNotContain(t, html, `data-layout="grid"`)
-		if strings.Count(html, "<li>") != 3 {
-			t.Errorf("%s: リストが 3 件になっていない", name)
-		}
-	}
-}
-
-func TestPaneGrid_Empty(t *testing.T) {
-	t.Parallel()
-	webtest.MustContain(t, webtest.Render(t, organisms.PaneGrid(organisms.PaneGridProps{})), "ペインがありません")
-}
-
-func TestPaneGrid_HighlightsOnlyAskingAndStalled(t *testing.T) {
-	t.Parallel()
-	panes := []domain.Pane{{Pos: "T1", State: domain.StateAsking}, {Pos: "T2", State: domain.StateStalled}, {Pos: "T3", State: domain.StateWorking}, {Pos: "T4", State: domain.StateIdle}}
-	att := []domain.Attention{
-		{Kind: "asking", Pane: "T1"}, {Kind: "stalled", Pane: "T2"},
-		{Kind: "report_waiting", Pane: "T3"}, {Kind: "auth_expired", Detail: "claude"},
-	}
-	html := webtest.Render(t, organisms.PaneGrid(organisms.PaneGridProps{Panes: panes, Attention: att}))
-	if strings.Count(html, "ring-2 ring-warning") != 2 {
-		t.Errorf("強調は asking と stalled の 2 枚だけ: %d", strings.Count(html, "ring-2 ring-warning"))
-	}
-}
-
-func TestAttentionBar(t *testing.T) {
-	t.Parallel()
-	if got := strings.TrimSpace(webtest.Render(t, organisms.AttentionBar(organisms.AttentionBarProps{}))); got != "" {
-		t.Errorf("空のときは何も描画しない: %q", got)
-	}
-	exp := time.Date(2026, 11, 4, 8, 0, 0, 0, time.Local)
-	html := webtest.Render(t, organisms.AttentionBar(organisms.AttentionBarProps{
-		Attention: []domain.Attention{
-			{Kind: "asking", Pane: "T2", Detail: "q"},
-			{Kind: "auth_expiring", Detail: "claude"},
-			{Kind: "auth_expiring", Detail: "codex"},
-		},
-		Warnings: []domain.Warning{{Code: "layout_changed", Message: "レイアウトが変わりました"}},
-		Auth:     domain.Auth{Agents: []domain.AuthAgent{{Agent: "claude", ExpiresAt: &exp}, {Agent: "codex"}}},
-	}))
-	webtest.MustContain(t, html, "レイアウトが変わりました", `data-warning-code="layout_changed"`, "答え待ち", "期限 2026/11/04 08:00")
-	if strings.Count(html, "期限 ") != 1 {
-		t.Error("expires_at がある agent だけ期限を併記する")
-	}
-}
-
-func TestAttentionBar_WarningsOnlyAndAttentionOnly(t *testing.T) {
-	t.Parallel()
-	html := webtest.Render(t, organisms.AttentionBar(organisms.AttentionBarProps{Warnings: []domain.Warning{{Code: "tmux_unavailable", Message: "m"}}}))
-	webtest.MustContain(t, html, "m")
-	webtest.MustNotContain(t, html, "divide", "rounded-lg border border-border bg-surface")
-	html = webtest.Render(t, organisms.AttentionBar(organisms.AttentionBarProps{Attention: []domain.Attention{{Kind: "x_new", Pane: "T1"}}}))
-	webtest.MustContain(t, html, "x_new")
-	webtest.MustNotContain(t, html, `role="alert"`)
-}
-
-func TestSessionTabs(t *testing.T) {
-	t.Parallel()
-	html := webtest.Render(t, organisms.SessionTabs(organisms.SessionTabsProps{
-		ConnectionID: "c1", Selected: "1",
-		Sessions: []domain.Session{{ID: "0", Allowed: true}, {ID: "1", Allowed: true}, {ID: "hidden", Allowed: false}},
-	}))
-	webtest.MustContain(t, html, `hx-get="/connections/c1/sessions/0"`, `hx-get="/connections/c1/sessions/1"`)
-	webtest.MustNotContain(t, html, "hidden")
-	if strings.Count(html, "aria-current") != 1 {
-		t.Error("選択中は 1 つだけ")
-	}
-	// セッションが 1 つだけでもタブを出す。
-	one := webtest.Render(t, organisms.SessionTabs(organisms.SessionTabsProps{ConnectionID: "c1", Selected: "0", Sessions: []domain.Session{{ID: "0", Allowed: true}}}))
-	webtest.MustContain(t, one, "/connections/c1/sessions/0")
 }

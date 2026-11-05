@@ -30,7 +30,7 @@ templ PairingContent(p PairingProps) {
 	@pageTitle("接続を追加")
 	<p class="text-sm text-ink"><code class="font-mono">swarm-console pair</code> の出力を貼り付けてください。</p>
 	<details class="text-sm text-ink">
-		<summary class="cursor-pointer">注意</summary>
+		<summary>注意</summary>
 		発行した接続文字列は再利用しないでください。
 	</details>
 	<div id={ organisms.PairingFormID }>
@@ -55,53 +55,66 @@ type DraftProps struct {
 	ExpiresText string
 	// Error は確定（疎通確認）失敗の固定文言。空なら出さない。下書きは残るので再試行できる。
 	Error string
+	// HasConnections は保存済み接続があるとき true。モーダルの背面に出す貼り付け画面に渡す。
+	HasConnections bool
 }
 
-// PairingDraftPage はペアリング確認画面のフルページ。
+// DraftDiscardID は確認モーダルの「破棄」ボタンの id。外側クリック・Esc の閉じる操作はこのボタンの押下になる（modal.js の data-dismiss）。
+const DraftDiscardID = "draft-discard"
+
+// PairingDraftPage はペアリング確認のフルページ（貼り付け画面の上に確認モーダルを開いた状態）。
 templ PairingDraftPage(shell layout.BaseProps, p DraftProps) {
 	@layout.Base(shell) {
 		@PairingDraftContent(p)
 	}
 }
 
-// PairingDraftContent はペアリング確認画面のフラグメント。
-// 表示名・接続先ホスト・申告された許可セッションを見せ、確定（confirm）と破棄（discard）を用意する。
+// PairingDraftContent はペアリング確認のフラグメント。背面に貼り付け画面、その上に中央モーダルで
+// 表示名・接続先ホスト・申告された許可セッションを見せ、確定（confirm）と破棄（discard）を用意する（ガイド O1・O2）。
+// モーダルは `open` 付きで出し、modal.js が showModal() に引き上げる（スクラム・フォーカスの閉じ込め・Esc）。
+// 外側クリック・Esc は破棄として扱う（`data-dismiss`）。保存するまで何も保存しない（NFR-SEC-4）。
 templ PairingDraftContent(p DraftProps) {
-	@pageTitle("この接続を追加しますか？")
-	<dl class="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-2 rounded-lg border border-border bg-surface p-4 text-sm">
-		<dt class="text-mute">表示名</dt>
-		<dd class="truncate text-ink" title={ p.Name }>{ p.Name }</dd>
-		<dt class="text-mute">接続先ホスト</dt>
-		<dd class="font-mono text-ink">{ p.Host }</dd>
-		<dt class="text-mute">ホストが申告した許可セッション</dt>
-		<dd class="text-ink">
-			if len(p.SessionsHint) == 0 {
-				申告なし
-			} else {
-				{ strings.Join(p.SessionsHint, ", ") }
+	@PairingContent(PairingProps{HasConnections: p.HasConnections})
+	<dialog open data-modal data-dismiss={ "#" + DraftDiscardID } aria-labelledby="draft-title" class={ atoms.ModalClass }>
+		@atoms.ModalHeader(atoms.ModalHeaderProps{ID: "draft-title", Title: "この接続を追加しますか？"})
+		<div class={ atoms.ModalBodyClass }>
+			<dl class="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-2 rounded-md border border-border bg-bone p-4 text-sm">
+				<dt class="text-mute">表示名</dt>
+				<dd class="truncate text-ink" title={ p.Name }>{ p.Name }</dd>
+				<dt class="text-mute">接続先ホスト</dt>
+				<dd class="font-mono text-ink">{ p.Host }</dd>
+				<dt class="text-mute">ホストが申告した許可セッション</dt>
+				<dd class="text-ink">
+					if len(p.SessionsHint) == 0 {
+						申告なし
+					} else {
+						{ strings.Join(p.SessionsHint, ", ") }
+					}
+				</dd>
+			</dl>
+			if p.ExpiresText != "" {
+				<p class="text-xs text-mute">{ "有効期限: " + p.ExpiresText }</p>
 			}
-		</dd>
-	</dl>
-	if p.ExpiresText != "" {
-		<p class="text-xs text-mute">{ "有効期限: " + p.ExpiresText }</p>
-	}
-	if p.Error != "" {
-		<p role="alert" class="text-sm text-danger">{ p.Error }</p>
-	}
-	<div class="flex items-center gap-3">
-		@atoms.Button(atoms.ButtonProps{Label: "接続を保存", Variant: atoms.ButtonPrimary, Attrs: templ.Attributes{
-			"hx-post":         paths.DraftConfirm(p.DraftID),
-			"hx-target":       "#main",
-			"hx-indicator":    "#draft-spinner",
-			"hx-disabled-elt": "this",
-		}})
-		@atoms.Button(atoms.ButtonProps{Label: "破棄", Attrs: templ.Attributes{
-			"hx-post":         paths.DraftDiscard(p.DraftID),
-			"hx-target":       "#main",
-			"hx-disabled-elt": "this",
-		}})
-		@atoms.Spinner(atoms.SpinnerProps{ID: "draft-spinner", Size: atoms.SpinnerSmall})
-	</div>
+			if p.Error != "" {
+				@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: p.Error})
+			}
+		</div>
+		<footer class={ atoms.ModalFooterClass }>
+			@atoms.Spinner(atoms.SpinnerProps{ID: "draft-spinner"})
+			@atoms.Button(atoms.ButtonProps{Label: "破棄", Size: atoms.ButtonSmall, Attrs: templ.Attributes{
+				"id":              DraftDiscardID,
+				"hx-post":         paths.DraftDiscard(p.DraftID),
+				"hx-target":       "#main",
+				"hx-disabled-elt": "this",
+			}})
+			@atoms.Button(atoms.ButtonProps{Label: "接続を保存", Variant: atoms.ButtonPrimary, Size: atoms.ButtonSmall, Attrs: templ.Attributes{
+				"hx-post":         paths.DraftConfirm(p.DraftID),
+				"hx-target":       "#main",
+				"hx-indicator":    "#draft-spinner",
+				"hx-disabled-elt": "this",
+			}})
+		</footer>
+	</dialog>
 }
 
 // DraftExpiredPage は下書きが期限切れ・不明のときのフルページ。404 にはしない（API 仕様 §4.3）。
@@ -114,6 +127,6 @@ templ DraftExpiredPage(shell layout.BaseProps) {
 // DraftExpiredContent は「もう一度ペアリングしてください」のフラグメント。
 templ DraftExpiredContent() {
 	@pageTitle("もう一度ペアリングしてください")
-	<p class="text-sm text-ink">確認画面の有効期限が切れました。</p>
+	@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertWarning, Message: "確認画面の有効期限が切れました。"})
 	@navLink(paths.Pairing, "ペアリングをやり直す")
 }

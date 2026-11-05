@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -40,6 +42,7 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
+import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -80,7 +83,7 @@ fun QrScanScreen(
 @Composable
 private fun Centered(content: @Composable () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(LocalGutter.current),
         verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) { content() }
@@ -134,11 +137,18 @@ private fun ScannerView(
             },
         )
         Column(
-            modifier = Modifier.align(Alignment.BottomCenter).padding(24.dp),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(LocalGutter.current),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("接続文字列の QR コードを枠に映してください")
+            // カメラ映像の明るさに依らず読めるよう、文言は ink の帯（inverseSurface + inverseOnSurface）に載せる（C5）。
+            Surface(
+                color = MaterialTheme.colorScheme.inverseSurface,
+                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Text("接続文字列の QR コードを枠に映してください", modifier = Modifier.padding(16.dp))
+            }
             AppButton(onClick = onBack) { Text("貼り付けに戻る") }
         }
     }

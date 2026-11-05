@@ -29,7 +29,7 @@ func hostRowText(p HostRowProps) string {
 // 値の列は率と補足を 1 つの要素にまとめて右寄せにし、はみ出したら truncate＋title。
 // 「—」（取れない）と「なし」（スワップ無し）の行もバーの列を空にして同じ 3 列にのせる。
 templ HostRow(p HostRowProps) {
-	<div class="grid grid-cols-[4rem_minmax(0,1fr)_10rem] items-center gap-2 text-xs">
+	<div class="grid grid-cols-[4.5rem_minmax(0,1fr)_12rem] items-center gap-2 text-sm">
 		<span class="truncate text-mute" title={ p.Label }>{ p.Label }</span>
 		if !p.Available {
 			<span></span>
@@ -44,7 +44,7 @@ templ HostRow(p HostRowProps) {
 			<span class="truncate text-right tabular-nums" title={ hostRowText(p) }>
 				<span class={ "font-mono", valueClass(format.PercentTone(p.Percent)) }>{ format.Percent(p.Percent) }</span>
 				if p.Detail != "" {
-					<span class="text-mute">{ p.Detail }</span>
+					<span class="font-mono text-ink">{ p.Detail }</span>
 				}
 			</span>
 		}

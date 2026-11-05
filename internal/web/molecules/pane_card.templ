@@ -8,11 +8,11 @@ import (
 )
 
 // PaneCardProps は PaneCard の入力。
+// 取得失敗で直前値を表示しているときのグレーアウトは領域（organisms.SnapshotView の #snapshot）が 1 回だけかける。
+// opacity は入れ子で掛け算になるので、カード単体ではかけない（ガイド C5）。
 type PaneCardProps struct {
 	// Pane は表示するペイン。title・activity・note は信頼できない入力で、Templ のエスケープで文字列として描画する（NFR-SEC-10）。
 	Pane domain.Pane
-	// Stale は取得に失敗して直前値を表示しているとき true（グレーアウトする）。
-	Stale bool
 	// Highlight は attention の asking / stalled に該当するペインのとき true（強調表示する。機能要件 §7）。
 	Highlight bool
 	// ReportWaiting は attention の report_waiting に該当するペインのとき true（state バッジの隣に「報告待ち」を出す。機能要件 §7）。
@@ -21,14 +21,10 @@ type PaneCardProps struct {
 
 func paneCardClass(p PaneCardProps) string {
 	base := "flex min-w-0 flex-col gap-1 rounded-lg border bg-surface p-4 text-sm"
-	border := "border-border"
 	if p.Highlight {
-		border = "border-warning ring-2 ring-warning/40"
+		return base + " border-warning ring-2 ring-warning/40"
 	}
-	if p.Stale {
-		return base + " " + border + " opacity-50 grayscale"
-	}
-	return base + " " + border
+	return base + " border-border"
 }
 
 func agentName(a *string) string {
@@ -65,9 +61,9 @@ templ PaneCard(p PaneCardProps) {
 			if name := agentName(p.Pane.Agent); name != "" {
 				@atoms.Badge(atoms.BadgeProps{Text: name, Tone: format.ToneMuted})
 			}
-			@atoms.Badge(atoms.BadgeProps{Text: format.StateLabel(p.Pane.State), Tone: format.StateTone(p.Pane.State)})
+			@atoms.Badge(atoms.BadgeProps{Text: format.StateLabel(p.Pane.State), Tone: format.StateTone(p.Pane.State), Marker: true})
 			if p.ReportWaiting {
-				@atoms.Badge(atoms.BadgeProps{Text: format.AttentionLabel("report_waiting"), Tone: format.AttentionTone("report_waiting")})
+				@atoms.Badge(atoms.BadgeProps{Text: format.AttentionLabel("report_waiting"), Tone: format.AttentionTone("report_waiting"), Marker: true})
 			}
 			if p.Pane.State == domain.StateStalled && p.Pane.ChangedAgo != "" {
 				<span class="text-xs text-mute">{ p.Pane.ChangedAgo }</span>
@@ -86,14 +82,16 @@ templ PaneCard(p PaneCardProps) {
 
 templ paneNote(n *domain.Note) {
 	if repo, items, more := format.NoteSummary(n); repo != "" || len(items) > 0 {
-		<div class="rounded-md border border-border bg-bone px-2 py-1 text-sm text-ink" title={ noteTooltip(n) }>
+		<div class="rounded-md border border-border bg-bone px-3 py-2 text-sm text-ink" title={ noteTooltip(n) }>
 			if repo != "" {
 				<p class="truncate font-mono text-mute">{ repo }</p>
 			}
 			if len(items) > 0 {
-				<ul class="list-inside list-disc">
+				<ul class="flex flex-col gap-(--list-gap)">
 					for _, item := range items {
-						<li class="truncate">{ item }</li>
+						<li class="flex items-center gap-(--list-marker-gap) before:size-(--list-marker-size) before:shrink-0 before:rounded-full before:bg-mute">
+							<span class="truncate">{ item }</span>
+						</li>
 					}
 				</ul>
 			}

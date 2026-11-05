@@ -1,6 +1,7 @@
 package pages_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -49,6 +50,46 @@ func TestMainPage(t *testing.T) {
 	webtest.MustNotContain(t, html, "100.64.0.5", "48120")
 }
 
+// 接続の切替リンクは操作対象のラベルなので 14px（T3）。
+func TestMainPage_ConnectionSwitcherIs14px(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, pages.MainContent(mainProps()))
+	var checked int
+	for _, a := range webtest.Elements(t, html, "a") {
+		if href, _ := webtest.Attr(a, "href"); href != "/connections/01A" && href != "/connections/01B" {
+			continue
+		}
+		class, _ := webtest.Attr(a, "class")
+		if !slices.Contains(strings.Fields(class), "text-sm") || slices.Contains(strings.Fields(class), "text-xs") {
+			t.Errorf("接続の切替リンクは text-sm のはず: %q", class)
+		}
+		checked++
+	}
+	if checked != 2 {
+		t.Errorf("接続の切替リンクが 2 本のはず（%d 本）:\n%s", checked, html)
+	}
+}
+
+// ホバーされるナビリンクと接続切替は色の遷移（.hover-fade。ガイド M1）を持つ。
+func TestMainPage_HoverableLinksFadeColors(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, pages.MainPage(shell, mainProps()))
+	// ナビ（接続・設定）の 2 本と接続切替の 1 本以上。
+	if n := strings.Count(html, "hover-fade"); n < 3 {
+		t.Errorf("hover-fade が足りない（%d 回）:\n%s", n, html)
+	}
+}
+
+// ナビのテキストリンクは共通の .text-link（下線 --mute・3px・ホバーは下線の色だけ。ガイド O7）で、ホバーの面（bg-accent-soft）を持たない。
+func TestMainPage_NavLinksAreTextLinks(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, pages.MainPage(shell, mainProps()))
+	if n := strings.Count(html, `class="text-link hover-fade text-sm text-ink"`); n != 2 {
+		t.Errorf("ナビのテキストリンク（接続・設定）が 2 本のはず（%d 本）:\n%s", n, html)
+	}
+	webtest.MustNotContain(t, html, "underline-offset-2", "decoration-mute", `text-ink underline`)
+}
+
 func TestMainContent_SingleConnectionHasNoSwitcher(t *testing.T) {
 	t.Parallel()
 	p := mainProps()
@@ -71,7 +112,7 @@ func TestPairingPage(t *testing.T) {
 	html := webtest.Render(t, pages.PairingPage(shell, pages.PairingProps{HasConnections: true}))
 	webtest.MustContain(t, html, `id="pairing-form"`, `hx-post="/pairing"`, "保存済みの接続", "<html")
 	webtest.MustContain(t, html, "<summary", "注意", "<details", "発行した接続文字列は再利用しないでください。", "の出力を貼り付けてください。")
-	if !strings.Contains(html, "<summary class=\"cursor-pointer\">注意</summary>") || strings.Index(html, "<details") > strings.Index(html, "発行した接続文字列は再利用しないでください。") {
+	if !strings.Contains(html, "<summary>注意</summary>") || strings.Index(html, "<details") > strings.Index(html, "発行した接続文字列は再利用しないでください。") {
 		t.Error("再利用の注意は <details> の中にある")
 	}
 	webtest.MustNotContain(t, html, "が出力した接続文字列を貼り付けてください")
@@ -87,8 +128,27 @@ func TestPairingDraftPage_NoTokenAndRoutes(t *testing.T) {
 		`hx-post="/pairing/drafts/dr_AFT-1/confirm"`, `hx-post="/pairing/drafts/dr_AFT-1/discard"`,
 		"接続を保存", "破棄",
 	)
-	webtest.MustNotContain(t, html, "48120", "/report", "swarm-viewer://", "Bearer")
+	// 背面の貼り付け画面の書式のヒント（`swarm-viewer://pair?…`）は出るが、接続文字列そのもの（URL・token）は出さない。
+	webtest.MustNotContain(t, html, "48120", "/report", "swarm-viewer://pair?v=", "Bearer")
 	webtest.MustContain(t, webtest.Render(t, pages.PairingDraftContent(pages.DraftProps{DraftID: "d"})), "申告なし")
+}
+
+// 確認は全画面ページではなく、貼り付け画面の上に開く中央モーダル（ガイド O1・O2）。
+// 外側クリック・Esc は「破棄」ボタンの押下（data-dismiss）。app.js がモーダルへ引き上げるので open 付きで出す。
+func TestPairingDraft_IsModalOverPairingForm(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, pages.PairingDraftContent(pages.DraftProps{DraftID: "dr_1", Name: "devbox", Host: "100.64.0.5", HasConnections: true}))
+	webtest.MustContain(t, html,
+		"接続を追加", `id="pairing-form"`, `href="/connections"`, "保存済みの接続", // 背面の貼り付け画面
+		`<dialog open`, "data-modal", `data-dismiss="#draft-discard"`, `aria-labelledby="draft-title"`, "rounded-xl", "shadow-modal",
+		`id="draft-discard"`, "この接続を追加しますか？",
+	)
+	// フッターのボタン列は 8px（ガイド S2）で上に 1px の線。ヘッダーに閉じる × ボタン（ガイド O2 の見本）。
+	// モーダル内の入れ子パネルは --bone・1px の border・--r-md で、surface のカードにしない（ガイド §4・S1・S3）。
+	webtest.MustContain(t, html, `<footer class="flex items-center justify-end gap-2 border-t border-border px-5 py-3">`, `<header class="flex items-center justify-between`, `aria-label="閉じる"`, "data-modal-close", "rounded-md border border-border bg-bone p-4")
+	webtest.MustNotContain(t, html, "gap-3", "rounded-lg border border-border bg-surface")
+	webtest.MustNotContain(t, html, "<h1 class=\"text-lg font-semibold text-ink\">この接続を追加しますか？")
+	webtest.MustNotContain(t, webtest.Render(t, pages.PairingDraftContent(pages.DraftProps{DraftID: "d"})), "保存済みの接続")
 }
 
 func TestPairingDraft_DraftIDIsEscapedInPath(t *testing.T) {
@@ -107,7 +167,8 @@ func TestPairingDraft_ConfirmError(t *testing.T) {
 func TestDraftExpiredPage(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, pages.DraftExpiredPage(shell))
-	webtest.MustContain(t, html, "もう一度ペアリングしてください", `href="/pairing"`, "確認画面の有効期限が切れました。")
+	webtest.MustContain(t, html, "もう一度ペアリングしてください", `href="/pairing"`, "確認画面の有効期限が切れました。",
+		`role="alert"`, "data-alert", "border-l-warning", "text-warning")
 	webtest.MustNotContain(t, html, "ペアリングの確認画面", "もう一度貼り付けてください")
 }
 
@@ -118,9 +179,18 @@ func TestConnectionsAndNoSessions(t *testing.T) {
 	html = webtest.Render(t, pages.NoSessionsPage(shell, "devbox"))
 	webtest.MustContain(t, html, "許可されたセッションがありません", "接続「devbox」:", "ホスト側でトークンの許可セッションを確認してください。")
 	webtest.MustNotContain(t, html, "見られるセッションがありません")
+	// 許可セッション 0 件も空状態の部品（破線の枠。ガイド S4）で出す。
+	webtest.MustContain(t, html, "border-dashed")
 	empty := webtest.Render(t, pages.NoSessionsContent(""))
 	webtest.MustContain(t, empty, "許可されたセッションがありません", "ホスト側でトークンの許可セッションを確認してください。")
 	webtest.MustNotContain(t, empty, "接続「")
+}
+
+func TestConnectionErrorContent_IsDangerAlert(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, pages.ConnectionErrorContent(pages.ConnectionErrorProps{ConnectionID: "01A", Name: "devbox", Err: &domain.FetchError{Kind: domain.ErrProtocol}}))
+	webtest.MustContain(t, html, "接続できません", `role="alert"`, "data-alert", "border-l-danger", "text-danger", "接続「devbox」: ", `href="/connections"`)
+	webtest.MustNotContain(t, html, `<p class="text-sm text-ink">接続「`)
 }
 
 func TestSettingsPage(t *testing.T) {
@@ -131,13 +201,15 @@ func TestSettingsPage(t *testing.T) {
 
 func TestRecoveryPage(t *testing.T) {
 	t.Parallel()
-	for reason, want := range map[pages.RecoveryReason]string{
-		pages.RecoveryCorrupt:      "壊れている可能性",
-		pages.RecoverySchemaTooNew: "より新しい版",
-		"whatever":                 "壊れている可能性",
+	for reason, tt := range map[pages.RecoveryReason]struct{ want, kind string }{
+		pages.RecoveryCorrupt:      {"壊れている可能性", "danger"},
+		pages.RecoverySchemaTooNew: {"より新しい版", "warning"},
+		"whatever":                 {"壊れている可能性", "danger"},
 	} {
 		html := webtest.Render(t, pages.RecoveryPage(shell, pages.RecoveryProps{Reason: reason}))
-		webtest.MustContain(t, html, want, `hx-post="/recovery/reset"`, `hx-confirm=`, "保存データを初期化する", "秘密領域に残ります")
+		// 状態はアイコン＋左の状態色の帯の Alert で伝える（C4）。data-recovery-reason は Alert の属性に載る。
+		webtest.MustContain(t, html, tt.want, "data-alert", `data-recovery-reason="`+string(reason)+`"`, "border-l-"+tt.kind, "text-"+tt.kind, `hx-post="/recovery/reset"`, `hx-confirm=`, "保存データを初期化する", "秘密領域に残ります",
+			`data-confirm-title="保存データを初期化"`, `data-confirm-label="初期化する"`)
 	}
 	webtest.MustContain(t, webtest.Render(t, pages.RecoveryContent(pages.RecoveryProps{Error: "初期化に失敗しました"})), "初期化に失敗しました")
 }

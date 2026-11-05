@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Iconoir（MIT）の warning-triangle。線の太さ 1.5・丸い端。色は使う側（Icon の tint）で決める。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M12,7.5L12,12"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M12,16.01L12.01,15.9989"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M20.0429,21L3.95705,21C2.41902,21 1.45658,19.3364 2.22324,18.0031L10.2662,4.01533C11.0352,2.67792 12.9648,2.67791 13.7338,4.01532L21.7768,18.0031C22.5434,19.3364 21.581,21 20.0429,21Z"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

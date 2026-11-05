@@ -1,68 +1,15 @@
 @import "tailwindcss";
+/* フォント（@font-face）とモーション（indicator・フェード・リップル・モーダルのスクラム）は、行数の上限（300 行）のため別ファイルに分ける。 */
+@import "./fonts.css";
+@import "./motion.css";
 
 /* Templ（.templ）が使うクラスを走査する。生成コード（*_templ.go）は gitignore 対象のため .templ を見る。 */
 @source "../../../internal/web";
 
 /*
- * フォント。Ousiass デザインガイドの指定（Sora + Noto Sans JP、コードと桁を揃える数値は JetBrains Mono）と、
- * Nerd Font のアイコン（私用領域 PUA）用の Symbols Only を同梱する（docs/requirements/non-functional.md NFR-SEC-9）。
- * CSP（default-src 'self'）に合わせ、フォントはこの CSS からの相対パス（/static/fonts/）で配る。
- * 元ファイルは static/src/fonts/（Taskfile の generate が static/dist/fonts/ へコピーする）。
- * ウェイトは Regular 400 と SemiBold 600（見出しとボタンだけ）。Mono は 400 のみ。
- * Noto Sans JP は JIS X 0208 の全文字 + ASCII + 半角カナのサブセット。範囲外の字は OS のフォントで描かれる。
- * Symbols Nerd Font は unicode-range を PUA に絞るので、PUA の文字が現れるまで読み込まれない。
- */
-@font-face {
-  font-family: Sora;
-  src: url("../fonts/Sora-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: Sora;
-  src: url("../fonts/Sora-SemiBold.woff2") format("woff2");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Noto Sans JP";
-  src: url("../fonts/NotoSansJP-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Noto Sans JP";
-  src: url("../fonts/NotoSansJP-SemiBold.woff2") format("woff2");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("../fonts/JetBrainsMono-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Symbols Nerd Font";
-  src: url("../fonts/SymbolsNerdFontMono-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-  unicode-range: U+E000-F8FF, U+F0000-FFFFD;
-}
-
-/*
  * Ousiass 共通デザインガイド（https://ousiassllc.github.io/brand-guide/ ）のトークン。
+ * 角丸・モーション・フォーカスリング・z-index はガイドと同じ名前（--r-* / --motion-* / --ease-* / --ring / --z-*）で :root に持つ。
+ * z-index は使うものだけ定義する（今はトースト）。
  * ライト / ダークは prefers-color-scheme に追従する（JS・cookie なし。CSP と両立）。
  * 色は必ずこのトークン経由（bg-bone / text-ink / text-mute / bg-surface / border-border / bg-accent /
  * bg-accent-soft / ring-focus と状態色 success・warning・danger・info）で指定する。Tailwind の既定色は無効にしてある。
@@ -85,13 +32,38 @@
   --danger: #7a4545;
   --info: #4a5a6a;
 
+  /* フォーム入力のフォーカスリング: --focus の 40%（ガイド C3）。--focus はダークで切り替わるので、ここは :root のままでよい。 */
+  --ring: color-mix(in srgb, var(--focus) 40%, transparent);
+
+  /* 角丸（ガイド S1）。Tailwind の --radius-* は下の @theme でこれを参照する。 */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-full: 9999px; /* ピル・アバター・円（バッジ・進捗バー・スピナー・トースト・リップル） */
+
+  /* テキストリスト（ガイド §4）: 項目間 8・記号→文字 10・記号は 5px の点（--mute）・2 行リストのタイトル→キャプション 2。 */
+  --list-gap: 8px;
+  --list-marker-gap: 10px;
+  --list-marker-size: 5px;
+  --list-title-caption-gap: 2px;
+
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-slow: 280ms;
   --motion-fade-in: 320ms;
   --motion-fade-out: 240ms;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
   --z-toast: 500;
   --toast-offset: 24px;
+  --toast-h: 40px;
+  --toast-duration: 3s;
+
+  /* モーダルのスクラム（ガイド O1）: ライトは --ink の 40%。ダークは --ink が白になるので、暗い --bone の 60% にする。 */
+  --scrim: color-mix(in srgb, var(--ink) 40%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -104,6 +76,11 @@
     --accent-soft: #2a2a2a;
     --focus: #60a5fa;
 
+    --scrim: color-mix(in srgb, var(--bone) 60%, transparent);
+
+    /* モーダルの影（ガイド）: ダークの面・背景では .06 だと見えないので .4 にする。 */
+    --shadow-modal: 0 1px 2px rgb(0 0 0 / 0.4);
+
     --success: #8fafa0;
     --warning: #c4b87a;
     --danger: #c49a9a;
@@ -113,7 +90,7 @@
 
 /*
  * Tailwind 側のテーマ。--color-* を空にして既定のパレット（slate・sky など）を使えなくし、ガイドのトークンだけを残す。
- * サイズはガイドのスケール（本文 16px 基準・行間付き）、角丸は --r-sm 4 / --r-md 8 / --r-lg 12 / --r-xl 16、
+ * サイズはガイドのスケール（本文 16px 基準・行間付き）、角丸は --r-sm 4 / --r-md 8 / --r-lg 12 / --r-xl 16 / --r-full 9999、
  * 影はモーダルだけ（--shadow-modal）。Tailwind を更新したら node_modules/tailwindcss/theme.css と見比べる。
  */
 @theme inline {
@@ -133,9 +110,7 @@
 }
 
 @theme {
-  --font-sans:
-    Sora, "Noto Sans JP", "Symbols Nerd Font", -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans: Sora, "Noto Sans JP", "Symbols Nerd Font", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --text-xs: 0.75rem;
@@ -153,13 +128,79 @@
   --text-3xl: 2.5rem;
   --text-3xl--line-height: 1.3;
 
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+  --radius-full: var(--r-full);
+
+  /* スピナーの回転はガイドの 0.9s（tokens-preview の .spin）。keyframes は Tailwind の spin。 */
+  --animate-spin: spin 0.9s linear infinite;
 
   --shadow-*: initial;
   --shadow-modal: 0 1px 2px rgb(0 0 0 / 0.06);
+}
+
+/*
+ * アコーディオン（ガイド §7・tokens-preview の `.acc`）: ネイティブ <details>・summary は SemiBold・開閉のシェブロンは CSS で描く。
+ * 三角のマーカーは消す。画像・data: URI は CSP（default-src 'self'）で使えないので、シェブロンは枠線の回転で作る。
+ * 見本どおり、シェブロンは右端（::after）・閉じているときは下向き（rotate 45）・開いているときは上向き（rotate -135）で、
+ * 回転の中心が見た目の中心に来るよう 4px ずらす。遷移は --motion-base・--ease-out。reduced-motion では回転を即時にする。
+ * 見本の枠付きコンテナ（.acc）は足さない（アラートの中などで枠を重ねないため）。
+ */
+@layer components {
+  details > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+  }
+
+  details > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  details > summary::after {
+    content: "";
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-top: -0.25rem;
+    border-right: 1.5px solid var(--mute);
+    border-bottom: 1.5px solid var(--mute);
+    transform: rotate(45deg);
+    transition: transform var(--motion-base) var(--ease-out);
+  }
+
+  details[open] > summary::after {
+    margin-top: 0.25rem;
+    transform: rotate(-135deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    details > summary::after {
+      transition: none;
+    }
+  }
+}
+
+/*
+ * テキストリンク（ガイド §4・tokens-preview の `a.tl`）: Regular・下線 --mute・下線の位置 3px。ホバーは下線の色を --mute → --ink にするだけ
+ * （面は付けない。遷移は .hover-fade）。文字色は呼び出し側が text-ink で付ける。
+ */
+@layer components {
+  .text-link {
+    text-decoration-line: underline;
+    text-decoration-color: var(--mute);
+    text-underline-offset: 3px;
+  }
+
+  .text-link:hover {
+    text-decoration-color: var(--ink);
+  }
 }
 
 /*
@@ -170,32 +211,5 @@
   :focus-visible {
     outline: 2px solid var(--focus);
     outline-offset: 2px;
-  }
-}
-
-/*
- * htmx の indicator 切り替え。htmx は includeIndicatorStyles:false でインライン <style> を
- * 注入しない（CSP の style-src 'self' に反するため）ので、ここで定義する（docs/api/endpoints.md §4.5）。
- * 出現はフェードイン 320ms（ease-out）、退出はフェードアウト 240ms（ease-in）。
- * reduced-motion ではフェードを付けず即時に切り替える（スピナーの回転は処理中表示なので維持する）。
- */
-@layer components {
-  .htmx-indicator {
-    opacity: 0;
-    transition: opacity var(--motion-fade-out) var(--ease-in);
-  }
-
-  .htmx-request .htmx-indicator,
-  .htmx-request.htmx-indicator {
-    opacity: 1;
-    transition: opacity var(--motion-fade-in) var(--ease-out);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .htmx-indicator,
-    .htmx-request .htmx-indicator,
-    .htmx-request.htmx-indicator {
-      transition: none;
-    }
   }
 }

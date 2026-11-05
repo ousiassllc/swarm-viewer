@@ -1,0 +1,163 @@
+/*
+ * htmx の indicator 切り替え。htmx は includeIndicatorStyles:false でインライン <style> を
+ * 注入しない（CSP の style-src 'self' に反するため）ので、ここで定義する（docs/api/endpoints.md §4.5）。
+ * 出現はフェードイン 320ms（ease-out）、退出はフェードアウト 240ms（ease-in）。
+ * reduced-motion ではフェードを付けず即時に切り替える（スピナーの回転は処理中表示なので維持する）。
+ */
+@layer components {
+  .htmx-indicator {
+    opacity: 0;
+    transition: opacity var(--motion-fade-out) var(--ease-in);
+  }
+
+  .htmx-request .htmx-indicator,
+  .htmx-request.htmx-indicator {
+    opacity: 1;
+    transition: opacity var(--motion-fade-in) var(--ease-out);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .htmx-indicator,
+    .htmx-request .htmx-indicator,
+    .htmx-request.htmx-indicator {
+      transition: none;
+    }
+  }
+}
+
+/*
+ * 出現と退出のモーション（ガイド M5・NFR-DSG-6）。
+ * アラートとトーストは .fade-in（フェードイン 320ms・ease-out・4px 上へ）で現れる。トーストの退出は .is-leaving
+ * （フェードアウト 240ms・ease-in）を app.js が付け、animationend で消す。
+ * アラートの退出も .is-leaving（同じ 240ms）。差し替えで消えるアラートへ app.js が付け、フェードが終わってから差し替える。
+ * .is-settled は、ポーリングの再描画で同じ文言のアラートが差し替わっただけのとき app.js が付ける（フェードを繰り返さない）。
+ * ボタンの押下は .ripple（クリック点から円が広がって消える 280ms・ease-out。ガイド M4）。円の大きさと位置は app.js が CSSOM で決める。
+ * モーダル（dialog.modal。確認ダイアログとペアリング確認）は、本体を .modal-in（--motion-slow 280ms・ease-out）、スクラム（::backdrop）を
+ * backdrop-in（同じ 280ms）で出し、退出は本体を .is-leaving・スクラムを backdrop-out の 240ms・ease-in でフェードさせる（ガイド O1・M5）。
+ * ホバーの色の遷移は .hover-fade（--motion-base 180ms・ease-out。ガイド M1）。
+ * reduced-motion ではどれも付けない（退出は app.js が即時に消す。ホバーの色の変化は残し、遷移だけ止める）。
+ */
+@layer components {
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    to {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+
+  @keyframes ripple {
+    from {
+      opacity: 0.3;
+      transform: scale(0);
+    }
+
+    to {
+      opacity: 0;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes backdrop-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes backdrop-out {
+    from {
+      opacity: 1;
+    }
+
+    to {
+      opacity: 0;
+    }
+  }
+
+  dialog.modal::backdrop {
+    background-color: var(--scrim);
+  }
+
+  dialog.modal-in::backdrop {
+    animation: backdrop-in var(--motion-slow) var(--ease-out) both;
+  }
+
+  .modal-in {
+    animation: fade-in var(--motion-slow) var(--ease-out) both;
+  }
+
+  dialog.modal.is-leaving::backdrop {
+    animation: backdrop-out var(--motion-fade-out) var(--ease-in) forwards;
+  }
+
+  .fade-in {
+    animation: fade-in var(--motion-fade-in) var(--ease-out) both;
+  }
+
+  .fade-in.is-settled {
+    animation: none;
+  }
+
+  .fade-in.is-leaving,
+  .modal-in.is-leaving {
+    animation: fade-out var(--motion-fade-out) var(--ease-in) forwards;
+  }
+
+  .ripple {
+    position: absolute;
+    border-radius: var(--r-full);
+    background-color: currentcolor;
+    pointer-events: none;
+    animation: ripple var(--motion-slow) var(--ease-out) forwards;
+  }
+
+  /*
+   * ホバーされる要素（ボタン・リンク・タブ・接続切替）の色の遷移。色・背景・枠・下線の色だけを --motion-base（180ms）・ease-out で変える（ガイド M1）。
+   */
+  .hover-fade {
+    transition:
+      color var(--motion-base) var(--ease-out),
+      background-color var(--motion-base) var(--ease-out),
+      border-color var(--motion-base) var(--ease-out),
+      text-decoration-color var(--motion-base) var(--ease-out);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fade-in,
+    .fade-in.is-leaving,
+    .modal-in,
+    .modal-in.is-leaving,
+    dialog.modal-in::backdrop,
+    dialog.modal.is-leaving::backdrop {
+      animation: none;
+    }
+
+    .ripple {
+      display: none;
+    }
+
+    .hover-fade {
+      transition: none;
+    }
+  }
+}

@@ -44,7 +44,7 @@ swarm-viewer/
 └── testdata/vectors/          # デスクトップ（Go）と Android（Kotlin）が共有するテストベクタ（§11.5）
 ```
 
-- `package.json` は **devDependencies のみ**（実行時の JS 依存はない。`static/dist/js/` に配置するのは htmx と自前の `app.js`。フォントの woff2 は変換済みのものを `static/src/fonts/` にコミットし、ビルドでは変換しない）
+- `package.json` は **devDependencies のみ**（実行時の JS 依存はない。`static/dist/js/` に配置するのは htmx と自前の `app.js`・`modal.js`。フォントの woff2 は変換済みのものを `static/src/fonts/` にコミットし、ビルドでは変換しない）
 - ロックファイルは `bun.lock`（bun のバージョンが出力する形式に従う）。`package-lock.json`・`yarn.lock`・`pnpm-lock.yaml` は作らない・コミットしない
 
 ## 3. 開発環境セットアップ
@@ -74,13 +74,14 @@ swarm-viewer/
 | タスク | 内容 |
 |--------|------|
 | `task setup` | `bun install --frozen-lockfile` → `bunx lefthook install` → `task generate`。clone 直後に 1 回実行する |
-| `task generate` | `go tool templ generate` → Tailwind CLI で `static/dist/css/app.css` を生成（`bunx @tailwindcss/cli -i static/src/css/app.css -o static/dist/css/app.css --minify`）→ htmx（と `response-targets` 拡張）を `node_modules` から、`app.js` を `static/src/js/` から `static/dist/js/` へコピー → 同梱フォントの woff2（Sora・Noto Sans JP・JetBrains Mono・Symbols Nerd Font。コミット済みの `static/src/fonts/`）を `static/dist/fonts/` へコピー |
+| `task generate` | `go tool templ generate` → Tailwind CLI で `static/dist/css/app.css` を生成（`bunx @tailwindcss/cli -i static/src/css/app.css -o static/dist/css/app.css --minify`）→ htmx（と `response-targets` 拡張）を `node_modules` から、`app.js`・`modal.js` を `static/src/js/` から `static/dist/js/` へコピー → 同梱フォントの woff2（Sora・Noto Sans JP・JetBrains Mono・Symbols Nerd Font。コミット済みの `static/src/fonts/`）を `static/dist/fonts/` へコピー |
 | `task fmt` | `golangci-lint fmt` → `go tool templ fmt .` → `bunx biome format --write .` |
 | `task lint` | `golangci-lint run ./...` → `go tool templ fmt -fail .` → `bunx biome check .` → `bunx linterly check` |
-| `task test` | `task generate` → `go test ./...` |
+| `task test` | `task generate` → `go test ./...` → `bun test static/src/js` |
 | `task build` | `task generate` → `wails3 build` |
 | `task dev` | `wails3 dev`（Templ・Tailwind は `wails3 dev` から監視ビルドする設定を `Taskfile.yml` に持つ） |
 
+- JS の挙動テスト（`static/src/js/*.test.js`）は `bun test static/src/js`（bun 標準のテストランナー）で動かす。DOM は devDependencies の `happy-dom`（ブラウザ不要。JS の文字列を grep するだけのテストは書かない）。`dom_harness.js` が `app.js`・`modal.js` をテストごとの新しい Window で実行し、タイマー・htmx は偽物に差し替える。これらは `static/dist/` へは配置しない
 - すべてのコマンド例は bun（`bun install`・`bunx`）で書く。`npm`・`npx`・`yarn`・`pnpm` は使わない
 - `go build`・`go vet`・`go test`・golangci-lint は、生成物（`*_templ.go` と `static/dist/`、`go:embed` の対象）が無いと失敗する。**必ず先に `task generate`**（または `task setup`）を実行する。CI と Git Hooks もこの順で実行する
 
@@ -150,7 +151,7 @@ graph LR
 |--------|------|
 | `changes` | `lint`・`test` より前に動く。変更されたファイルから、Go 側と Android 側のどちらのジョブを動かすかを `go`・`android` の出力にする（`.github/scripts/detect-changes.sh`。§11.2）。fork の PR では動かさない |
 | `lint` | チェックアウト → Go（`actions/setup-go`、`go-version-file: go.mod`）・bun（`oven-sh/setup-bun`）の準備 → `bun install --frozen-lockfile` → **`task generate`（最初の検査より前に必ず実行）** → `golangci-lint`（`golangci/golangci-lint-action` で導入。Linux では Wails 直下を除いたパッケージ、続けて `GOOS=windows CGO_ENABLED=0` で `./...`）→ `go tool templ fmt -fail .` → `bunx biome check .` → `bunx linterly check` |
-| `test` | 同じ準備 → **`task generate`** → `go vet`（Wails 直下を除く）→ Windows / macOS 向けの `go vet`（下記）→ `go test`（Wails 直下を除く。テストは固定時間の待ちに頼らない。[NFR-QLT-3](../requirements/non-functional.md)）→ `bash .github/scripts/plan-release_test.sh`（リリースの版を決める `plan-release.sh` の表駆動テスト。ネットワーク不要。§5.5）→ `bash .github/scripts/install-nsis_test.sh`（NSIS の取得の再試行・sha256 検証のテスト。ネットワーク不要。§5.5）→ `bash .github/scripts/android-version_test.sh`（Android の `versionName`・`versionCode` を決める `android-version.sh` の表駆動テスト。§11.4）→ `bash .github/scripts/sign-android-apk_test.sh`（APK の署名・検証・後始末のテスト。`apksigner` などは偽物に差し替え、SDK 不要。§11.4）→ `bash .github/scripts/detect-changes_test.sh`（下の `changes` ジョブの変更検知のテスト。§11.2） |
+| `test` | 同じ準備 → **`task generate`** → `go vet`（Wails 直下を除く）→ Windows / macOS 向けの `go vet`（下記）→ `go test`（Wails 直下を除く。テストは固定時間の待ちに頼らない。[NFR-QLT-3](../requirements/non-functional.md)）→ `bun test static/src/js`（`app.js`・`modal.js` の挙動テスト。§3.2）→ `bash .github/scripts/plan-release_test.sh`（リリースの版を決める `plan-release.sh` の表駆動テスト。ネットワーク不要。§5.5）→ `bash .github/scripts/install-nsis_test.sh`（NSIS の取得の再試行・sha256 検証のテスト。ネットワーク不要。§5.5）→ `bash .github/scripts/android-version_test.sh`（Android の `versionName`・`versionCode` を決める `android-version.sh` の表駆動テスト。§11.4）→ `bash .github/scripts/sign-android-apk_test.sh`（APK の署名・検証・後始末のテスト。`apksigner` などは偽物に差し替え、SDK 不要。§11.4）→ `bash .github/scripts/detect-changes_test.sh`（下の `changes` ジョブの変更検知のテスト。§11.2） |
 | `build` | `lint`・`test` が成功したときだけ。同じ準備 → `task generate` → `GOOS=windows CGO_ENABLED=0 go build -tags production .`（Windows 向けのコンパイル確認。`wails3` CLI 自体が Linux で GTK 系の開発パッケージを要するため、CLI は使わず直接ビルドする。Linux 向けは上記の前提により現状行わない。成果物は配布しない） |
 | `android-lint`・`android-test`・`android-build` | Android（`android/**`）の検査。`changes` ジョブが Android 側を動かすと決めたときだけ動く。内容は §11.2 |
 
@@ -236,7 +237,7 @@ graph LR
 
 ### 6.2 Biome
 
-- 対象: `static/src/js/app.js`、`static/src/css/app.css`（Tailwind のディレクティブを含む。Biome の CSS 解析で Tailwind ディレクティブを許可する設定を `biome.json` に持つ）
+- 対象: `static/src/js/*.js`（`app.js`・`modal.js` とその挙動テスト・テスト用の部品）、`static/src/css/*.css`（Tailwind のディレクティブを含む。Biome の CSS 解析で Tailwind ディレクティブを許可する設定を `biome.json` に持つ）
 - 対象外: `static/dist/`（生成物）、`node_modules/`、`.templ` と Go ファイル
 - lint と format は `biome check` に統合する（`bunx biome check .`）
 
@@ -306,7 +307,8 @@ language: ja
 | | `golangci-lint`（`golangci-lint run ./...`） | Go 全体 |
 | | `biome`（`bunx biome check --write {staged_files}`、`stage_fixed: true`） | ステージ済みの `static/src/**` の JS/CSS |
 | | `linterly`（`bunx linterly check {staged_files}`） | ステージ済みのファイル |
-| `pre-push` | `test`（`go test ./...`。`task generate` の後） | リポジトリ全体 |
+| `pre-push` | `generate` → `test`（`go test ./...`） | リポジトリ全体 |
+| | `js-test`（`bun test static/src/js`） | `app.js`・`modal.js` の挙動テスト |
 
 - `go test ./...` は開発者のローカル OS で `internal/app`（Wails 依存）も含めてコンパイル・テストする。Windows / macOS 固有の破損は、ここで初めて拾える（CI は Linux のランナーのみ。§5.4）
 - `pre-push` が遅い場合は、まず `go test` のキャッシュに頼る。コマンドの対象を減らす変更は、その理由とともにこの表を更新する
@@ -445,3 +447,5 @@ Release の APK の確認（検証手順と実機確認。手動確認項目）:
 | 1.6 | 2026-11-05 | §11「Android 版」を追加（JDK 17・Android SDK の導入、`android/**` の CI、署名鍵の扱い、Android のリリース手順、テストベクタ）。§1・§2 に Android を追記 | Issue #15（Android 版の仕様書への反映） |
 | 1.7 | 2026-11-05 | §11.2 を `ci.yml` への Android ジョブ（`android-lint`・`android-test`・`android-build`）の追加と、`changes` ジョブによる出し分けに確定（別の `android-ci.yml` は置かない）。ランナーへの JDK・SDK の導入手順を追記。§11.3 に署名のシークレットの参照先（`build-android` の署名の step）、未登録のときの扱い、鍵の作成・登録の手順を追記。§11.4 を `build-android` が署名する構成・成果物名 `swarm-viewer_vX.Y.Z_android_universal.apk`・版の決め方・検証手順に確定。§5.2・§5.5 に Android を追記 | Issue #22（Android の CI と署名済み APK のリリース） |
 | 1.8 | 2026-11-05 | §11.2 の Android ジョブの JDK 17・Android SDK を、ランナーのホストへの事前導入から、ジョブの最初に `setup-android-toolchain.sh` が無ければダウンロードする方式に変更（固定版・sha256 検証・再試行・ランナーのツールキャッシュで再利用）。§5.2・§11.4 の関連記述を更新 | Issue #22（悠太さんの依頼: セルフホストランナーのまま、無ければダウンロード） |
+| 1.9 | 2026-11-05 | §3.2 の `task generate` と `static/dist/js/` の配置対象に `modal.js` を追加 | linterly の行数上限（300 行）への対処 |
+| 1.10 | 2026-11-05 | §3.2 に JS の挙動テスト（`bun test static/src/js`・`happy-dom`）を追加し、§5.2 の `test`・§9 の `pre-push` に載せた。§6.2 の Biome の対象を `static/src/js/*.js`・`static/src/css/*.css` に修正 | 独立レビューの指摘（JS・CSS の文字列を grep するだけのテストの置き換え） |

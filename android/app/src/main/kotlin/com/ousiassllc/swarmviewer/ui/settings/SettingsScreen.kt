@@ -7,16 +7,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,7 +32,12 @@ import com.ousiassllc.swarmviewer.R
 import com.ousiassllc.swarmviewer.domain.ALLOWED_SCREEN_POLL_SECONDS
 import com.ousiassllc.swarmviewer.ui.main.MutedText
 import com.ousiassllc.swarmviewer.ui.main.NoticeText
+import com.ousiassllc.swarmviewer.ui.theme.AppAlert
+import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
+import com.ousiassllc.swarmviewer.ui.theme.AppRadio
+import com.ousiassllc.swarmviewer.ui.theme.ListRowMinHeight
+import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
 
 /**
  * 設定画面（A3。機能要件 §12.4）。画面更新間隔（5 / 10 / 30 / 60 秒）の選択、通知の項目（[NotificationSettings]）、
@@ -55,7 +59,7 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("設定") }, navigationIcon = { TextButton(onClick = onBack) { Text("戻る") } })
+            TopAppBar(title = { Text("設定") }, navigationIcon = { AppNavTextButton("戻る", onBack) })
         },
     ) { padding ->
         Column(
@@ -64,10 +68,10 @@ fun SettingsScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
+                    .padding(LocalGutter.current),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            state.message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            state.message?.let { AppAlert(it) }
             state.settings?.let { settings ->
                 SettingsSection("画面更新間隔（選択中セッション）") {
                     ALLOWED_SCREEN_POLL_SECONDS.forEach { seconds ->
@@ -94,7 +98,7 @@ fun SettingsSection(
     title: String,
     content: @Composable () -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, style = MaterialTheme.typography.titleSmall)
         content()
     }
@@ -107,10 +111,14 @@ internal fun RadioRow(
     onSelect: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().selectable(selected = selected, onClick = onSelect, role = Role.RadioButton),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = ListRowMinHeight)
+                .selectable(selected = selected, onClick = onSelect, role = Role.RadioButton),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = selected, onClick = null)
+        AppRadio(selected = selected)
         Text(label, modifier = Modifier.padding(start = 12.dp))
     }
 }

@@ -2,6 +2,7 @@ package organisms
 
 import (
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/format"
 	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
 	"time"
@@ -11,28 +12,41 @@ import (
 type UsagePanelProps struct {
 	// Usage は report の usage（ホスト全体の値）。
 	Usage domain.Usage
-	// Stale は直前値の表示中（取得失敗）のとき true。グレーアウトする。
-	Stale bool
+	// RegionGrayed は取得失敗で領域全体（#snapshot）が既にグレーアウトされているとき true。
+	// opacity は入れ子で掛け算になるので、このときパネル単体のグレーアウトはかけない（ガイド C5）。
+	RegionGrayed bool
 	// Now は相対時間の基準。
 	Now time.Time
 }
 
-// usageGray は usage.status が stale、または画面全体が直前値のときグレーアウトする。
+// usageGray は usage.status が stale で、領域全体がまだグレーアウトされていないときだけパネル単体をグレーアウトする。
 func usageGray(p UsagePanelProps) bool {
-	return p.Stale || domain.NormalizeUsageStatus(p.Usage.Status) == domain.UsageStale
+	return !p.RegionGrayed && domain.NormalizeUsageStatus(p.Usage.Status) == domain.UsageStale
 }
 
 func usageSectionClass(p UsagePanelProps) string {
 	if usageGray(p) {
-		return "flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 opacity-50 grayscale"
+		return "flex flex-col gap-6 rounded-lg border border-border bg-surface p-6 opacity-50 grayscale"
 	}
-	return "flex flex-col gap-3 rounded-lg border border-border bg-surface p-4"
+	return "flex flex-col gap-6 rounded-lg border border-border bg-surface p-6"
 }
 
 // showsNumbers は数字を出す status（ok・stale）か。unavailable・pending・disabled は出さない（機能要件 §5.1）。
 func showsNumbers(status string) bool {
 	s := domain.NormalizeUsageStatus(status)
 	return s == domain.UsageOK || s == domain.UsageStale
+}
+
+// usageStatusAlertKind は ok 以外の usage.status をアラートの種類にする（stale は注意、unavailable はエラー、pending・disabled はお知らせ）。
+func usageStatusAlertKind(status string) atoms.AlertKind {
+	switch domain.NormalizeUsageStatus(status) {
+	case domain.UsageStale:
+		return atoms.AlertWarning
+	case domain.UsagePending, domain.UsageDisabled:
+		return atoms.AlertInfo
+	default:
+		return atoms.AlertDanger
+	}
 }
 
 func cursorRowLabel(a domain.CursorAccount) string {
@@ -52,7 +66,7 @@ templ UsagePanel(p UsagePanelProps) {
 	<section class={ usageSectionClass(p) } aria-labelledby="usage-heading" data-usage-status={ domain.NormalizeUsageStatus(p.Usage.Status) }>
 		<h2 id="usage-heading" class="text-sm font-semibold text-ink">利用上限</h2>
 		if label := format.UsageStatusLabel(p.Usage.Status); label != "" {
-			<p class="text-sm text-ink">{ label }</p>
+			@atoms.Alert(atoms.AlertProps{Kind: usageStatusAlertKind(p.Usage.Status), Message: label})
 		}
 		if showsNumbers(p.Usage.Status) {
 			@usageAccounts(p)
@@ -62,7 +76,7 @@ templ UsagePanel(p UsagePanelProps) {
 		}
 		if p.Usage.Reason != "" && (domain.NormalizeUsageStatus(p.Usage.Status) == domain.UsageStale || domain.NormalizeUsageStatus(p.Usage.Status) == domain.UsageUnavailable) {
 			<details class="text-sm text-ink">
-				<summary class="cursor-pointer">詳細</summary>
+				<summary>詳細</summary>
 				<code class="font-mono">{ p.Usage.Reason }</code>
 			</details>
 		}
@@ -77,8 +91,8 @@ templ usageAccounts(p UsagePanelProps) {
 		@agentAccount("Codex", a, p.Now)
 	}
 	for _, a := range p.Usage.Cursor {
-		<div class="flex flex-col gap-1">
-			<h3 class="text-xs text-ink">{ format.JoinNonEmpty(" · ", "Cursor", a.Account) }</h3>
+		<div class="flex flex-col gap-2">
+			<h3 class="text-sm text-ink">{ format.JoinNonEmpty(" · ", "Cursor", a.Account) }</h3>
 			@molecules.UsageRow(molecules.UsageRowProps{Label: cursorRowLabel(a), Slot: a.Models, Now: p.Now})
 		</div>
 	}
@@ -92,15 +106,10 @@ func bothSlotsUnavailable(a domain.AgentAccount) bool {
 // agentAccount は Claude / Codex のアカウント 1 件。2 枠とも取れないときは「取得できません」を 1 行で出し、
 // reason があれば理由を添える（機能要件 §5.2）。片方だけ取れないときは 2 行のまま（取れない枠は「—」）。
 templ agentAccount(agent string, a domain.AgentAccount, now time.Time) {
-	<div class="flex flex-col gap-1">
-		<h3 class="text-xs text-ink">{ format.JoinNonEmpty(" · ", agent, a.Account) }</h3>
+	<div class="flex flex-col gap-2">
+		<h3 class="text-sm text-ink">{ format.JoinNonEmpty(" · ", agent, a.Account) }</h3>
 		if bothSlotsUnavailable(a) {
-			<p class="text-sm text-ink">
-				<span>取得できません</span>
-				if reason := format.UsageReasonLabel(a.Reason); reason != "" {
-					<span>{ " · " + reason }</span>
-				}
-			</p>
+			@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertWarning, Message: format.JoinNonEmpty(" · ", "取得できません", format.UsageReasonLabel(a.Reason))})
 		} else {
 			@molecules.UsageRow(molecules.UsageRowProps{Label: "5 時間枠", Slot: a.FiveHour, Now: now})
 			@molecules.UsageRow(molecules.UsageRowProps{Label: "7 日枠", Slot: a.SevenDay, Now: now})

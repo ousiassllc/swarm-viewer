@@ -10,6 +10,15 @@ const (
 	ButtonDanger    ButtonVariant = "danger"
 )
 
+// ButtonSize はボタンの大きさ（ガイド O7）。
+type ButtonSize string
+
+// ButtonSize の値。ゼロ値は標準（高さ 40・16px）。モーダル・ヘッダー・一覧行の操作は ButtonSmall を明示する。
+const (
+	ButtonDefault ButtonSize = ""
+	ButtonSmall   ButtonSize = "small"
+)
+
 // ButtonProps は Button の入力。
 type ButtonProps struct {
 	// Label は表示文字列。
@@ -18,6 +27,8 @@ type ButtonProps struct {
 	Type string
 	// Variant は見た目。未知の値は secondary。
 	Variant ButtonVariant
+	// Size は大きさ。空なら標準（高さ 40・padding 18・16px）、ButtonSmall は高さ 32・padding 12・14px。
+	Size ButtonSize
 	// Attrs は hx-* など追加の属性。値は Templ がエスケープする。
 	Attrs templ.Attributes
 }
@@ -27,10 +38,18 @@ func buttonClass(v ButtonVariant) string {
 	case ButtonPrimary:
 		return "bg-accent text-bone hover:bg-accent/85"
 	case ButtonDanger:
-		return "bg-danger text-bone hover:bg-danger/85"
+		return "border border-danger/45 bg-transparent text-danger hover:bg-danger/10"
 	default:
 		return "border border-border bg-transparent text-ink hover:bg-accent-soft"
 	}
+}
+
+// buttonSizeClass は大きさのクラス。標準は入力欄（min-h-10）と同じ高さ 40、小は高さ 32。
+func buttonSizeClass(s ButtonSize) string {
+	if s == ButtonSmall {
+		return "h-8 px-3 text-sm"
+	}
+	return "h-10 px-[18px] text-base"
 }
 
 func buttonType(t string) string {
@@ -44,7 +63,7 @@ func buttonType(t string) string {
 templ Button(p ButtonProps) {
 	<button
 		type={ buttonType(p.Type) }
-		class={ "inline-flex h-8 items-center gap-2 rounded-md px-4 text-sm font-semibold disabled:opacity-40", buttonClass(p.Variant) }
+		class={ "hover-fade relative inline-flex cursor-pointer items-center gap-2 overflow-clip rounded-md font-semibold disabled:cursor-not-allowed disabled:opacity-40", buttonSizeClass(p.Size), buttonClass(p.Variant) }
 		{ p.Attrs... }
 	>
 		{ p.Label }
@@ -74,10 +93,17 @@ func inputType(t string) string {
 	return t
 }
 
-// FieldClass は入力欄・select・textarea の共通クラス（高さ 40・--r-md・1px border・surface 地）。
+// FieldClass は入力欄・select・textarea の共通クラス（高さ 40・--r-md・1px border・surface 地・文字 16px）。
 // フォーカスは app.css の outline（--focus の 2px）を、フォーム用の ring（--focus の 40%）に置き換える。
+// 無効（disabled）は opacity .5・cursor not-allowed（ガイド O7・§4 フォーム）。
 // 横幅・padding・フォントは呼び出し側が足す。
-const FieldClass = "min-h-10 rounded-md border border-border bg-surface text-ink placeholder:text-mute focus-visible:border-focus focus-visible:outline-transparent focus-visible:ring-2 focus-visible:ring-focus/40"
+const FieldClass = "min-h-10 rounded-md text-base border border-border bg-surface text-ink placeholder:text-mute focus-visible:border-focus focus-visible:outline-transparent focus-visible:ring-2 focus-visible:ring-(color:--ring) disabled:cursor-not-allowed disabled:opacity-50"
+
+// SelectClass は select 用のクラス。FieldClass に、OS 既定の矢印を消して mute のシェブロンを足したもの（ガイド §4 フォーム）。
+// シェブロンは CSP（default-src 'self'）で data: URI が使えないので、ガイドの見本どおり linear-gradient 2 本（5px 四方）で描く。
+// 色は var(--mute) でライト・ダークのトークンに追従する。シェブロンの位置ぶん右に 36px（pr-9）空ける。
+// 横幅・左 padding は呼び出し側が足す。
+const SelectClass = FieldClass + " appearance-none pr-9 bg-no-repeat bg-[image:linear-gradient(45deg,transparent_50%,var(--mute)_50%),linear-gradient(135deg,var(--mute)_50%,transparent_50%)] bg-[position:calc(100%-18px)_50%,calc(100%-13px)_50%] bg-[size:5px_5px]"
 
 // Input は共通の 1 行入力。
 templ Input(p InputProps) {
@@ -89,7 +115,7 @@ templ Input(p InputProps) {
 		placeholder={ p.Placeholder }
 		required?={ p.Required }
 		autocomplete="off"
-		class={ FieldClass, "w-full px-3 text-sm" }
+		class={ FieldClass, "w-full px-3" }
 		{ p.Attrs... }
 	/>
 }

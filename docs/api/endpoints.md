@@ -245,7 +245,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | GET | `/` | ページ | フルページ / フラグメント（200） | 接続が 0 件なら `/pairing` と同じ画面（貼り付けフォーム）。1 件以上なら `/connections/{last}`（`settings.last_connection_id`、なければ先頭）と同じ画面。リダイレクトしない |
 | GET | `/pairing` | ページ | フルページ / フラグメント | 接続文字列の貼り付けフォーム。`?link=invalid` を付けると、ディープリンクを解析できなかった旨の固定文言を出す（受け取った文字列は URL にも画面にも載せない。app が失敗時に `SetURL` する） |
 | POST | `/pairing` | アクション | `HX-Redirect: /pairing/drafts/{did}`（`HX-Request` なしなら確認画面を描画）/ 422 フォーム | 貼り付けた接続文字列を 1 回だけ受け取り、解析・検証して下書きを作る（§2.1）。フォーム値は破棄し、応答に token を含めない |
-| GET | `/pairing/drafts/{did}` | ページ | フルページ | 確認画面。表示: 表示名、接続先ホスト（`url` の host のみ）、ホストが申告した許可セッション。**token は出さない** |
+| GET | `/pairing/drafts/{did}` | ページ | フルページ | 確認。貼り付け画面の上に中央モーダル（`<dialog>`）で開く。表示: 表示名、接続先ホスト（`url` の host のみ）、ホストが申告した許可セッション。**token は出さない**。外側クリック・Esc は「破棄」（`POST …/discard`）と同じ。保存するまで何も保存しない。`/pairing/drafts/{did}` はディープリンク・貼り付けの移動先として残す |
 | POST | `/pairing/drafts/{did}/confirm` | アクション | `HX-Redirect: /connections/{cid}`（`HX-Request` なしならメイン画面を描画）/ 200 エラーフラグメント | `sessions_list` で疎通確認（FR-PAIR-2）。成功したら秘密領域に token、SQLite に接続を保存し、下書きを削除する（§4.3）。失敗は保存せず、下書きは残す（再試行可。期限は §4.3） |
 | POST | `/pairing/drafts/{did}/discard` | アクション | `HX-Redirect: /pairing` または `/`（`HX-Request` なしならその画面を描画） | 下書きを即時削除する |
 | GET | `/connections` | ページ | フルページ / フラグメント | 保存済み接続の一覧。表示名・URL の host のみ・「切替」・「削除」 |
@@ -255,7 +255,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | GET | `/connections/{cid}/sessions/{sid}/snapshot` | ページ（部分） | フラグメント | スナップショット領域（要対応バー・ペイングリッド・利用上限・ホスト負荷）。`report` を呼ぶ（同一 `(cid, sid)` は single-flight）。直近の `sessions_list` が無い・古い（30 秒超）ときは並行して引き直し、`#session-tabs` の OOB を返す。画面更新ポーリングと手動更新が叩く |
 | GET | `/settings` | ページ | フルページ / フラグメント | 設定画面。OS が通知を許可していないときはその旨を表示する |
 | PUT | `/settings` | アクション | フラグメント（設定フォーム）+ トースト OOB / 422 | 設定を保存する。許容値は[ER §3.2](../architecture/er.md)。許容外は 422 でフォームを再描画 |
-| GET | `/static/*` | — | 埋め込みアセット | `htmx.min.js`・`app.js`（§4.5 の可視性制御）・`app.css`。外部ホストは参照しない |
+| GET | `/static/*` | — | 埋め込みアセット | `htmx.min.js`・`app.js`（§4.5 の可視性制御）・`modal.js`（確認ダイアログとモーダル）・`app.css`。外部ホストは参照しない |
 | GET / POST | `/`・`/recovery/reset` | ページ / アクション | フルページ / フラグメント | **recovery モードのみ**（DB が開けない・スキーマが新しすぎる。上記の画面ルートは登録しない）。`/` は初期化導線、`POST /recovery/reset` は保存データを退避して作り直し、成功したら `HX-Redirect: /`（`HX-Request` なしなら案内のみ）。それ以外の GET は初期化導線を 200 で描画し、その他のメソッドは 404 |
 
 #### メイン画面の初回描画
@@ -305,16 +305,20 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | 接続削除 | `hx-delete="/connections/{cid}"` `hx-confirm` | アクション |
 | 共通 | `hx-disabled-elt="this"`、`hx-indicator` | 二重送信防止・ローディング表示。Optimistic UI とスケルトンは使わない |
 
-`static/dist/js/app.js`（外部ファイル。CSP の `script-src 'self'` で許可される。インラインではない）は次の 3 つだけを行う。
+`static/dist/js/app.js` と `static/dist/js/modal.js`（外部ファイル。CSP の `script-src 'self'` で許可される。インラインではない）は次の 7 つだけを行う。`htmx:confirm` の項目は `modal.js`、ほかは `app.js`（行数の上限 300 行のため分けている）。
 
 - `htmx:beforeRequest` で、`document.hidden` のあいだ `…/snapshot` へのリクエストを `preventDefault()` で取り消す（FR-POLL-3）
 - `visibilitychange` で `document.hidden` が `false` になったら `htmx.trigger(document.body, 'refresh')` を発火し、即時取得する（NFR-AVL-4）
-- `htmx:oobAfterSwap` で `#toasts` が差し替わったら、3 秒後に `#toasts` の中身を空にする（NFR-DSG-5）
+- `htmx:oobAfterSwap` で `#toasts` が差し替わったら、3 秒後にトーストへ `is-leaving`（フェードアウト 240ms）を付け、`animationend` で `#toasts` の中身を空にする。`prefers-reduced-motion: reduce` ではすぐ空にする（NFR-DSG-5・6）
+- `htmx:afterSwap`・`htmx:oobAfterSwap` で、差し替え前から画面にあったアラート（`[data-alert]`）と同じ文言のものに `is-settled` を付け、ポーリングの再描画でフェードインを繰り返さない。`htmx:afterSettle` で「いま画面にあるアラートの文言」を記録し直す（NFR-DSG-6）
+- `leave-fade` 拡張（`<body hx-ext="response-targets, leave-fade">`。`response-targets` が 422 の差し替え先を決めた後に動くよう後ろに置く）が `htmx:beforeSwap` で、差し替え先（主ターゲットと OOB の id が指す要素）の中にあって応答に同じ文言が無いアラート（`[data-alert]`）と、応答にモーダル（`dialog[data-modal]`）が無いときの開いているモーダルへ `is-leaving`（フェードアウト・スクラムも）を付け、`swapOverride` で `swap:` に CSS の `--motion-fade-out`（240ms。`getComputedStyle` で読む。トーストの 3 秒も `--toast-duration` から読む）を足してフェードが終わってから差し替える。reduced-motion では何もしない（NFR-DSG-6）
+- `htmx:confirm` で、`hx-confirm` を持つ要素の操作を止めて確認ダイアログ（`#confirm-dialog`。ネイティブ `<dialog>` を `showModal()`）を開く。文言は `hx-confirm` の値、見出しとボタンのラベルは要素の `data-confirm-title`・`data-confirm-label`（`textContent` で入れる）。「確定」で閉じたときだけ `issueRequest(true)` で送る。外側クリック・Esc・ヘッダーの × ボタン（`data-modal-close`）・キャンセルは何も送らず閉じる。`open` 付きの `dialog[data-modal]`（ペアリング確認）は `showModal()` に引き上げ、外側クリック・Esc・× は `data-dismiss` のボタンの押下にする（NFR-DSG-8）
+- `pointerdown` でボタン内にリップル（`.ripple`。280ms）を足す。円の大きさと位置は CSSOM（`element.style`）で決める（マークアップの `style` 属性ではないので CSP の `style-src 'self'` に反しない）。reduced-motion では足さない（NFR-DSG-6）
 
 HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>` をレイアウトの `<head>` に置く。`allowEval:false` で eval を使う機能（トリガーフィルタ、`hx-on:`・`js:` 構文）を無効にし、`includeIndicatorStyles:false` で htmx が注入するインライン `<style>` を止める（`style-src 'self'` に反するため）。`.htmx-indicator` の表示切替は `app.css`（Tailwind）に書く。
 
 - Lit コンポーネントは使わないため、HTMX ↔ Lit 境界ルールは適用しない（[アーキテクチャ設計 §8](../architecture/overview.md)）
-- トーストの 3 秒消去（`htmx:oobAfterSwap` で `#toasts` を空にする）だけをクライアントで処理する。通信障害（`htmx:responseError`）の汎用表示は持たない（アプリ内通信のため通常は起きない）
+- トーストの 3 秒消去・アラートとモーダルのフェード・ボタンのリップルだけをクライアントで処理する。通信障害（`htmx:responseError`）の汎用表示は持たない（アプリ内通信のため通常は起きない）
 
 ## 5. 変更の影響範囲
 
@@ -333,3 +337,8 @@ HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"include
 | 1.2 | 2026-11-04 | 通常モードのルートから 302・303 を撤去（フルページはその場に描画、HX は `HX-Redirect`）。メイン画面の初回描画をホストへの通信なしにし、タブを snapshot 応答の OOB で更新する | WebKit の WebView が `http.Redirect` を扱えないため。到達不能なホストで初回表示が遅れるため |
 | 1.3 | 2026-11-05 | `usage.claude[]`・`codex[]` に `reason`（2 枠とも取れない理由）を追加し、2 枠とも `available: false` は 1 行表示と明記 | Issue #11（swarm-console #87 の `reason` に備える） |
 | 1.4 | 2026-11-05 | `report` の `host.mem` を読むキーに追加（無い古い swarm-console では「—」） | Issue #10（swarm-console #86 の `host.mem` に備える） |
+| 1.5 | 2026-11-05 | `app.js` の役割に、トーストの退出フェード・アラートのフェードの重複抑止・ボタンのリップルを追記 | Issue #36（デザインガイド M4・M5） |
+| 1.6 | 2026-11-05 | 接続の削除・保存データの初期化の確認を `window.confirm` から確認ダイアログに、ペアリング確認を全画面からモーダルに変更。`app.js` の役割に `htmx:confirm` とモーダルを追記 | Issue #37（デザインガイド O1・O2） |
+| 1.7 | 2026-11-05 | `app.js` の役割に、差し替えで消えるアラート・モーダルの退出フェード（`leave-fade` 拡張）を追記。`<body>` の `hx-ext` を `response-targets, leave-fade` に | Issue #55（デザインガイド M5・O1） |
+| 1.8 | 2026-11-05 | `app.js` の役割に、モーダルのヘッダーの × ボタン（`data-modal-close`）と、時間を CSS のトークンから読むことを追記 | Issue #62・#63（デザインガイド M1・O2） |
+| 1.9 | 2026-11-05 | 確認ダイアログとモーダルの処理（`htmx:confirm` ほか）を `app.js` から `modal.js` に分け、`/static/*` とレイアウトの読み込みに `modal.js` を追加 | linterly の行数上限（300 行）への対処 |

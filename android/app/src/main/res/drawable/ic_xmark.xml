@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Iconoir（MIT）の xmark。線の太さ 1.5・丸い端。色は使う側（Icon の tint）で決める。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M6.75827,17.2426L12.0009,12M17.2435,6.75736L12.0009,12M12.0009,12L6.75827,6.75736M12.0009,12L17.2435,17.2426"
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

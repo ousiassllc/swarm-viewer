@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
 	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
 	"github.com/ousiassllc/swarm-viewer/internal/web/webtest"
 )
@@ -34,6 +36,19 @@ func TestPaneCard_StateLabels(t *testing.T) {
 	}
 }
 
+// 状態を示すバッジには点（Marker）があり、エージェント名のバッジにはない（C4）。
+// 両方のバッジを単体でレンダリングし、その HTML がカードにそのまま入っていることで見る（個数や出現位置には頼らない）。
+func TestPaneCard_StateBadgeHasMarkerAgentBadgeDoesNot(t *testing.T) {
+	t.Parallel()
+	stateBadge := webtest.Render(t, atoms.Badge(atoms.BadgeProps{Text: format.StateLabel(domain.StateIdle), Tone: format.StateTone(domain.StateIdle), Marker: true}))
+	agentBadge := webtest.Render(t, atoms.Badge(atoms.BadgeProps{Text: "claude", Tone: format.ToneMuted}))
+	webtest.MustContain(t, stateBadge, "bg-current")
+	webtest.MustNotContain(t, agentBadge, "bg-current")
+
+	html := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: domain.Pane{Pos: "T1", Agent: str("claude"), State: domain.StateIdle, Title: "t"}}))
+	webtest.MustContain(t, html, stateBadge, agentBadge)
+}
+
 // ペインカードは読み取り専用（FR-PANE・機能要件 §4.4）。
 func TestPaneCard_HasNoActionableElements(t *testing.T) {
 	t.Parallel()
@@ -41,10 +56,8 @@ func TestPaneCard_HasNoActionableElements(t *testing.T) {
 		Pos: "B2", ID: "%12", Agent: str("claude"), State: domain.StateAsking, Title: "title", CWD: "/work",
 		Elapsed: "1h05m", Activity: "running", Note: &domain.Note{Repo: "repo", Items: []string{"a"}},
 	}
-	for _, stale := range []bool{false, true} {
-		html := strings.ToLower(webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane, Stale: stale, Highlight: true})))
-		webtest.MustNotContain(t, html, "<button", "<form", "<input", "<a ", "<select", "<textarea", "hx-post", "hx-put", "hx-delete", "hx-get", "hx-patch", "onclick")
-	}
+	html := strings.ToLower(webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane, Highlight: true})))
+	webtest.MustNotContain(t, html, "<button", "<form", "<input", "<a ", "<select", "<textarea", "hx-post", "hx-put", "hx-delete", "hx-get", "hx-patch", "onclick")
 }
 
 func TestPaneCard_Fields(t *testing.T) {
@@ -57,7 +70,10 @@ func TestPaneCard_Fields(t *testing.T) {
 	html := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane}))
 	webtest.MustContain(t, html, "T3", "codex", "My Title", "/srv/work", "42m", "compiling…", "17m", "org/repo", "one", "three", "+2")
 	// 本文は先頭 3 件のみ。全文は title（ツールチップ）にだけある。
-	webtest.MustNotContain(t, html, "<li class=\"truncate\">four", "<li class=\"truncate\">five")
+	webtest.MustNotContain(t, html, "<span class=\"truncate\">four", "<span class=\"truncate\">five")
+	// テキストリスト（ガイド §4）: 既定の黒丸（list-disc）でなく、5px の --mute の点・項目間 8・記号→文字 10。
+	webtest.MustContain(t, html, "<span class=\"truncate\">one", "gap-(--list-gap)", "gap-(--list-marker-gap)", "before:size-(--list-marker-size)", "before:bg-mute", "before:rounded-full")
+	webtest.MustNotContain(t, html, "list-disc", "list-inside")
 }
 
 func TestPaneCard_OptionalFieldsHidden(t *testing.T) {
@@ -67,15 +83,15 @@ func TestPaneCard_OptionalFieldsHidden(t *testing.T) {
 	webtest.MustNotContain(t, html, "5m", "<ul", "<p class=\"truncate text-xs")
 }
 
-func TestPaneCard_StaleAndHighlightClasses(t *testing.T) {
+func TestPaneCard_HighlightClasses(t *testing.T) {
 	t.Parallel()
 	pane := domain.Pane{Pos: "T1", State: domain.StateWorking, Title: "x"}
 	normal := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane}))
-	stale := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane, Stale: true}))
 	hi := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane, Highlight: true}))
+	// グレーアウトは領域がかけるので、カード自身は opacity を持たない（ガイド C5）。
 	webtest.MustNotContain(t, normal, "opacity-50", "ring-2 ring-warning")
-	webtest.MustContain(t, stale, "opacity-50")
 	webtest.MustContain(t, hi, "ring-2 ring-warning")
+	webtest.MustNotContain(t, hi, "opacity-50")
 }
 
 // title・activity・note は信頼できない入力。HTML として解釈しない（NFR-SEC-10）。
@@ -111,4 +127,13 @@ func TestPaneCard_ReportWaitingBadge(t *testing.T) {
 	html = webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane}))
 	webtest.MustContain(t, html, "指示待ち")
 	webtest.MustNotContain(t, html, "報告待ち")
+}
+
+// ペインのメモは入れ子パネル（--bone・1px の border・--r-md）で、余白は 12 / 8（ガイド S2・§4）。
+func TestPaneCard_NoteIsNestedPanel(t *testing.T) {
+	t.Parallel()
+	pane := domain.Pane{Pos: "B2", ID: "%12", State: domain.StateIdle, Note: &domain.Note{Repo: "repo", Items: []string{"a"}}}
+	html := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane}))
+	webtest.MustContain(t, html, "rounded-md border border-border bg-bone px-3 py-2")
+	webtest.MustNotContain(t, html, "px-2 py-1")
 }

@@ -3,6 +3,7 @@ package organisms
 import (
 	"cmp"
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
 	"slices"
 	"strconv"
@@ -119,13 +120,11 @@ templ AttentionBar(p AttentionBarProps) {
 	if len(p.Attention) > 0 || len(p.Warnings) > 0 {
 		<section class="flex flex-col gap-2" aria-label="要対応">
 			if len(p.Warnings) > 0 {
-				<ul class="flex flex-col gap-1">
+				<div class="flex flex-col gap-2">
 					for _, w := range p.Warnings {
-						<li role="alert" class="rounded-md border border-warning/60 bg-warning/10 px-4 py-2 text-sm text-warning" data-warning-code={ w.Code }>
-							{ w.Message }
-						</li>
+						@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertWarning, Message: w.Message, Attrs: templ.Attributes{"data-warning-code": w.Code}})
 					}
-				</ul>
+				</div>
 			}
 			if len(p.Attention) > 0 {
 				@attentionList(groupAttention(p.Attention), p.Auth)
@@ -137,7 +136,7 @@ templ AttentionBar(p AttentionBarProps) {
 templ attentionList(g attentionGroups, auth domain.Auth) {
 	<div class={ attentionBoxClass(g) }>
 		if len(g.Panes) > 0 {
-			<ul class="flex flex-col gap-1 px-4 py-3" data-attention-group="panes">
+			<ul class="flex flex-col gap-2 px-4 py-3" data-attention-group="panes">
 				for _, a := range g.Panes {
 					@molecules.AttentionItem(molecules.AttentionItemProps{Attention: a, AuthExpiresAt: authExpiresAt(auth, a)})
 				}
@@ -146,7 +145,7 @@ templ attentionList(g attentionGroups, auth domain.Auth) {
 		if len(g.Agents) > 0 {
 			<div class={ attentionAgentsClass(g) } data-attention-group="agents">
 				for _, ag := range g.Agents {
-					<ul class="flex flex-col gap-1 px-4 py-3" data-attention-agent={ ag.Agent }>
+					<ul class="flex flex-col gap-2 px-4 py-3" data-attention-agent={ ag.Agent }>
 						for _, a := range ag.Items {
 							@molecules.AttentionItem(molecules.AttentionItemProps{Attention: a, AuthExpiresAt: authExpiresAt(auth, a)})
 						}

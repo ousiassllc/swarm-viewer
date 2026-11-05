@@ -10,27 +10,32 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ousiassllc.swarmviewer.service.PairingDraft
+import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
-import com.ousiassllc.swarmviewer.ui.theme.AppCard
+import com.ousiassllc.swarmviewer.ui.theme.AppDialog
+import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 import com.ousiassllc.swarmviewer.ui.theme.AppTextField
+import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
+import com.ousiassllc.swarmviewer.ui.theme.MonoFontFamily
 
 /**
  * ペアリング画面。貼り付け欄（伏せ字。token を含むため画面に出さない）と「QR を読み取る」から入り、
- * ディープリンク・QR の結果も同じ確認画面（[PairingDraft]）に入る。確認画面は表示名・接続先の host・許可セッションのヒントだけで、
+ * ディープリンク・QR の結果も同じ確認モーダル（[PairingDraft]）に入る。確認モーダルは表示名・接続先の host・許可セッションのヒントだけで、
  * token は出さない（機能要件 §12.2）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,25 +58,33 @@ fun PairingScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp)
+                    .padding(LocalGutter.current)
                     .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            PasteSection(
+                input = state.input,
+                busy = state.busy,
+                onInputChange = viewModel::onInputChange,
+                onSubmit = viewModel::submitInput,
+                onScan = onScan,
+            )
             val draft = state.draft
-            if (draft == null) {
-                PasteSection(
-                    input = state.input,
-                    busy = state.busy,
-                    onInputChange = viewModel::onInputChange,
-                    onSubmit = viewModel::submitInput,
-                    onScan = onScan,
-                )
-            } else {
-                ConfirmSection(draft = draft, busy = state.busy, onConfirm = viewModel::confirm, onCancel = viewModel::cancel)
-            }
-            state.message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            TextButton(onClick = leave) { Text("戻る") }
+            // 確定の失敗は、確認モーダルの中に出す（背面のアラートはスクラムに隠れる）。
+            if (draft == null) state.message?.let { AppAlert(it) }
+            AppNavTextButton("戻る", leave)
         }
+    }
+
+    // 確認は全画面の差し替えではなく、貼り付け画面の上に開くモーダル（ガイド O1・O2）。外側タップ・戻るで閉じる＝キャンセル。
+    state.draft?.let { draft ->
+        ConfirmDialog(
+            draft = draft,
+            busy = state.busy,
+            message = state.message,
+            onConfirm = viewModel::confirm,
+            onCancel = viewModel::cancel,
+        )
     }
 }
 
@@ -98,22 +111,34 @@ private fun PasteSection(
     AppOutlinedButton(onClick = onScan, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("QR を読み取る") }
 }
 
+/** 追加の確認モーダル。表示名・接続先の host・許可セッションのヒントだけで、token は出さない。保存するまで何も保存しない（NFR-SEC-4）。 */
 @Composable
-private fun ConfirmSection(
+private fun ConfirmDialog(
     draft: PairingDraft,
     busy: Boolean,
+    message: String?,
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    AppCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("この接続先に接続します", style = MaterialTheme.typography.titleMedium)
-            Text("表示名: ${draft.name}")
-            Text("接続先: ${draft.host}")
-            if (draft.sessionsHint.isNotEmpty()) Text("ホストが申告した許可セッション: ${draft.sessionsHint.joinToString(", ")}")
-            if (draft.replacesExisting) Text("同じ接続先が保存済みです。token を差し替えます。")
-        }
-    }
-    AppButton(onClick = onConfirm, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text(if (busy) "確認中…" else "接続") }
-    AppOutlinedButton(onClick = onCancel, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("キャンセル") }
+    AppDialog(
+        onDismissRequest = { if (!busy) onCancel() },
+        title = { Text("この接続先に接続します") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("表示名: ${draft.name}")
+                // host は桁と区切りを読む値なので JetBrains Mono にする（T5。Web の確認モーダルと同じ）。
+                Text(
+                    buildAnnotatedString {
+                        append("接続先: ")
+                        withStyle(SpanStyle(fontFamily = MonoFontFamily)) { append(draft.host) }
+                    },
+                )
+                if (draft.sessionsHint.isNotEmpty()) Text("ホストが申告した許可セッション: ${draft.sessionsHint.joinToString(", ")}")
+                if (draft.replacesExisting) Text("同じ接続先が保存済みです。token を差し替えます。")
+                message?.let { AppAlert(it) }
+            }
+        },
+        confirmButton = { AppButton(onClick = onConfirm, enabled = !busy) { Text(if (busy) "確認中…" else "接続") } },
+        dismissButton = { AppOutlinedButton(onClick = onCancel, enabled = !busy) { Text("キャンセル") } },
+    )
 }

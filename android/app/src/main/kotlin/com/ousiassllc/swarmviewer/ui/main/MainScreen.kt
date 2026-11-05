@@ -1,5 +1,6 @@
 package com.ousiassllc.swarmviewer.ui.main
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,7 +40,12 @@ import com.ousiassllc.swarmviewer.data.store.Snapshot
 import com.ousiassllc.swarmviewer.domain.Report
 import com.ousiassllc.swarmviewer.service.ConnectionItem
 import com.ousiassllc.swarmviewer.ui.NEEDS_REPAIR_LABEL
+import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
+import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
+import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
+import com.ousiassllc.swarmviewer.ui.theme.AppPullToRefreshIndicator
+import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
 import java.time.Instant
 
 /**
@@ -70,19 +77,27 @@ fun MainScreen(
             TopAppBar(
                 title = { ConnectionTitle(state.connections, viewModel::selectConnection) },
                 actions = {
-                    TextButton(onClick = onManageConnections) { Text("接続") }
-                    TextButton(onClick = onSettings) { Text("設定") }
+                    AppNavTextButton("接続", onManageConnections)
+                    AppNavTextButton("設定", onSettings)
                 },
             )
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             when {
-                state.connections == null -> NoticeText("読み込み中…", modifier = Modifier.padding(16.dp))
+                state.connections == null -> NoticeText("読み込み中…", modifier = Modifier.padding(LocalGutter.current))
                 state.noConnections -> EmptyConnections(onManageConnections)
                 else -> {
                     SessionTabs(state.sessions, state.session, viewModel::selectSession)
-                    PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = viewModel::refresh, modifier = Modifier.fillMaxSize()) {
+                    val pullState = rememberPullToRefreshState()
+                    PullToRefreshBox(
+                        isRefreshing = state.refreshing,
+                        onRefresh = viewModel::refresh,
+                        modifier = Modifier.fillMaxSize(),
+                        state = pullState,
+                        // 既定のインジケーターは影を付ける（ガイド S3: 影はモーダルだけ）ので、影なしの自前の部品に置き換える。
+                        indicator = { AppPullToRefreshIndicator(state = pullState, isRefreshing = state.refreshing) },
+                    ) {
                         MainContent(state, widthClass != WindowWidthSizeClass.Compact, onRepair)
                     }
                 }
@@ -93,8 +108,10 @@ fun MainScreen(
 
 @Composable
 private fun EmptyConnections(onManageConnections: () -> Unit) {
-    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("接続がありません。接続文字列を貼り付けるか、QR を読み取って追加してください。")
+    AppEmptyState(
+        "接続がありません。接続文字列を貼り付けるか、QR を読み取って追加してください。",
+        modifier = Modifier.padding(LocalGutter.current),
+    ) {
         AppButton(onClick = onManageConnections) { Text("接続を追加") }
     }
 }
@@ -117,12 +134,22 @@ private fun ConnectionTitle(
         // Iconoir の nav-arrow-down。色は周囲の文字色（LocalContentColor）に従う。
         Icon(painterResource(R.drawable.ic_nav_arrow_down), contentDescription = null)
     }
-    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+    DropdownMenu(
+        expanded = open,
+        onDismissRequest = { open = false },
+        // ガイド S3・§6: 影はモーダルだけ。メニューは 1px の border（M3 の既定は影 3dp・枠なし）。
+        shadowElevation = 0.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
         connections.forEach { item ->
-            DropdownMenuItem(text = { Text(item.name, maxLines = 1) }, onClick = {
-                open = false
-                onSelect(item.id)
-            })
+            DropdownMenuItem(
+                // labelLarge はボタン用の SemiBold。メニュー項目は Regular（T2）なので bodyMedium を明示する。
+                text = { Text(item.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1) },
+                onClick = {
+                    open = false
+                    onSelect(item.id)
+                },
+            )
         }
     }
 }
@@ -135,11 +162,13 @@ private fun SessionTabs(
     onSelect: (String) -> Unit,
 ) {
     if (sessions.isEmpty()) return
-    ScrollableTabRow(selectedTabIndex = sessions.indexOf(selected).coerceAtLeast(0), edgePadding = 8.dp) {
+    ScrollableTabRow(selectedTabIndex = sessions.indexOf(selected).coerceAtLeast(0), edgePadding = LocalGutter.current) {
         sessions.forEach { id ->
             Tab(
                 selected = id == selected,
                 onClick = { onSelect(id) },
+                selectedContentColor = MaterialTheme.colorScheme.onSurface,
+                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 text = { Text(id, style = MaterialTheme.typography.bodyMedium, maxLines = 1) },
             )
         }
@@ -158,7 +187,8 @@ private fun MainContent(
     val primaryScroll = rememberScrollState()
     val secondaryScroll = rememberScrollState()
     val gap = Arrangement.spacedBy(12.dp)
-    val padding = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+    val gutter = LocalGutter.current
+    val padding = Modifier.padding(horizontal = gutter, vertical = 8.dp)
 
     val status: @Composable () -> Unit = { StatusLine(state, onRepair) }
     val panes: @Composable () -> Unit = {
@@ -167,7 +197,7 @@ private fun MainContent(
                 AttentionBar(report.attention, report.warnings, report.auth, state.stale)
                 PaneSection(report.panes, report.layout, report.attention, state.stale, wide)
             }
-            state.session == null && state.sessionsLoaded && state.failure == null -> NoticeText("許可されたセッションがありません")
+            state.session == null && state.sessionsLoaded && state.failure == null -> AppEmptyState("許可されたセッションがありません")
             state.refreshing || state.failure == null -> NoticeText("取得中…")
             else -> Unit
         }
@@ -180,7 +210,7 @@ private fun MainContent(
     }
 
     if (wide) {
-        Row(modifier = Modifier.fillMaxSize().then(padding), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(modifier = Modifier.fillMaxSize().then(padding), horizontalArrangement = Arrangement.spacedBy(gutter)) {
             Column(modifier = Modifier.weight(2f).verticalScroll(primaryScroll), verticalArrangement = gap) {
                 status()
                 panes()
@@ -203,15 +233,20 @@ private fun StatusLine(
     onRepair: () -> Unit,
 ) {
     val snapshot: Snapshot? = state.snapshot
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (state.needsRepair) {
-            Text(NEEDS_REPAIR_LABEL, color = MaterialTheme.colorScheme.error)
-            AppButton(onClick = onRepair) { Text("再ペアリング") }
+            AppAlert(NEEDS_REPAIR_LABEL) {
+                AppButton(onClick = onRepair) { Text("再ペアリング") }
+            }
         }
-        state.failure?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-        if (snapshot != null) {
-            val label = if (state.showsPreviousFetch) "前回取得" else "最終更新"
-            MutedText("$label ${formatClock(snapshot.fetchedAt)}")
+        val fetched =
+            snapshot?.let { "${if (state.showsPreviousFetch) "前回取得" else "最終更新"} ${formatClock(it.fetchedAt)}" }
+        // 失敗は見出し、前回取得の時刻は本文（ガイド §4 のインラインアラート）。失敗がなければ時刻だけを控えめに出す。
+        val failure = state.failure
+        if (failure != null) {
+            AppAlert(fetched.orEmpty(), title = failure)
+        } else if (fetched != null) {
+            MutedText(fetched)
         }
     }
 }

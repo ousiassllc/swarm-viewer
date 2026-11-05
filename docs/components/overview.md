@@ -394,26 +394,32 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 
 | 層 | コンポーネント | Props（要点） | 備考 |
 |----|---------------|--------------|------|
-| atoms | `Badge` | `Text`・`Tone` | エージェント種別・状態・要対応 |
+| atoms | `Badge` | `Text`・`Tone`・`Marker` | エージェント種別・状態・要対応。`Marker` が true のとき、文言の前に文字と同じ色の小さな点を置く（状態を示すバッジだけに付け、エージェント名のバッジには付けない） |
 | atoms | `ProgressBar` | `Percent`・`Tone` | 利用上限・ホスト負荷 |
-| atoms | `Spinner` | `Size` | `hx-indicator` 用 |
-| atoms | `Toast` | `Message` | OOB 用。1 行の短文（エラー詳細には使わず、`Alert` かインラインアラートを使う） |
-| atoms | `Button` / `Input` | 通常の属性 | |
-| molecules | `PaneCard` | `Pane`・`Stale`・`Highlight`・`ReportWaiting` | 状態ラベル・activity・note 要約。`ReportWaiting` は state バッジの隣に「報告待ち」を出す。操作ボタンは**持たない** |
+| atoms | `Spinner` | `ID` | `hx-indicator` 用。ガイドどおり 20px・線 2px・回転 0.9s の 1 種だけ（サイズの指定はない） |
+| atoms | `Toast` | `Message` | OOB 用。1 行の短文（エラー詳細には使わず、`Alert` を使う） |
+| atoms | `Alert` | `Kind`（`info`・`success`・`warning`・`danger`）・`Title`・`Message`・`Attrs`・子要素 | インラインアラート（アイコン＋見出し＋本文）。`Title` は任意（SemiBold・14px）で、取得失敗バナーは失敗の種別を見出し、「前回取得 … / 次回再試行 …」を本文にする。1 文で足りるエラーは `Message` だけで出す（NFR-DSG-7）。応答全体の失敗・フォームのエラー・警告バナー・取得失敗バナーはすべてこれに載せる。状態は色だけでなくアイコンと文言でも伝える（ガイド C4）。`danger`・`warning` は `role="alert"`、`info`・`success` は `role="status"` |
+| atoms | `Icon` | `Name`・`Class` | Iconoir（MIT）の線画をインライン `<svg>`（`aria-hidden`・`currentColor`。HTML 埋め込みなので `xmlns` は付けない）で出す。現在は `warning-circle`・`warning-triangle`・`info-circle`・`check-circle`・`check`・`xmark` |
+| atoms | `Checkbox` | `Name`・`Value`・`Checked` | 18px・`--r-sm`・外枠 `--mute`。オンの印は Iconoir の `check`（インライン SVG。16px = `--icon-sm` を箱の中央に置く） |
+| atoms | `EmptyState` | `Message`・子要素 | 空状態（破線の枠・`--r-lg`・padding 48 / モバイル 24・48px の `--accent-soft` の円に 24px のアイコン＋文言＋子要素の主ボタン）。ローディングは `Spinner` を使う |
+| atoms | `ConfirmDialog` | なし | 確認・破壊的操作の中央モーダル。レイアウトに 1 つだけ置き、`modal.js` が `htmx:confirm`（`hx-confirm`）で開く。見出し・ラベルは要素の `data-confirm-title`・`data-confirm-label` |
+| atoms | `ModalHeader` | `ID`・`Title`・`Attrs` | モーダルのヘッダー（ガイドの見本の `header`）。見出し（h2）と閉じる × のアイコンボタン（`data-modal-close`・32px・Iconoir の `xmark`）を左右に置き、下に 1px の `--border`。本文・フッターのクラスは定数 `ModalBodyClass`・`ModalFooterClass`（フッターは右寄せ・ボタン間 8px・上に 1px の `--border`）。`ModalClass` は余白なし・幅は最大 420px で、`ConfirmDialog` とペアリング確認が使う |
+| atoms | `Button` / `Input` | `Button`: `Label`・`Type`・`Variant`・`Size`（標準 / `ButtonSmall`）・`Attrs`。`Input`: 通常の属性 | `Input`・select・textarea は `FieldClass`（高さ 40・文字 16px）。select は `SelectClass`（`FieldClass` に OS の矢印を消して `--mute` のシェブロンを足したもの）。`Button` は `cursor-pointer`、無効（処理中の `hx-disabled-elt` を含む）は `cursor-not-allowed` |
+| molecules | `PaneCard` | `Pane`・`Highlight`・`ReportWaiting` | 状態ラベル・activity・note 要約。`ReportWaiting` は state バッジの隣に「報告待ち」を出す。操作ボタンは**持たない** |
 | molecules | `UsageRow` | `Label`・`Slot` | `unit` で percent / usd を出し分け。`available: false` は「—」 |
 | molecules | `HostRow` | `Label`・`Percent`・`Detail` | |
 | molecules | `SessionTab` | `ConnectionID`・`Session`・`Selected` | `hx-get` |
 | molecules | `AttentionItem` | `Attention`・`AuthExpiresAt` | 未知の `kind` は文字列表示 |
 | organisms | `SessionTabs` | `[]Session`・`Selected` | |
 | organisms | `PaneGrid` | `Layout`・`[]Pane` | `Layout.Valid` でなければリスト表示 |
-| organisms | `UsagePanel` | `Usage`・`Stale` | `usage.status` による分岐（[機能要件 §5.1](../requirements/functional.md)） |
+| organisms | `UsagePanel` | `Usage`・`RegionGrayed`・`Now` | `usage.status` による分岐（[機能要件 §5.1](../requirements/functional.md)） |
 | organisms | `HostPanel` | `Host` | |
 | organisms | `AttentionBar` | `[]Attention`・`[]Warning`・`Auth` | ペイン関連とログイン関連の 2 グループに分け、グループ間とエージェントごとに区切り線を入れる（[機能要件 §7](../requirements/functional.md)） |
 | organisms | `SnapshotView` | `SnapshotResult`・`PollSeconds`・`Repair` | ポーリング属性（`hx-trigger`）を出す／出さないの判断を含む |
-| organisms | `ConnectionList` | `[]Connection`・`Error` | `Error` があれば一覧の上にインラインアラートを出す（削除失敗） |
+| organisms | `ConnectionList` | `[]Connection`・`Error` | `Error` があれば一覧の上に `Alert`（`danger`）を出す（削除失敗） |
 | pages | `MainPage` | 接続・タブ・スナップショット | |
-| pages | `PairingPage` / `PairingDraftPage` / `ConnectionsPage` / `SettingsPage` / `NoSessionsPage` / `DraftExpiredPage` / `RecoveryPage`（DB 破損時） | | |
-| layout | `Base` | `Title`・`CSRFToken` | `<head>`（CSP は HTTP ヘッダで付与。`htmx-config` の meta を含む）、`<body hx-headers='{"X-CSRF-Token":"…"}'>`、`htmx.min.js`・`app.js`・`app.css` を読み込む |
+| pages | `PairingPage` / `PairingDraftPage`（貼り付け画面の上に確認モーダル。`DraftProps.HasConnections` は背面の画面用） / `ConnectionsPage` / `SettingsPage` / `NoSessionsPage` / `DraftExpiredPage` / `RecoveryPage`（DB 破損時） | | |
+| layout | `Base` | `Title`・`CSRFToken` | `<head>`（CSP は HTTP ヘッダで付与。`htmx-config` の meta を含む）、`<body hx-headers='{"X-CSRF-Token":"…"}'>`、`htmx.min.js`・`app.js`・`modal.js`・`app.css` を読み込む |
 
 - 状態の表示ラベル・色（`StateLabel`・`StateTone`、`UsageTone` の結果から Tailwind クラスへの対応）は **web 層**に置く（presentation。domain は意味だけを持つ）。ラベルは[機能要件 §3](../requirements/functional.md)の表に一致させる
 - 時刻・相対時間の整形（`elapsed` は文字列のまま、`resets_at` は「あと N 時間」）も web 層のヘルパー（`web/format`）。`Clock.Now()` を引数に取り、テストを固定時刻で行う
@@ -513,3 +519,11 @@ func main() {
 | 1.6 | 2026-11-05 | `AgentAccount`・`CursorAccount` に `Reason *string` を追加 | Issue #11 |
 | 1.7 | 2026-11-05 | `Host` に `Mem` を追加 | Issue #10 |
 | 1.8 | 2026-11-05 | `PaneCard` に `ReportWaiting`、`AttentionBar` にグループ分けと区切り線を追記 | Issue #8 |
+| 1.9 | 2026-11-05 | atoms に `Alert`（種別・アイコン付き）と `Icon` を追加し、各所のエラー文・バナーを `Alert` に統一。`muted` バッジの文字を ink に変更 | Issue #33（デザインガイド C4・C6） |
+| 2.0 | 2026-11-05 | atoms に `Checkbox`・`EmptyState` を追加。空状態・読み込み中の表示を分け、フォームの余白と `app.css` のトークン名（`--r-*`・`--ring`・`--motion-*`・`--ease-in-out`）をガイドにそろえた | Issue #35（デザインガイド S1・S2・S4・S5） |
+| 2.1 | 2026-11-05 | atoms に `ConfirmDialog`・定数 `ModalClass` を追加。`PairingDraftPage` を全画面から確認モーダルに変更（`DraftProps.HasConnections` を追加） | Issue #37（デザインガイド O1・O2） |
+| 2.2 | 2026-11-05 | `Alert` に任意の `Title`（見出し）を追加し、取得失敗バナーで使う。`Spinner` の `Size` を廃止して 20px の 1 種にした | Issue #42（デザインガイド O8） |
+| 2.3 | 2026-11-05 | `ModalClass` の出現を `.fade-in`（320ms）から専用の `.modal-in`（280ms）に変更。`Alert` のアイコンと文の間を 12px（`gap-3`）に。`Base` の `hx-ext` に `leave-fade` を追加 | Issue #54・#55（デザインガイド S2・M5） |
+| 2.4 | 2026-11-05 | atoms に `ModalHeader`・定数 `ModalBodyClass`・`ModalFooterClass` を追加し、`ModalClass` を余白なし・幅 420px に変更。`Icon` に `xmark` を追加し `xmlns` を外した。`Toast` の高さを `h-(--toast-h)` に | Issue #62・#63（デザインガイド M1・O2） |
+| 2.5 | 2026-11-05 | 確認ダイアログとモーダルの JS を `app.js` から `modal.js` に分け、`Base` が `modal.js` を読み込む | linterly の行数上限（300 行）への対処 |
+| 2.6 | 2026-11-05 | props の表を実装に合わせて修正: `Badge` に `Marker`、`Button` に `Size`（標準 / `ButtonSmall`）を追加。`PaneCard` から存在しない `Stale` を外し、`UsagePanel` を `Usage`・`RegionGrayed`・`Now` に直した | 独立レビューの指摘（docs と実装の乖離） |
