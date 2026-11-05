@@ -106,10 +106,10 @@ func attentionBoxClass(g attentionGroups) string {
 	return base
 }
 
-// attentionAgentsClass はエージェントの間に、グループ間より薄い区切り線を入れる。
+// attentionAgentsClass はエージェントの間に、グループ間と同じ区切り線（--border）を入れる。
 func attentionAgentsClass(g attentionGroups) string {
 	if len(g.Agents) > 1 {
-		return "flex flex-col divide-y divide-border/60"
+		return "flex flex-col divide-y divide-border"
 	}
 	return "flex flex-col"
 }
