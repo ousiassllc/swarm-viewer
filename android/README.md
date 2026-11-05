@@ -75,4 +75,4 @@ push 前は `./gradlew lint ktlintCheck test` がクリーンに通ることを�
 
 ## リリース署名
 
-署名設定・keystore・パスワードはこのディレクトリに置かない。リリースビルドの署名は CI の release ジョブ（別 Issue）が担う。
+署名設定・keystore・パスワードはこのディレクトリに置かない（`app/build.gradle.kts` の release に `signingConfig` はない）。`./gradlew assembleRelease` は署名なしの APK を作り、署名は release.yml の `build-android`（`.github/scripts/sign-android-apk.sh`）が `apksigner` で行う。版は `-PappVersionName=X.Y.Z -PappVersionCode=N` で渡す（タグから `.github/scripts/android-version.sh` が決める。渡さないときは `0.1.0` / `1`）。鍵の作り方・シークレット・検証手順は [環境構築 §11.3・§11.4](../docs/environment/setup.md)。

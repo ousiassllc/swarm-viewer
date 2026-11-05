@@ -162,8 +162,8 @@ Android に**適用しない**デスクトップ版の要件: NFR-ENV-1・NFR-EN
 
 | ID | 要件 |
 |----|------|
-| NFR-AND-DST-1 | 署名済みの APK を GitHub Releases で配布する（サイドロード）。Google Play は対象外。配布物は `swarm-viewer_vX.Y.Z_android.apk` で、`SHA256SUMS`（NFR-DST-1）に含める。端末側で「提供元不明のアプリ」のインストールを許可する手順を README に書く |
-| NFR-AND-DST-2 | release 署名鍵（keystore）を 1 つ作り、毎回同じ鍵で署名する。同じ鍵で署名することで、インストール済みのアプリを上書きアップデートできる。鍵を失うと上書きできないため、複数の場所にバックアップする。鍵・パスワードはリポジトリにコミットしない。CI のシークレット（keystore は base64）は release ジョブだけが使う（[環境構築 §11](../environment/setup.md)） |
+| NFR-AND-DST-1 | 署名済みの APK を GitHub Releases で配布する（サイドロード）。Google Play は対象外。配布物は `swarm-viewer_vX.Y.Z_android_universal.apk` で、`SHA256SUMS`（NFR-DST-1）に含める。端末側で「提供元不明のアプリ」のインストールを許可する手順を README に書く |
+| NFR-AND-DST-2 | release 署名鍵（keystore）を 1 つ作り、毎回同じ鍵で署名する。同じ鍵で署名することで、インストール済みのアプリを上書きアップデートできる。鍵を失うと上書きできないため、複数の場所にバックアップする。鍵・パスワードはリポジトリにコミットしない。CI のシークレット（keystore は base64）は release.yml の署名ジョブ（`build-android`）の署名の step だけが使う（[環境構築 §11](../environment/setup.md)） |
 | NFR-AND-DST-3 | **debug 署名の APK は配布しない**。配布物は `apksigner` で署名し、`apksigner verify` で検証してから Release に載せる |
 | NFR-AND-DST-4 | 版の唯一の元はデスクトップ版と同じくタグ（`vX.Y.Z`）。`versionName` はタグの `X.Y.Z`、`versionCode` は `X × 1,000,000 + Y × 1,000 + Z`（単調増加。上書きアップデートに必要） |
 | NFR-AND-DST-5 | 自動更新（アプリ内アップデート）は持たない（手動で APK を入れ替える。NFR-DST-3 と同じ） |
