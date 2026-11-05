@@ -186,7 +186,7 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 |----|------|
 | NFR-DSG-1 | 色はガイドのトークン（`--ink` `--bone` `--mute` `--surface` `--border` `--accent` `--accent-soft` `--focus` と状態色 `--success` `--warning` `--danger` `--info`）だけを使う。Web は `static/src/css/app.css` に定義し、Tailwind の既定パレットは無効にする。Android は `ui/theme/` の ColorScheme と状態色で持つ。独自の色・ハードコードの色を足さない |
 | NFR-DSG-2 | ライト / ダークはシステムの設定に追従する（Web は `prefers-color-scheme`、Android はシステムテーマ）。デスクトップのウィンドウ背景（WebView の描画前・リサイズ中に見える面）も OS のテーマの `--bone`（ライト `#F5F5F4`・ダーク `#050505`）にし、テーマ変更に追従する（値は `internal/app/theme` に 1 か所。Android は `windowBackground`）。手動の切替 UI は持たない |
-| NFR-DSG-3 | フォントは NFR-SEC-9 のとおり同梱する。SemiBold は見出しとボタンだけに使い、Medium・Bold を使わない。本文は 14px 以上（説明・警告・エラーの文章を 12px にしない）。入力欄・select・textarea の文字は 16px（`atoms.FieldClass` の `text-base`）。Android のボタン（`labelLarge`）も標準の高さ 40dp に合わせて 16sp。12px はバッジ・日時・ペイン番号などのキャプションだけ |
+| NFR-DSG-3 | フォントは NFR-SEC-9 のとおり同梱する。SemiBold は見出しとボタンだけに使い、Medium・Bold を使わない。本文は 14px 以上（説明・警告・エラーの文章を 12px にしない）。入力欄・select・textarea の文字は 16px（`atoms.FieldClass` の `text-base`）。Android のボタン（`labelLarge`）も標準の高さ 40dp に合わせて 16sp。12px はバッジ・日時・ペイン番号などのキャプションだけ。コード・桁を揃える数値・接続先の host（IP リテラル）は JetBrains Mono（Web は `font-mono`、Android は `MonoFontFamily`。ペアリング確認の host は「接続先: 」のラベルと値を分けて値だけ Mono にする） |
 | NFR-DSG-4 | 主操作・リンク・選択中タブはインク色（`--accent`）で、青などのアクセント色を使わない。`working` と `report_waiting` は無彩色で、状態はラベルで区別する。フォーカスは `--focus` の 2px（offset 2）、入力欄とチェックボックスは `--focus` の 40% のリング（`--ring`。入力欄 2px・チェックボックス 3px） |
 | NFR-DSG-5 | トーストは画面下中央・端から 24px・高さ 40・ピル・1 行の短文・3 秒で消え・同時に 1 つ。エラー（削除失敗など）はトーストにせず、インラインアラートで示す |
 | NFR-DSG-6 | モーションはガイドのトークン（トースト・アラートの出現 320ms ease-out、モーダルの出現（本体とスクラム）は slow 帯の 280ms ease-out、退出 240ms ease-in）。`prefers-reduced-motion: reduce` ではフェードを付けない（スピナーの回転は処理中表示のため維持する。周期はガイドの 0.9s）。トースト・インラインアラートは出現でフェードイン、トースト・インラインアラート・モーダル（スクラムを含む）は退出でフェードアウトする。応答の差し替えで消えるアラートとモーダルは、フェードアウトを終えてから差し替える。ボタンの押下は小さなリップル（280ms ease-out）。ボタン・リンク・タブ・接続切替のホバーは色・背景・枠・下線の色だけを `--motion-base`（180ms）・ease-out で遷移させる（`.hover-fade`。reduced-motion では遷移を止め、色の変化は残す）。Android は Compose の既定のアニメーション（ボタンのリップルを含む）に任せ、独自のモーションは持たない |
@@ -240,3 +240,4 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | 3.4 | 2026-11-05 | NFR-DSG-11（時間・トーストの寸法は CSS のトークンが唯一の出どころ）を追加 | Issue #62（デザインガイド M1） |
 | 3.5 | 2026-11-05 | NFR-DSG-8 に、モーダルの構造（ヘッダーの × ・本文・フッターを線で区切る・幅 420）と危険ボタンの枠付き（Android は `AppDangerButton`）を追記 | Issue #63（デザインガイド O2・O7） |
 | 3.6 | 2026-11-05 | NFR-DSG-7 に、状態バッジの点（マーカー）と、カメラ映像の上の文言を ink の帯に載せることを追記 | Issue #64（デザインガイド C4・C5） |
+| 3.7 | 2026-11-05 | NFR-DSG-3 に、接続先の host を JetBrains Mono で出すことを追記 | Issue #65（デザインガイド T5） |

@@ -30,6 +30,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
 import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
+import com.ousiassllc.swarmviewer.ui.theme.MonoFontFamily
 
 /**
  * 接続管理（S1）。保存済み接続の一覧（表示名と URL の host のみ。token は出さない）、切替、削除（確認つき）、
@@ -95,7 +96,7 @@ private fun ConnectionCard(
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(item.name, style = MaterialTheme.typography.titleMedium)
-            Text(item.host, style = MaterialTheme.typography.bodyMedium)
+            Text(item.host, style = MaterialTheme.typography.bodyMedium, fontFamily = MonoFontFamily)
             if (item.selected) Text("選択中", color = MaterialTheme.colorScheme.primary)
             if (item.needsRepair) AppAlert(NEEDS_REPAIR_LABEL)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
