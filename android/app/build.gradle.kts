@@ -16,6 +16,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildFeatures {
@@ -38,6 +39,11 @@ android {
 
 kotlin {
     jvmToolchain(17)
+}
+
+// Room のスキーマ（JSON）を android/app/schemas/ に書き出す。版ごとに差分を追えるようにコミットする。
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 // Go と共有するテストベクタ（testdata/vectors）をテストの入力にする。宣言しないと、ベクタだけを変えたときに
@@ -68,4 +74,8 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.turbine)
+
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
 }

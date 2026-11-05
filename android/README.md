@@ -38,6 +38,19 @@ push 前は `./gradlew lint ktlintCheck test` がクリーンに通ることを�
 
 挙動の一致は、リポジトリ直下の [`testdata/vectors/`](../testdata/vectors/README.md)（JSON）を Go と Kotlin の両方が読んで保つ。ケースを足す・変えるときは、`./gradlew test` と `go test ./internal/domain/... ./internal/web/format/...` の両方が通ることを確かめる。
 
+## data 層
+
+`app/src/main/kotlin/com/ousiassllc/swarmviewer/data/` は domain の下で、通信・token の保護・保存を持つ（`ui` / `work` から使う）。
+
+| パッケージ | 内容 |
+|------------|------|
+| `data/report` | swarm-console `/report` のクライアント（`ReportClient`）。OkHttp で MCP Streamable HTTP（JSON-RPC 2.0）の `POST` だけを送り、呼ぶツールは `sessions_list` と `report` だけ（許可リスト `ReportTools`。送信直前に `GuardInterceptor` が URL・メソッド・JSON-RPC・ツール名を再検査する）。失敗は domain の `FetchException`（`classify`）。タイムアウトは接続・応答の合計 10 秒、リトライなし |
+| `data/secret` | token の保護領域（`FileTokenStore`）。Android Keystore の AES-256-GCM 鍵（エクスポート不可。`KeystoreTokenCipher`）で暗号化し、`noBackupFilesDir/` に接続 ID ごとのファイルとして保存する（EncryptedSharedPreferences は使わない）。暗号文は接続 ID と結び付く。復号できない（鍵の消失・破損）token は `null` で、「再ペアリングが必要」として扱う |
+| `data/store` | Room（`SwarmDatabase`、DB 版 1）。`connections`・`settings`・`snapshots`・`notified_states`（主キー `(接続, セッション, ペイン, 状態)` が二重通知を防ぐ）。token の列は持たない。窓口は `ViewerStore`（Room 実装は `RoomViewerStore`）。`ConnectionRepository.delete` が token の削除、接続の行の削除の順に行う（`ON DELETE CASCADE` でスナップショット・通知済み状態も消える） |
+
+- Room のスキーマ JSON は `app/schemas/` に書き出してコミットする（最初の版で、マイグレーションはない）。スキーマを変えるときは DB の版を上げて `Migration` を書き、`fallbackToDestructiveMigration` は使わない
+- JVM のユニットテスト（`./gradlew test`）は、MockWebServer による client と許可リスト、`FileTokenStore`（メモリ上の鍵）、スナップショットの JSON、接続削除の順序を検査する。Keystore と Room（SQLite の制約・連鎖削除）は実機・エミュレータが要るため `app/src/androidTest/` に置き、`./gradlew connectedDebugAndroidTest`（接続済みのデバイスまたはエミュレータが必要）で実行する
+
 ## 依存の版について
 
 - `compileSdk` は 35 に固定している（親 Issue #7 の確定事項）。このため、`minCompileSdk` が 36 以上の版（Compose BOM 2025.08.00 以降・`activity-compose` 1.11 以降・`core-ktx` 1.17 以降・OkHttp 5.4 以降）は使えない。詳細は `gradle/libs.versions.toml` の先頭コメントを参照。
