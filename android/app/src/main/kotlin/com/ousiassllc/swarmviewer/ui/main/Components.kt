@@ -52,7 +52,11 @@ fun Badge(
     }
 }
 
-/** 使用率のバー。[percent] は 0〜100 に丸める。[tone] は domain のしきい値判定の結果。 */
+/**
+ * 使用率のバー。[percent] は 0〜100 に丸める。[tone] は domain のしきい値判定の結果。
+ * M3 の既定（塗りとトラックの 4dp の隙間・終端の点）はガイドの「連続したトラックの上に塗りが載る」形と違うので、
+ * `gapSize = 0.dp` と `drawStopIndicator = {}` で消す（O8）。
+ */
 @Composable
 fun ToneBar(
     percent: Double,
@@ -64,6 +68,8 @@ fun ToneBar(
         color = tone.color(),
         trackColor = MaterialTheme.colorScheme.surfaceVariant,
         strokeCap = StrokeCap.Round,
+        gapSize = 0.dp,
+        drawStopIndicator = {},
         modifier = modifier.height(BAR_HEIGHT),
     )
 }

@@ -186,12 +186,13 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 |----|------|
 | NFR-DSG-1 | 色はガイドのトークン（`--ink` `--bone` `--mute` `--surface` `--border` `--accent` `--accent-soft` `--focus` と状態色 `--success` `--warning` `--danger` `--info`）だけを使う。Web は `static/src/css/app.css` に定義し、Tailwind の既定パレットは無効にする。Android は `ui/theme/` の ColorScheme と状態色で持つ。独自の色・ハードコードの色を足さない |
 | NFR-DSG-2 | ライト / ダークはシステムの設定に追従する（Web は `prefers-color-scheme`、Android はシステムテーマ）。デスクトップのウィンドウ背景（WebView の描画前・リサイズ中に見える面）も OS のテーマの `--bone`（ライト `#F5F5F4`・ダーク `#050505`）にし、テーマ変更に追従する（値は `internal/app/theme` に 1 か所。Android は `windowBackground`）。手動の切替 UI は持たない |
-| NFR-DSG-3 | フォントは NFR-SEC-9 のとおり同梱する。SemiBold は見出しとボタンだけに使い、Medium・Bold を使わない。本文は 14px 以上（説明・警告・エラーの文章を 12px にしない）。入力欄・select・textarea の文字は 16px（`atoms.FieldClass` の `text-base`）。12px はバッジ・日時・ペイン番号などのキャプションだけ |
+| NFR-DSG-3 | フォントは NFR-SEC-9 のとおり同梱する。SemiBold は見出しとボタンだけに使い、Medium・Bold を使わない。本文は 14px 以上（説明・警告・エラーの文章を 12px にしない）。入力欄・select・textarea の文字は 16px（`atoms.FieldClass` の `text-base`）。Android のボタン（`labelLarge`）も標準の高さ 40dp に合わせて 16sp。12px はバッジ・日時・ペイン番号などのキャプションだけ |
 | NFR-DSG-4 | 主操作・リンク・選択中タブはインク色（`--accent`）で、青などのアクセント色を使わない。`working` と `report_waiting` は無彩色で、状態はラベルで区別する。フォーカスは `--focus` の 2px（offset 2）、入力欄とチェックボックスは `--focus` の 40% のリング（`--ring`。入力欄 2px・チェックボックス 3px） |
 | NFR-DSG-5 | トーストは画面下中央・端から 24px・高さ 40・ピル・1 行の短文・3 秒で消え・同時に 1 つ。エラー（削除失敗など）はトーストにせず、インラインアラートで示す |
 | NFR-DSG-6 | モーションはガイドのトークン（出現 320ms ease-out、退出 240ms ease-in）。`prefers-reduced-motion: reduce` ではフェードを付けない（スピナーの回転は処理中表示のため維持する）。トースト・インラインアラートは出現でフェードイン、トーストは退出でフェードアウトする。ボタンの押下は小さなリップル（280ms ease-out）。Android は Compose の既定のアニメーション（ボタンのリップルを含む）に任せ、独自のモーションは持たない |
 | NFR-DSG-7 | 状態は色だけでなくアイコン（Iconoir）と文言で伝える。インラインアラート（エラー・警告・お知らせ・成功）は Web の `atoms.Alert`、Android の `AppAlert` に統一する。形はガイドの見本どおり、surface 地・1px の border・左 3px の状態色・角丸 `--r-md`・文字は `--ink`（状態色はアイコンと左の帯だけ）。`--mute` は補助テキスト・キャプションだけに使い、情報の文字（バッジの文字など）には使わない |
 | NFR-DSG-8 | 確認・破壊的操作（接続の削除・保存データの初期化・接続の追加の確認）は中央モーダルで取る。Web はネイティブ `<dialog>`（`--r-xl`・`--shadow-modal`・スクラムは外側クリックで閉じてフェードする）、Android は `AppDialog`（`BasicAlertDialog` に面・1dp の border・`extraLarge`・1dp の影を組んだもの。Material の `AlertDialog` は枠も影もないので使わない）。`window.confirm`・全画面ページでの確認を使わない。確定の危険な操作のボタンは `--danger`（Web は `ButtonDanger`、Android は `AppDangerTextButton`） |
+| NFR-DSG-9 | 部品は M3・OS の既定ではなく、ガイドの見本の形に揃える。select は OS の矢印を消し（`appearance-none`）、`--mute` のシェブロンを `linear-gradient` 2 本で右端に描く（`atoms.SelectClass`。CSP のため `data:` URI は使わない）。Android の使用率バー（`ToneBar`）は M3 の「塗りとトラックの隙間」と終端の点を消し（`gapSize = 0.dp`・`drawStopIndicator = {}`）、連続したトラックの上に塗りが載る形にする |
 
 承認済みの逸脱（ガイドの値と異なるが、プロダクト固有の理由で維持するもの）:
 
@@ -227,3 +228,4 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | 2.4 | 2026-11-05 | NFR-DSG-7 にインラインアラートの形（surface 地・左 3px の状態色・文字は ink）を明記し、承認済みの逸脱から「警告帯のコントラスト」を外した | Issue #46（デザインガイド O8） |
 | 2.5 | 2026-11-05 | NFR-DSG-8 の Android の確認を `AppDialog`（枠・影つき）に改訂 | Issue #50（デザインガイド S3） |
 | 2.6 | 2026-11-05 | NFR-DSG-2 にデスクトップのウィンドウ背景色、NFR-DSG-4 にチェックボックスのフォーカスリングを追記 | Issue #52（デザインガイド C3・C5） |
+| 2.7 | 2026-11-05 | NFR-DSG-3 に Android のボタン 16sp を追記し、NFR-DSG-9（select のシェブロン・Android の使用率バー）を追加 | Issue #53・#56（デザインガイド T3・O8） |

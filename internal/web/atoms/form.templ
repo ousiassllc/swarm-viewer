@@ -98,6 +98,12 @@ func inputType(t string) string {
 // 横幅・padding・フォントは呼び出し側が足す。
 const FieldClass = "min-h-10 rounded-md text-base border border-border bg-surface text-ink placeholder:text-mute focus-visible:border-focus focus-visible:outline-transparent focus-visible:ring-2 focus-visible:ring-(color:--ring)"
 
+// SelectClass は select 用のクラス。FieldClass に、OS 既定の矢印を消して mute のシェブロンを足したもの（ガイド §4 フォーム）。
+// シェブロンは CSP（default-src 'self'）で data: URI が使えないので、ガイドの見本どおり linear-gradient 2 本（5px 四方）で描く。
+// 色は var(--mute) でライト・ダークのトークンに追従する。シェブロンの位置ぶん右に 36px（pr-9）空ける。
+// 横幅・左 padding は呼び出し側が足す。
+const SelectClass = FieldClass + " appearance-none pr-9 bg-no-repeat bg-[image:linear-gradient(45deg,transparent_50%,var(--mute)_50%),linear-gradient(135deg,var(--mute)_50%,transparent_50%)] bg-[position:calc(100%-18px)_50%,calc(100%-13px)_50%] bg-[size:5px_5px]"
+
 // Input は共通の 1 行入力。
 templ Input(p InputProps) {
 	<input
