@@ -130,7 +130,7 @@ Android に**適用しない**デスクトップ版の要件: NFR-ENV-1・NFR-EN
 | ID | 要件 |
 |----|------|
 | NFR-AND-SEC-1 | cleartext（`http`）は Network Security Config でアプリ全体に許可する（Android 9 以降は既定で禁止のため。tailnet の IP は範囲指定できない見込み。[アーキテクチャ設計 §11](../architecture/overview.md) #8）。接続先の制限は URL の検証が担い、NFR-SEC-4・5 と同じ検証（tailnet 範囲またはループバックの IP リテラル、`http`、port `48120`、path `/report`）を通らない URL へは接続しない。tailnet（WireGuard）の暗号化を前提とする（NFR-SEC-6）。検証を迂回する経路（接続文字列以外から URL を受け取る）を作らない |
-| NFR-AND-SEC-2 | token は Android Keystore で保護した領域にのみ保存する。Room・平文のファイル・SharedPreferences・ログ・画面・通知・Intent・バックアップに出さない（NFR-SEC-2 の Android 版）。保存方式は[アーキテクチャ設計 §11](../architecture/overview.md) #9 で確定する |
+| NFR-AND-SEC-2 | token は Android Keystore で保護した領域にのみ保存する。Room・平文のファイル・SharedPreferences・ログ・画面・通知・Intent・バックアップに出さない（NFR-SEC-2 の Android 版）。保存方式は Keystore の AES-256-GCM 鍵による暗号化で、暗号文を `noBackupFilesDir` に置く（[アーキテクチャ設計 §11](../architecture/overview.md) #9） |
 | NFR-AND-SEC-3 | アプリのデータはバックアップ・端末間転送の対象外にする（`allowBackup="false"` と `dataExtractionRules`・`fullBackupContent` による全データの除外） |
 | NFR-AND-SEC-4 | 接続文字列は貼り付け・ディープリンク（Intent）・QR のどれで受けても、同じ検証（NFR-SEC-4・5・7、NFR-CMP-3）を通し、確認画面で利用者が確定するまで保存しない。確認画面に token を出さない。解析後はメモリ上の値をすぐ破棄し、受け取った文字列を保存・ログ出力しない。ディープリンクは他のアプリからも送れる信頼できない入力として扱い、処理後は Intent のデータを消す |
 | NFR-AND-SEC-5 | 呼ぶツールは `sessions_list` と `report` だけ（NFR-SEC-1）。`/ops` と `tools/list` のコードパスを持たない。許可リストは定数で、それ以外のツール名は呼べない |
