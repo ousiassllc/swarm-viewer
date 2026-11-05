@@ -1,6 +1,7 @@
 package atoms_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/a-h/templ"
@@ -31,11 +32,12 @@ func TestProgressBar_ValueClampedAndNoStyleAttr(t *testing.T) {
 
 func TestSpinner(t *testing.T) {
 	t.Parallel()
-	html := webtest.Render(t, atoms.Spinner(atoms.SpinnerProps{ID: "sp", Size: atoms.SpinnerLarge}))
-	webtest.MustContain(t, html, `id="sp"`, "htmx-indicator", "h-6 w-6")
+	html := webtest.Render(t, atoms.Spinner(atoms.SpinnerProps{ID: "sp"}))
+	// ガイド §4: 20px・線 2px（track --accent-soft・先端 --accent）の 1 種だけ。
+	webtest.MustContain(t, html, `id="sp"`, "htmx-indicator", "h-5 w-5", "border-2", "border-accent-soft", "border-t-accent")
+	webtest.MustNotContain(t, html, "h-4 w-4", "h-6 w-6")
 	html = webtest.Render(t, atoms.Spinner(atoms.SpinnerProps{}))
 	webtest.MustNotContain(t, html, "id=")
-	webtest.MustContain(t, html, "h-5 w-5")
 }
 
 func TestToast(t *testing.T) {
@@ -75,6 +77,18 @@ func TestAlert_AttrsAndEmptyMessage(t *testing.T) {
 	webtest.MustNotContain(t, html, "<p>")
 }
 
+// 見出し（Title）は任意。あれば SemiBold で本文の前に出し、エスケープされる。無ければ <p> を足さない（ガイド §4・O8）。
+func TestAlert_Title(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Title: "<i>接続できません</i>", Message: "前回取得 11:58"}))
+	webtest.MustContain(t, html, `<p class="font-semibold">&lt;i&gt;接続できません&lt;/i&gt;</p>`, "<p>前回取得 11:58</p>")
+	webtest.MustNotContain(t, html, "<i>")
+	if strings.Index(html, "接続できません") > strings.Index(html, "前回取得") {
+		t.Error("見出しは本文の前に出す")
+	}
+	webtest.MustNotContain(t, webtest.Render(t, atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: "m"})), "font-semibold")
+}
+
 // Checkbox はガイドの形（18px・--r-sm・外枠 --mute）で、オンの印は Iconoir の check（インライン SVG）。
 func TestCheckbox(t *testing.T) {
 	t.Parallel()
@@ -106,6 +120,9 @@ func TestConfirmDialog(t *testing.T) {
 	webtest.MustContain(t, html, `<dialog id="confirm-dialog"`, "data-modal", "rounded-xl", "shadow-modal", "m-auto",
 		"data-confirm-title", "data-confirm-message", "data-confirm-action", "bg-danger", `data-modal-result="cancel"`, "キャンセル")
 	webtest.MustNotContain(t, html, "<script", "onclick", "hx-on", " open")
+	// ボタン列は 8px（ガイド S2）。
+	webtest.MustContain(t, html, `class="flex items-center justify-end gap-2"`)
+	webtest.MustNotContain(t, html, "gap-3")
 }
 
 func TestButton(t *testing.T) {

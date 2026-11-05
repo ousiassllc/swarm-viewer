@@ -217,10 +217,14 @@ private fun StatusLine(
                 AppButton(onClick = onRepair) { Text("再ペアリング") }
             }
         }
-        state.failure?.let { AppAlert(it) }
-        if (snapshot != null) {
-            val label = if (state.showsPreviousFetch) "前回取得" else "最終更新"
-            MutedText("$label ${formatClock(snapshot.fetchedAt)}")
+        val fetched =
+            snapshot?.let { "${if (state.showsPreviousFetch) "前回取得" else "最終更新"} ${formatClock(it.fetchedAt)}" }
+        // 失敗は見出し、前回取得の時刻は本文（ガイド §4 のインラインアラート）。失敗がなければ時刻だけを控えめに出す。
+        val failure = state.failure
+        if (failure != null) {
+            AppAlert(fetched.orEmpty(), title = failure)
+        } else if (fetched != null) {
+            MutedText(fetched)
         }
     }
 }

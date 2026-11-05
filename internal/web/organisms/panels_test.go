@@ -55,6 +55,8 @@ func TestUsagePanel_StatusBranches(t *testing.T) {
 	html := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now}))
 	webtest.MustContain(t, html, "Claude · main", "Codex · cx", "Cursor · cur", "月間", "$20.00", "42%", "最終取得 11/03 11:00", "5 時間枠", "7 日枠", "—")
 	webtest.MustNotContain(t, html, "opacity-50", "古いデータ", "<details")
+	// アカウント名（h3）から本文までは 8px（ガイド §3 見出し→本文）。
+	webtest.MustContain(t, html, `<div class="flex flex-col gap-2"><h3 class="text-sm text-ink">Claude · main</h3>`, `<div class="flex flex-col gap-2"><h3 class="text-sm text-ink">Cursor · cur</h3>`)
 
 	// stale: グレーアウト + 古いデータ + fetched_at + reason は折りたたみ。
 	u.Status = domain.UsageStale

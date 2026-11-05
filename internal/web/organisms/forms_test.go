@@ -81,6 +81,9 @@ func TestSettingsForm(t *testing.T) {
 	// ラベル→入力は 8px（ガイド S2）。チェックボックスは 18px・--r-sm・外枠 --mute（ガイド S1・§4）。
 	webtest.MustContain(t, html, `<div class="flex flex-col gap-2"><label for="screen-poll"`, "rounded-sm border border-mute", "appearance-none")
 	webtest.MustNotContain(t, html, "accent-accent")
+	// 「保存」とスピナーのボタン列は 8px（ガイド S2）。
+	webtest.MustContain(t, html, `<div class="flex items-center gap-2"><button`)
+	webtest.MustNotContain(t, html, "gap-3")
 	webtest.MustNotContain(t, html, `<option value="15"`, "7 秒")
 }
 

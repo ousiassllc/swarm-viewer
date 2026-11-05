@@ -123,7 +123,8 @@ func TestSnapshotView_StaleIsGrayedWithBanner(t *testing.T) {
 	webtest.MustContain(t, html,
 		`id="snapshot" class="flex flex-col gap-4 opacity-50 grayscale"`,
 		`id="snapshot-status" hx-swap-oob="true"`,
-		"ホストに届きません。Tailscale 接続を確認してください",
+		// 失敗の種別は見出し（SemiBold）、前回取得・次回再試行は本文（ガイド §4 のインラインアラート）。
+		`<p class="font-semibold">ホストに届きません。Tailscale 接続を確認してください</p>`,
 		"前回取得 11:58", "次回再試行 10 秒後", "timeout",
 		`hx-trigger="every 10s, refresh from:body"`, // 到達不可は自動再試行する
 	)

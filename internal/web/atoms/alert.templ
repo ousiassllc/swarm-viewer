@@ -15,7 +15,9 @@ const (
 type AlertProps struct {
 	// Kind は種類。未知の値は danger。
 	Kind AlertKind
-	// Message は本文の 1 文。複数行・リンクなどを載せるときは空にして、子要素に書く。
+	// Title は見出し（SemiBold・14px）。空なら出さない。見出しを持つときは、詳しい内容を Message か子要素に書く。
+	Title string
+	// Message は本文。複数行・リンクなどを載せるときは空にして、子要素に書く。
 	Message string
 	// Attrs は data-* など追加の属性。値は Templ がエスケープする。
 	Attrs templ.Attributes
@@ -56,12 +58,15 @@ func alertRole(k AlertKind) string {
 	return "alert"
 }
 
-// Alert はインラインアラート（アイコン＋本文）。状態は色だけでなく、アイコンと文言でも伝える。
+// Alert はインラインアラート（アイコン＋見出し＋本文）。見出し（Title）は任意で、1 文で足りるエラーは Message だけで出す。状態は色だけでなく、アイコンと文言でも伝える。
 // 応答全体の失敗（Recover・CSRF・404 など）、フォームのエラー、取得失敗・警告のバナーはすべてこれに載せる。
 templ Alert(p AlertProps) {
 	<div role={ alertRole(p.Kind) } data-alert class={ alertClass(p.Kind) } { p.Attrs... }>
 		@Icon(alertIcon(p.Kind), "mt-0.5 h-5 w-5")
 		<div class="flex min-w-0 flex-1 flex-col gap-1">
+			if p.Title != "" {
+				<p class="font-semibold">{ p.Title }</p>
+			}
 			if p.Message != "" {
 				<p>{ p.Message }</p>
 			}

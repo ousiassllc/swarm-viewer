@@ -62,7 +62,7 @@ templ UsagePanel(p UsagePanelProps) {
 		}
 		if p.Usage.Reason != "" && (domain.NormalizeUsageStatus(p.Usage.Status) == domain.UsageStale || domain.NormalizeUsageStatus(p.Usage.Status) == domain.UsageUnavailable) {
 			<details class="text-sm text-ink">
-				<summary class="cursor-pointer">詳細</summary>
+				<summary>詳細</summary>
 				<code class="font-mono">{ p.Usage.Reason }</code>
 			</details>
 		}
@@ -77,7 +77,7 @@ templ usageAccounts(p UsagePanelProps) {
 		@agentAccount("Codex", a, p.Now)
 	}
 	for _, a := range p.Usage.Cursor {
-		<div class="flex flex-col gap-1">
+		<div class="flex flex-col gap-2">
 			<h3 class="text-sm text-ink">{ format.JoinNonEmpty(" · ", "Cursor", a.Account) }</h3>
 			@molecules.UsageRow(molecules.UsageRowProps{Label: cursorRowLabel(a), Slot: a.Models, Now: p.Now})
 		</div>
@@ -92,7 +92,7 @@ func bothSlotsUnavailable(a domain.AgentAccount) bool {
 // agentAccount は Claude / Codex のアカウント 1 件。2 枠とも取れないときは「取得できません」を 1 行で出し、
 // reason があれば理由を添える（機能要件 §5.2）。片方だけ取れないときは 2 行のまま（取れない枠は「—」）。
 templ agentAccount(agent string, a domain.AgentAccount, now time.Time) {
-	<div class="flex flex-col gap-1">
+	<div class="flex flex-col gap-2">
 		<h3 class="text-sm text-ink">{ format.JoinNonEmpty(" · ", agent, a.Account) }</h3>
 		if bothSlotsUnavailable(a) {
 			<p class="text-sm text-ink">

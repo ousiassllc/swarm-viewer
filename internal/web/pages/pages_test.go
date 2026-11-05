@@ -71,7 +71,7 @@ func TestPairingPage(t *testing.T) {
 	html := webtest.Render(t, pages.PairingPage(shell, pages.PairingProps{HasConnections: true}))
 	webtest.MustContain(t, html, `id="pairing-form"`, `hx-post="/pairing"`, "保存済みの接続", "<html")
 	webtest.MustContain(t, html, "<summary", "注意", "<details", "発行した接続文字列は再利用しないでください。", "の出力を貼り付けてください。")
-	if !strings.Contains(html, "<summary class=\"cursor-pointer\">注意</summary>") || strings.Index(html, "<details") > strings.Index(html, "発行した接続文字列は再利用しないでください。") {
+	if !strings.Contains(html, "<summary>注意</summary>") || strings.Index(html, "<details") > strings.Index(html, "発行した接続文字列は再利用しないでください。") {
 		t.Error("再利用の注意は <details> の中にある")
 	}
 	webtest.MustNotContain(t, html, "が出力した接続文字列を貼り付けてください")
@@ -102,6 +102,9 @@ func TestPairingDraft_IsModalOverPairingForm(t *testing.T) {
 		`<dialog open`, "data-modal", `data-dismiss="#draft-discard"`, `aria-labelledby="draft-title"`, "rounded-xl", "shadow-modal",
 		`id="draft-discard"`, "この接続を追加しますか？",
 	)
+	// ボタン列は 8px（ガイド S2）。モーダル内の入れ子パネルは --bone・--r-md で、surface のカードにしない（ガイド §4・S1）。
+	webtest.MustContain(t, html, `class="flex items-center justify-end gap-2"`, "rounded-md bg-bone p-4")
+	webtest.MustNotContain(t, html, "gap-3", "rounded-lg border border-border bg-surface")
 	webtest.MustNotContain(t, html, "<h1 class=\"text-lg font-semibold text-ink\">この接続を追加しますか？")
 	webtest.MustNotContain(t, webtest.Render(t, pages.PairingDraftContent(pages.DraftProps{DraftID: "d"})), "保存済みの接続")
 }
