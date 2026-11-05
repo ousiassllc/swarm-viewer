@@ -122,7 +122,8 @@ swarm-viewer/
     ├── src/fonts/               # Sora・Noto Sans JP・JetBrains Mono・Symbols Nerd Font Mono（woff2）と各ライセンス原文（OFL・MIT。コミットする）
     └── dist/                    # ビルド成果物（go:embed 対象）
         ├── js/htmx.min.js
-        ├── js/app.js            # 可視性制御（非表示中のポーリング停止・復帰時の即時取得）とトーストの 3 秒消去
+        ├── js/app.js            # 可視性制御（非表示中のポーリング停止・復帰時の即時取得）・トーストの 3 秒消去・アラートのフェード・ボタンのリップル
+        ├── js/modal.js          # 確認ダイアログ（hx-confirm）とモーダルの開閉
         ├── css/app.css
         └── fonts/*.woff2        # 同梱フォント（上記 4 書体・6 ファイル）
 ```
@@ -323,7 +324,7 @@ graph LR
 |------|-------|------|
 | Templ → Go | `templ generate`（`--watch`） | `_templ.go` と `static/dist/` はコミットしない。`task generate` で生成する（[環境構築](../environment/setup.md)） |
 | CSS | Tailwind CLI（`static/src/css/app.css` → `static/dist/css/app.css`） | 本番は minify |
-| JS | HTMX を `node_modules` から `static/dist/js/htmx.min.js` へコピー。`static/src/js/app.js` を `static/dist/js/app.js` へコピー | `response-targets` 拡張も同様。`app.js` はバンドル不要の静的ファイル |
+| JS | HTMX を `node_modules` から `static/dist/js/htmx.min.js` へコピー。`static/src/js/app.js`・`static/src/js/modal.js` を `static/dist/js/` へコピー | `response-targets` 拡張も同様。`app.js`・`modal.js` はバンドル不要の静的ファイル |
 | アプリ | `wails3 build`（`-tags production`）/ `wails3 dev` | `static/dist/` は `go:embed` でバイナリに同梱。バイナリ単体で外部アセット不要 |
 | パッケージ | Windows: NSIS インストーラ（URL スキーム登録に必要）、macOS: `.app`（`Info.plist` の `CFBundleURLTypes`） | `build/config.yml` の `protocols:` で `swarm-viewer` を宣言する |
 

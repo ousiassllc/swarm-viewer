@@ -255,7 +255,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | GET | `/connections/{cid}/sessions/{sid}/snapshot` | ページ（部分） | フラグメント | スナップショット領域（要対応バー・ペイングリッド・利用上限・ホスト負荷）。`report` を呼ぶ（同一 `(cid, sid)` は single-flight）。直近の `sessions_list` が無い・古い（30 秒超）ときは並行して引き直し、`#session-tabs` の OOB を返す。画面更新ポーリングと手動更新が叩く |
 | GET | `/settings` | ページ | フルページ / フラグメント | 設定画面。OS が通知を許可していないときはその旨を表示する |
 | PUT | `/settings` | アクション | フラグメント（設定フォーム）+ トースト OOB / 422 | 設定を保存する。許容値は[ER §3.2](../architecture/er.md)。許容外は 422 でフォームを再描画 |
-| GET | `/static/*` | — | 埋め込みアセット | `htmx.min.js`・`app.js`（§4.5 の可視性制御）・`app.css`。外部ホストは参照しない |
+| GET | `/static/*` | — | 埋め込みアセット | `htmx.min.js`・`app.js`（§4.5 の可視性制御）・`modal.js`（確認ダイアログとモーダル）・`app.css`。外部ホストは参照しない |
 | GET / POST | `/`・`/recovery/reset` | ページ / アクション | フルページ / フラグメント | **recovery モードのみ**（DB が開けない・スキーマが新しすぎる。上記の画面ルートは登録しない）。`/` は初期化導線、`POST /recovery/reset` は保存データを退避して作り直し、成功したら `HX-Redirect: /`（`HX-Request` なしなら案内のみ）。それ以外の GET は初期化導線を 200 で描画し、その他のメソッドは 404 |
 
 #### メイン画面の初回描画
@@ -305,7 +305,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | 接続削除 | `hx-delete="/connections/{cid}"` `hx-confirm` | アクション |
 | 共通 | `hx-disabled-elt="this"`、`hx-indicator` | 二重送信防止・ローディング表示。Optimistic UI とスケルトンは使わない |
 
-`static/dist/js/app.js`（外部ファイル。CSP の `script-src 'self'` で許可される。インラインではない）は次の 6 つだけを行う。
+`static/dist/js/app.js` と `static/dist/js/modal.js`（外部ファイル。CSP の `script-src 'self'` で許可される。インラインではない）は次の 7 つだけを行う。`htmx:confirm` の項目は `modal.js`、ほかは `app.js`（行数の上限 300 行のため分けている）。
 
 - `htmx:beforeRequest` で、`document.hidden` のあいだ `…/snapshot` へのリクエストを `preventDefault()` で取り消す（FR-POLL-3）
 - `visibilitychange` で `document.hidden` が `false` になったら `htmx.trigger(document.body, 'refresh')` を発火し、即時取得する（NFR-AVL-4）
@@ -341,3 +341,4 @@ HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"include
 | 1.6 | 2026-11-05 | 接続の削除・保存データの初期化の確認を `window.confirm` から確認ダイアログに、ペアリング確認を全画面からモーダルに変更。`app.js` の役割に `htmx:confirm` とモーダルを追記 | Issue #37（デザインガイド O1・O2） |
 | 1.7 | 2026-11-05 | `app.js` の役割に、差し替えで消えるアラート・モーダルの退出フェード（`leave-fade` 拡張）を追記。`<body>` の `hx-ext` を `response-targets, leave-fade` に | Issue #55（デザインガイド M5・O1） |
 | 1.8 | 2026-11-05 | `app.js` の役割に、モーダルのヘッダーの × ボタン（`data-modal-close`）と、時間を CSS のトークンから読むことを追記 | Issue #62・#63（デザインガイド M1・O2） |
+| 1.9 | 2026-11-05 | 確認ダイアログとモーダルの処理（`htmx:confirm` ほか）を `app.js` から `modal.js` に分け、`/static/*` とレイアウトの読み込みに `modal.js` を追加 | linterly の行数上限（300 行）への対処 |

@@ -29,7 +29,7 @@ tasks:
     cmds:
       - go tool templ generate
       - bunx @tailwindcss/cli -i static/src/css/app.css -o static/dist/css/app.css --minify
-      # htmx・response-targets 拡張・app.js を static/dist/js/ へ、フォントを static/dist/fonts/ へ配置する。
+      # htmx・response-targets 拡張・app.js・modal.js を static/dist/js/ へ、フォントを static/dist/fonts/ へ配置する。
       # Windows でも動くよう cp / mkdir ではなく bun を使う（Bun.write は親ディレクトリも作る）。
       - |
         bun -e '
@@ -37,6 +37,7 @@ tasks:
             ["node_modules/htmx.org/dist/htmx.min.js", "static/dist/js/htmx.min.js"],
             ["node_modules/htmx-ext-response-targets/dist/response-targets.min.js", "static/dist/js/response-targets.min.js"],
             ["static/src/js/app.js", "static/dist/js/app.js"],
+            ["static/src/js/modal.js", "static/dist/js/modal.js"],
             // Nerd Font の Symbols Only（PUA のアイコン）。app.css の @font-face が ../fonts/ で参照する。
             ["static/src/fonts/SymbolsNerdFontMono-Regular.woff2", "static/dist/fonts/SymbolsNerdFontMono-Regular.woff2"],
             // Ousiass デザインガイドの書体（Sora・Noto Sans JP の JIS X 0208 サブセット・JetBrains Mono。いずれも SIL OFL）。
