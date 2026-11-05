@@ -44,7 +44,7 @@ swarm-viewer/
 └── testdata/vectors/          # デスクトップ（Go）と Android（Kotlin）が共有するテストベクタ（§11.5）
 ```
 
-- `package.json` は **devDependencies のみ**（実行時の JS 依存はない。`static/dist/js/` に配置するのは htmx と自前の `app.js`。フォントの woff2 は変換済みのものを `static/src/fonts/` にコミットし、ビルドでは変換しない）
+- `package.json` は **devDependencies のみ**（実行時の JS 依存はない。`static/dist/js/` に配置するのは htmx と自前の `app.js`・`modal.js`。フォントの woff2 は変換済みのものを `static/src/fonts/` にコミットし、ビルドでは変換しない）
 - ロックファイルは `bun.lock`（bun のバージョンが出力する形式に従う）。`package-lock.json`・`yarn.lock`・`pnpm-lock.yaml` は作らない・コミットしない
 
 ## 3. 開発環境セットアップ
@@ -74,7 +74,7 @@ swarm-viewer/
 | タスク | 内容 |
 |--------|------|
 | `task setup` | `bun install --frozen-lockfile` → `bunx lefthook install` → `task generate`。clone 直後に 1 回実行する |
-| `task generate` | `go tool templ generate` → Tailwind CLI で `static/dist/css/app.css` を生成（`bunx @tailwindcss/cli -i static/src/css/app.css -o static/dist/css/app.css --minify`）→ htmx（と `response-targets` 拡張）を `node_modules` から、`app.js` を `static/src/js/` から `static/dist/js/` へコピー → 同梱フォントの woff2（Sora・Noto Sans JP・JetBrains Mono・Symbols Nerd Font。コミット済みの `static/src/fonts/`）を `static/dist/fonts/` へコピー |
+| `task generate` | `go tool templ generate` → Tailwind CLI で `static/dist/css/app.css` を生成（`bunx @tailwindcss/cli -i static/src/css/app.css -o static/dist/css/app.css --minify`）→ htmx（と `response-targets` 拡張）を `node_modules` から、`app.js`・`modal.js` を `static/src/js/` から `static/dist/js/` へコピー → 同梱フォントの woff2（Sora・Noto Sans JP・JetBrains Mono・Symbols Nerd Font。コミット済みの `static/src/fonts/`）を `static/dist/fonts/` へコピー |
 | `task fmt` | `golangci-lint fmt` → `go tool templ fmt .` → `bunx biome format --write .` |
 | `task lint` | `golangci-lint run ./...` → `go tool templ fmt -fail .` → `bunx biome check .` → `bunx linterly check` |
 | `task test` | `task generate` → `go test ./...` |
@@ -445,3 +445,4 @@ Release の APK の確認（検証手順と実機確認。手動確認項目）:
 | 1.6 | 2026-11-05 | §11「Android 版」を追加（JDK 17・Android SDK の導入、`android/**` の CI、署名鍵の扱い、Android のリリース手順、テストベクタ）。§1・§2 に Android を追記 | Issue #15（Android 版の仕様書への反映） |
 | 1.7 | 2026-11-05 | §11.2 を `ci.yml` への Android ジョブ（`android-lint`・`android-test`・`android-build`）の追加と、`changes` ジョブによる出し分けに確定（別の `android-ci.yml` は置かない）。ランナーへの JDK・SDK の導入手順を追記。§11.3 に署名のシークレットの参照先（`build-android` の署名の step）、未登録のときの扱い、鍵の作成・登録の手順を追記。§11.4 を `build-android` が署名する構成・成果物名 `swarm-viewer_vX.Y.Z_android_universal.apk`・版の決め方・検証手順に確定。§5.2・§5.5 に Android を追記 | Issue #22（Android の CI と署名済み APK のリリース） |
 | 1.8 | 2026-11-05 | §11.2 の Android ジョブの JDK 17・Android SDK を、ランナーのホストへの事前導入から、ジョブの最初に `setup-android-toolchain.sh` が無ければダウンロードする方式に変更（固定版・sha256 検証・再試行・ランナーのツールキャッシュで再利用）。§5.2・§11.4 の関連記述を更新 | Issue #22（悠太さんの依頼: セルフホストランナーのまま、無ければダウンロード） |
+| 1.9 | 2026-11-05 | §3.2 の `task generate` と `static/dist/js/` の配置対象に `modal.js` を追加 | linterly の行数上限（300 行）への対処 |

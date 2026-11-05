@@ -33,7 +33,7 @@ func TestBase_HeadAndBody(t *testing.T) {
 		`<!doctype html>`, `lang="ja"`, `<title>タイトル</title>`,
 		`<meta name="csrf-token" content="csrf-test-token">`,
 		`href="/static/css/app.css"`,
-		`src="/static/js/htmx.min.js"`, `src="/static/js/response-targets.min.js"`, `src="/static/js/app.js"`,
+		`src="/static/js/htmx.min.js"`, `src="/static/js/response-targets.min.js"`, `src="/static/js/app.js"`, `src="/static/js/modal.js"`,
 		`hx-ext="response-targets, leave-fade"`, `<main id="main"`, `id="child"`, `id="toasts"`,
 		"p-4 md:p-6", // ガターはモバイル 16・デスクトップ 24（ガイド S5）
 		`<dialog id="confirm-dialog"`, "data-modal", "rounded-xl", "shadow-modal", `data-modal-result="cancel"`, `data-modal-result="confirm"`, "border-danger/45",
@@ -76,8 +76,8 @@ func TestBase_NoInlineScriptOrStyle(t *testing.T) {
 	t.Parallel()
 	out := render(t, "x")
 	scripts := webtest.Elements(t, out, "script")
-	if len(scripts) != 3 {
-		t.Errorf("script は外部 3 本だけ: %d", len(scripts))
+	if len(scripts) != 4 {
+		t.Errorf("script は外部 4 本だけ: %d", len(scripts))
 	}
 	for _, s := range scripts {
 		if src, ok := webtest.Attr(s, "src"); !ok || !strings.HasPrefix(src, "/static/") {

@@ -25,6 +25,7 @@ const (
 	StaticHTMX           = "/static/js/htmx.min.js"
 	StaticResponseTarget = "/static/js/response-targets.min.js"
 	StaticAppJS          = "/static/js/app.js"
+	StaticModalJS        = "/static/js/modal.js"
 )
 
 // Connection は `/connections/{cid}`。
