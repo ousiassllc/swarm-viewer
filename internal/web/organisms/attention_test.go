@@ -90,6 +90,9 @@ func TestAttentionBar_SplitsPaneAndAgentGroups(t *testing.T) {
 	if idx(`data-attention-agent="claude"`) >= idx(`data-attention-agent="codex"`) || idx(`data-attention-agent="codex"`) >= idx(`data-attention-agent="cursor"`) {
 		t.Error("エージェントは名前順（claude, codex, cursor）")
 	}
+	// テキストリストの項目間は 8px（ガイド §4 リスト）。
+	webtest.MustContain(t, html, `<ul class="flex flex-col gap-2 px-4 py-3" data-attention-group="panes">`, `<ul class="flex flex-col gap-2 px-4 py-3" data-attention-agent="claude">`)
+	webtest.MustNotContain(t, html, "gap-1")
 	claude := html[idx(`data-attention-agent="claude"`):idx(`data-attention-agent="codex"`)]
 	if strings.Count(claude, "<li") != 2 {
 		t.Errorf("claude の 2 件は 1 ブロックにまとまる: %q", claude)

@@ -222,4 +222,17 @@ func TestModal_AppJSAndCSS(t *testing.T) {
 			t.Errorf("app.css に %q が無い", want)
 		}
 	}
+	// モーダルの影はダークで見えるよう、prefers-color-scheme: dark のブロックでライトより濃い値（.4）に切り替える（ガイド C5）。
+	dark := string(css)
+	start := strings.Index(dark, "prefers-color-scheme:dark")
+	if start < 0 {
+		t.Fatal("app.css に prefers-color-scheme: dark のブロックが無い")
+	}
+	dark = dark[start:]
+	if end := strings.Index(dark, "@property"); end >= 0 {
+		dark = dark[:end]
+	}
+	if !strings.Contains(dark, "--shadow-modal:0 1px 2px #0006") {
+		t.Errorf("ダークのブロックに --shadow-modal（0 1px 2px rgb(0 0 0 / .4)）が無い: %s", dark)
+	}
 }

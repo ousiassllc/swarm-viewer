@@ -16,7 +16,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,6 +33,7 @@ import com.ousiassllc.swarmviewer.domain.ALLOWED_SCREEN_POLL_SECONDS
 import com.ousiassllc.swarmviewer.ui.main.MutedText
 import com.ousiassllc.swarmviewer.ui.main.NoticeText
 import com.ousiassllc.swarmviewer.ui.theme.AppAlert
+import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 
 /**
@@ -56,7 +56,7 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("設定") }, navigationIcon = { TextButton(onClick = onBack) { Text("戻る") } })
+            TopAppBar(title = { Text("設定") }, navigationIcon = { AppNavTextButton("戻る", onBack) })
         },
     ) { padding ->
         Column(

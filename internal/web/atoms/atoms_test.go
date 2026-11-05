@@ -65,6 +65,9 @@ func TestAlert_KindsHaveIconAndText(t *testing.T) {
 		html := webtest.Render(t, atoms.Alert(atoms.AlertProps{Kind: tt.kind, Message: "<b>x</b>"}))
 		// 出現はフェードイン（.fade-in）。ポーリングの再描画で繰り返さないために data-alert で app.js が見分ける（M5）。
 		webtest.MustContain(t, html, tt.role, tt.color, tt.icon, `<svg`, `aria-hidden="true"`, "&lt;b&gt;", "fade-in", "data-alert")
+		// ガイドの見本の形: surface 地・1px の border・左 3px の状態色・--r-md・文字は ink（状態色はアイコンと左の帯だけ）。
+		webtest.MustContain(t, html, "bg-surface", "border-border", "border-l-[3px]", "border-l-"+strings.TrimPrefix(tt.color, "text-"), "rounded-md", "text-ink")
+		webtest.MustNotContain(t, html, "/10", "border-danger/60", "rounded-lg")
 		webtest.MustNotContain(t, html, "<b>")
 	}
 }
@@ -117,8 +120,8 @@ func TestButton_HostsRipple(t *testing.T) {
 func TestConfirmDialog(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, atoms.ConfirmDialog())
-	webtest.MustContain(t, html, `<dialog id="confirm-dialog"`, "data-modal", "rounded-xl", "shadow-modal", "m-auto",
-		"data-confirm-title", "data-confirm-message", "data-confirm-action", "bg-danger", `data-modal-result="cancel"`, "キャンセル")
+	webtest.MustContain(t, html, `<dialog id="confirm-dialog"`, "data-modal", "rounded-xl", "border border-border", "shadow-modal", "m-auto",
+		"data-confirm-title", "data-confirm-message", "data-confirm-action", "text-danger", "border-danger/45", `data-modal-result="cancel"`, "キャンセル")
 	webtest.MustNotContain(t, html, "<script", "onclick", "hx-on", " open")
 	// ボタン列は 8px（ガイド S2）。
 	webtest.MustContain(t, html, `class="flex items-center justify-end gap-2"`)
@@ -128,8 +131,21 @@ func TestConfirmDialog(t *testing.T) {
 func TestButton(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, atoms.Button(atoms.ButtonProps{Label: "削除", Variant: atoms.ButtonDanger, Attrs: templ.Attributes{"hx-delete": "/connections/x", "hx-confirm": `"確認" <ok>`}}))
-	webtest.MustContain(t, html, `type="button"`, `hx-delete="/connections/x"`, "bg-danger", "&#34;確認&#34;")
+	// 危険ボタンは透明地・danger の文字と 45% の枠（ガイドの見本。塗りつぶさない）。
+	webtest.MustContain(t, html, `type="button"`, `hx-delete="/connections/x"`, "bg-transparent", "text-danger", "border-danger/45", "hover:bg-danger/10", "&#34;確認&#34;")
+	webtest.MustNotContain(t, html, "bg-danger ", "bg-danger/85")
 	webtest.MustContain(t, webtest.Render(t, atoms.Button(atoms.ButtonProps{Label: "送信", Type: "submit"})), `type="submit"`)
+}
+
+// ボタンの大きさは標準（高さ 40・padding 18・16px）と小（高さ 32・padding 12・14px）（ガイド O7）。ゼロ値は標準。
+func TestButton_Sizes(t *testing.T) {
+	t.Parallel()
+	standard := webtest.Render(t, atoms.Button(atoms.ButtonProps{Label: "保存"}))
+	webtest.MustContain(t, standard, "h-10", "px-[18px]", "text-base")
+	webtest.MustNotContain(t, standard, "h-8", "text-sm")
+	small := webtest.Render(t, atoms.Button(atoms.ButtonProps{Label: "削除", Size: atoms.ButtonSmall}))
+	webtest.MustContain(t, small, "h-8", "px-3", "text-sm")
+	webtest.MustNotContain(t, small, "h-10", "px-[18px]")
 }
 
 func TestInput(t *testing.T) {

@@ -136,7 +136,7 @@ templ AttentionBar(p AttentionBarProps) {
 templ attentionList(g attentionGroups, auth domain.Auth) {
 	<div class={ attentionBoxClass(g) }>
 		if len(g.Panes) > 0 {
-			<ul class="flex flex-col gap-1 px-4 py-3" data-attention-group="panes">
+			<ul class="flex flex-col gap-2 px-4 py-3" data-attention-group="panes">
 				for _, a := range g.Panes {
 					@molecules.AttentionItem(molecules.AttentionItemProps{Attention: a, AuthExpiresAt: authExpiresAt(auth, a)})
 				}
@@ -145,7 +145,7 @@ templ attentionList(g attentionGroups, auth domain.Auth) {
 		if len(g.Agents) > 0 {
 			<div class={ attentionAgentsClass(g) } data-attention-group="agents">
 				for _, ag := range g.Agents {
-					<ul class="flex flex-col gap-1 px-4 py-3" data-attention-agent={ ag.Agent }>
+					<ul class="flex flex-col gap-2 px-4 py-3" data-attention-agent={ ag.Agent }>
 						for _, a := range ag.Items {
 							@molecules.AttentionItem(molecules.AttentionItemProps{Attention: a, AuthExpiresAt: authExpiresAt(auth, a)})
 						}

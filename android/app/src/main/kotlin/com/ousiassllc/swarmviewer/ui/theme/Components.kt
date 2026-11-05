@@ -4,7 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,7 +18,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,9 +31,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -123,7 +118,20 @@ fun AppDangerTextButton(
     )
 }
 
-/** 入力欄（ガイド）: フォーカス中の枠と caret はフォーカスリング色（[ExtraColors.focus]）。 */
+/**
+ * 画面の移動先を示すだけのテキスト操作（接続管理・設定・戻る。ガイド T2）: ナビ・リンクは Regular。
+ * SemiBold はボタンの文字だけなので、ダイアログの確定・キャンセルなど操作の [TextButton] は既定のまま使う。
+ */
+@Composable
+fun AppNavTextButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    TextButton(onClick = onClick, modifier = modifier) { Text(label, style = MaterialTheme.typography.bodyMedium) }
+}
+
+/** 入力欄（ガイド）: 地は surface（Web の `bg-surface` と同じ）。フォーカス中の枠と caret はフォーカスリング色（[ExtraColors.focus]）。 */
 @Composable
 fun AppTextField(
     value: String,
@@ -135,6 +143,7 @@ fun AppTextField(
     singleLine: Boolean = false,
 ) {
     val focus = MaterialTheme.extraColors.focus
+    val surface = MaterialTheme.colorScheme.surface
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -145,71 +154,14 @@ fun AppTextField(
         shape = MaterialTheme.shapes.medium,
         colors =
             OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = surface,
+                unfocusedContainerColor = surface,
                 focusedBorderColor = focus,
                 focusedLabelColor = focus,
                 cursorColor = focus,
             ),
         modifier = modifier,
     )
-}
-
-/** インラインアラートの種類（ガイド: お知らせ / 成功 / 注意 / エラー）。 */
-enum class AlertKind { Info, Success, Warning, Danger }
-
-private const val ALERT_BACKGROUND_ALPHA = 0.1f
-private const val ALERT_BORDER_ALPHA = 0.6f
-
-@Composable
-private fun AlertKind.color(): Color =
-    when (this) {
-        AlertKind.Info -> MaterialTheme.extraColors.info
-        AlertKind.Success -> MaterialTheme.extraColors.success
-        AlertKind.Warning -> MaterialTheme.extraColors.warning
-        AlertKind.Danger -> MaterialTheme.extraColors.danger
-    }
-
-private fun AlertKind.iconRes(): Int =
-    when (this) {
-        AlertKind.Info -> R.drawable.ic_alert_info
-        AlertKind.Success -> R.drawable.ic_alert_success
-        AlertKind.Warning -> R.drawable.ic_alert_warning
-        AlertKind.Danger -> R.drawable.ic_alert_danger
-    }
-
-/**
- * インラインアラート（ガイド C4）: 状態色の枠と薄い地・Iconoir のアイコン＋文言。状態は色だけでなくアイコンと文言でも伝える。
- * [title] は見出し（SemiBold・14sp）で、あれば [message] の前に出す（空なら出さない）。1 文で足りるときは [message] だけでよい。
- * [title]・[message] は信頼できない入力でもテキストとして描画する。続けて操作などを載せるときは [content] に書く。
- * 出現は読み上げに通知する（Web の `role="alert"` / `role="status"` に当たる）。
- */
-@Composable
-fun AppAlert(
-    message: String,
-    modifier: Modifier = Modifier,
-    kind: AlertKind = AlertKind.Danger,
-    title: String = "",
-    content: @Composable ColumnScope.() -> Unit = {},
-) {
-    val color = kind.color()
-    Surface(
-        modifier = modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
-        color = color.copy(alpha = ALERT_BACKGROUND_ALPHA),
-        contentColor = color,
-        shape = MaterialTheme.shapes.large,
-        border = BorderStroke(1.dp, color.copy(alpha = ALERT_BORDER_ALPHA)),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(painterResource(kind.iconRes()), contentDescription = null, modifier = Modifier.padding(top = 2.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (title.isNotEmpty()) Text(title, style = MaterialTheme.typography.titleSmall)
-                if (message.isNotEmpty()) Text(message, style = MaterialTheme.typography.bodyMedium)
-                content()
-            }
-        }
-    }
 }
 
 private const val DASH_LENGTH_DP = 6f

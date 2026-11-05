@@ -54,14 +54,14 @@ private fun AttentionList(
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Column {
             if (groups.panes.isNotEmpty()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     groups.panes.forEach { AttentionRow(it, auth) }
                 }
             }
             if (groups.panes.isNotEmpty() && groups.agents.isNotEmpty()) HorizontalDivider()
             groups.agents.forEachIndexed { index, agent ->
                 if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     agent.items.forEach { AttentionRow(it, auth) }
                 }
             }

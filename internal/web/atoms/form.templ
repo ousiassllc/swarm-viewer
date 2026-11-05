@@ -10,6 +10,15 @@ const (
 	ButtonDanger    ButtonVariant = "danger"
 )
 
+// ButtonSize はボタンの大きさ（ガイド O7）。
+type ButtonSize string
+
+// ButtonSize の値。ゼロ値は標準（高さ 40・16px）。モーダル・ヘッダー・一覧行の操作は ButtonSmall を明示する。
+const (
+	ButtonDefault ButtonSize = ""
+	ButtonSmall   ButtonSize = "small"
+)
+
 // ButtonProps は Button の入力。
 type ButtonProps struct {
 	// Label は表示文字列。
@@ -18,6 +27,8 @@ type ButtonProps struct {
 	Type string
 	// Variant は見た目。未知の値は secondary。
 	Variant ButtonVariant
+	// Size は大きさ。空なら標準（高さ 40・padding 18・16px）、ButtonSmall は高さ 32・padding 12・14px。
+	Size ButtonSize
 	// Attrs は hx-* など追加の属性。値は Templ がエスケープする。
 	Attrs templ.Attributes
 }
@@ -27,10 +38,18 @@ func buttonClass(v ButtonVariant) string {
 	case ButtonPrimary:
 		return "bg-accent text-bone hover:bg-accent/85"
 	case ButtonDanger:
-		return "bg-danger text-bone hover:bg-danger/85"
+		return "border border-danger/45 bg-transparent text-danger hover:bg-danger/10"
 	default:
 		return "border border-border bg-transparent text-ink hover:bg-accent-soft"
 	}
+}
+
+// buttonSizeClass は大きさのクラス。標準は入力欄（min-h-10）と同じ高さ 40、小は高さ 32。
+func buttonSizeClass(s ButtonSize) string {
+	if s == ButtonSmall {
+		return "h-8 px-3 text-sm"
+	}
+	return "h-10 px-[18px] text-base"
 }
 
 func buttonType(t string) string {
@@ -44,7 +63,7 @@ func buttonType(t string) string {
 templ Button(p ButtonProps) {
 	<button
 		type={ buttonType(p.Type) }
-		class={ "relative inline-flex h-8 items-center gap-2 overflow-clip rounded-md px-4 text-sm font-semibold disabled:opacity-40", buttonClass(p.Variant) }
+		class={ "relative inline-flex items-center gap-2 overflow-clip rounded-md font-semibold disabled:opacity-40", buttonSizeClass(p.Size), buttonClass(p.Variant) }
 		{ p.Attrs... }
 	>
 		{ p.Label }

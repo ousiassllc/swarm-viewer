@@ -1,5 +1,6 @@
 package com.ousiassllc.swarmviewer.ui.main
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,6 +42,7 @@ import com.ousiassllc.swarmviewer.ui.NEEDS_REPAIR_LABEL
 import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
+import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import java.time.Instant
 
 /**
@@ -72,8 +74,8 @@ fun MainScreen(
             TopAppBar(
                 title = { ConnectionTitle(state.connections, viewModel::selectConnection) },
                 actions = {
-                    TextButton(onClick = onManageConnections) { Text("接続") }
-                    TextButton(onClick = onSettings) { Text("設定") }
+                    AppNavTextButton("接続", onManageConnections)
+                    AppNavTextButton("設定", onSettings)
                 },
             )
         },
@@ -121,7 +123,13 @@ private fun ConnectionTitle(
         // Iconoir の nav-arrow-down。色は周囲の文字色（LocalContentColor）に従う。
         Icon(painterResource(R.drawable.ic_nav_arrow_down), contentDescription = null)
     }
-    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+    DropdownMenu(
+        expanded = open,
+        onDismissRequest = { open = false },
+        // ガイド S3・§6: 影はモーダルだけ。メニューは 1px の border（M3 の既定は影 3dp・枠なし）。
+        shadowElevation = 0.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+    ) {
         connections.forEach { item ->
             DropdownMenuItem(
                 // labelLarge はボタン用の SemiBold。メニュー項目は Regular（T2）なので bodyMedium を明示する。
