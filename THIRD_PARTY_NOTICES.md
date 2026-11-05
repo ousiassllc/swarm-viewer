@@ -29,7 +29,7 @@ swarm-viewer が同梱する第三者の成果物と、そのライセンス。
 
 | 項目 | 内容 |
 |------|------|
-| 同梱物（Web） | `internal/web/atoms/icon.templ` に埋め込んだ `warning-circle`・`warning-triangle`・`info-circle`・`check-circle` の線画（インライン SVG） |
+| 同梱物（Web） | `internal/web/atoms/icon.templ` に埋め込んだ `warning-circle`・`warning-triangle`・`info-circle`・`check-circle`・`check` の線画（インライン SVG） |
 | 同梱物（Android） | `android/app/src/main/res/drawable/` の `ic_alert_danger.xml`・`ic_alert_warning.xml`・`ic_alert_info.xml`・`ic_alert_success.xml`・`ic_nav_arrow_down.xml`（vector drawable に変換） |
 | 元 | [Iconoir](https://github.com/iconoir-icons/iconoir) |
 | 加工 | 線の太さ 1.5・丸い端のまま、色を `currentColor`（Android は使う側の tint）にした |

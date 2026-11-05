@@ -26,6 +26,7 @@ import com.ousiassllc.swarmviewer.ui.NEEDS_REPAIR_LABEL
 import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppCard
+import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 
 /**
@@ -54,7 +55,7 @@ fun ConnectionsScreen(
             val connections = state.connections
             when {
                 connections == null -> Text("読み込み中…")
-                connections.isEmpty() -> Text("接続がありません。接続文字列を貼り付けるか、QR を読み取って追加してください。")
+                connections.isEmpty() -> AppEmptyState("接続がありません。接続文字列を貼り付けるか、QR を読み取って追加してください。")
                 else ->
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
                         items(connections, key = { it.id }) { item ->

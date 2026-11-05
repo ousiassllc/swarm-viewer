@@ -103,9 +103,12 @@ templ SnapshotRegion(p SnapshotViewProps) {
 		}
 	>
 		if p.isLoading() {
-			<p role="status" class="text-sm text-ink">{ emptyMessage(p) }</p>
+			<div class="flex items-center gap-2 text-sm text-ink">
+				@atoms.Spinner(atoms.SpinnerProps{Size: atoms.SpinnerSmall})
+				<span role="status">{ emptyMessage(p) }</span>
+			</div>
 		} else if p.isEmpty() {
-			<p class="text-sm text-ink">{ emptyMessage(p) }</p>
+			@atoms.EmptyState(atoms.EmptyStateProps{Message: emptyMessage(p)})
 		} else {
 			@AttentionBar(AttentionBarProps{Attention: p.Snapshot.Report.Attention, Warnings: p.Snapshot.Report.Warnings, Auth: p.Snapshot.Report.Auth})
 			@PaneGrid(PaneGridProps{Layout: p.Snapshot.Report.Layout, Panes: p.Snapshot.Report.Panes, Attention: p.Snapshot.Report.Attention, Stale: !p.Fresh})

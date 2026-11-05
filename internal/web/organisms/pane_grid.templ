@@ -2,6 +2,7 @@ package organisms
 
 import (
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
 	"slices"
 )
@@ -58,7 +59,7 @@ func cardProps(p PaneGridProps, pane domain.Pane) molecules.PaneCardProps {
 // 欠落・不整合ならペイン順のリスト。ペインが 0 件なら空状態の文言。
 templ PaneGrid(p PaneGridProps) {
 	if len(p.Panes) == 0 {
-		<p class="text-sm text-ink">ペインがありません</p>
+		@atoms.EmptyState(atoms.EmptyStateProps{Message: "ペインがありません"})
 	} else if rows := gridRows(p.Layout, p.Panes); rows != nil {
 		<div class="flex flex-col gap-3" data-layout="grid">
 			for _, row := range rows {

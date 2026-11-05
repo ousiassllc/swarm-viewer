@@ -1,0 +1,17 @@
+package atoms
+
+// EmptyStateProps は EmptyState の入力。
+type EmptyStateProps struct {
+	// Message は状態の説明（「ペインがありません」など）。
+	Message string
+}
+
+// EmptyState は空状態の部品（ガイド §4: 破線 border・--r-lg・padding 48 / モバイル 24・アイコン 32px＋文言＋主ボタン）。
+// 次の操作（主ボタンなど）は子要素に書く。ローディングは空状態ではないので Spinner を使う。
+templ EmptyState(p EmptyStateProps) {
+	<div class="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border p-6 text-center text-sm text-ink md:p-12">
+		@Icon(IconInfoCircle, "h-8 w-8 text-mute")
+		<p>{ p.Message }</p>
+		{ children... }
+	</div>
+}

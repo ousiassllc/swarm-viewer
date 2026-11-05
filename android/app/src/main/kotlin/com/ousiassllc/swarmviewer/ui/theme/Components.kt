@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -20,13 +21,21 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.ousiassllc.swarmviewer.R
@@ -154,5 +163,50 @@ fun AppAlert(
                 content()
             }
         }
+    }
+}
+
+private const val DASH_LENGTH_DP = 6f
+private val EmptyStatePadding = 24.dp
+private val EmptyStateIconSize = 32.dp
+
+/**
+ * 空状態（ガイド S4・§4）: 1dp の破線の枠・角丸 12dp（r-lg）・余白 24dp・32dp のアイコン＋文言。次の操作（主ボタンなど）は [content] に書く。
+ * ローディングは空状態ではないので、これではなく進捗表示を使う。[message] は信頼できない入力でもテキストとして描画する。
+ */
+@Composable
+fun AppEmptyState(
+    message: String,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit = {},
+) {
+    val borderColor = MaterialTheme.colorScheme.outline
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .drawBehind {
+                    val width = 1.dp.toPx()
+                    val dash = DASH_LENGTH_DP.dp.toPx()
+                    val radius = 12.dp.toPx()
+                    drawRoundRect(
+                        color = borderColor,
+                        topLeft = Offset(width / 2, width / 2),
+                        size = Size(size.width - width, size.height - width),
+                        cornerRadius = CornerRadius(radius),
+                        style = Stroke(width = width, pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash, dash))),
+                    )
+                }.padding(EmptyStatePadding),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(
+            painterResource(R.drawable.ic_alert_info),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(EmptyStateIconSize),
+        )
+        Text(message, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+        content()
     }
 }

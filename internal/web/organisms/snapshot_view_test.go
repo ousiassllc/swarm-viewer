@@ -154,7 +154,7 @@ func TestSnapshotView_EmptyState(t *testing.T) {
 	t.Parallel()
 	p := organisms.SnapshotViewProps{Fresh: false, Err: &domain.FetchError{Kind: domain.ErrUnreachable}, PollSeconds: 10, ConnectionID: "c", Session: "0", Now: now}
 	html := webtest.Render(t, organisms.SnapshotView(p))
-	webtest.MustContain(t, html, "表示できるデータがありません", "ホストに届きません")
+	webtest.MustContain(t, html, "表示できるデータがありません", "ホストに届きません", "border-dashed")
 	webtest.MustNotContain(t, html, "<progress", "<article")
 }
 
@@ -174,7 +174,9 @@ func TestSnapshotView_InitialWithoutErrorShowsPreviousNotice(t *testing.T) {
 	region := webtest.Render(t, organisms.SnapshotRegion(p))
 	webtest.MustContain(t, region, "読み込み中…")
 	webtest.MustNotContain(t, region, "表示できるデータがありません")
-	webtest.MustContain(t, region, `role="status"`)
+	// 読み込み中は空状態ではなくスピナー（ガイド S4）。
+	webtest.MustContain(t, region, `role="status"`, "htmx-indicator", "animate-spin")
+	webtest.MustNotContain(t, region, "border-dashed")
 	// ポーリング応答（SnapshotView）でも OOB のバナーは空になる。
 	oob := webtest.Render(t, organisms.SnapshotView(p))
 	webtest.MustContain(t, oob, `hx-swap-oob="true"`, "読み込み中…")

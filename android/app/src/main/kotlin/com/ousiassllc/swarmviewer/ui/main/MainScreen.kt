@@ -40,6 +40,7 @@ import com.ousiassllc.swarmviewer.service.ConnectionItem
 import com.ousiassllc.swarmviewer.ui.NEEDS_REPAIR_LABEL
 import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
+import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
 import java.time.Instant
 
 /**
@@ -94,8 +95,10 @@ fun MainScreen(
 
 @Composable
 private fun EmptyConnections(onManageConnections: () -> Unit) {
-    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("接続がありません。接続文字列を貼り付けるか、QR を読み取って追加してください。")
+    AppEmptyState(
+        "接続がありません。接続文字列を貼り付けるか、QR を読み取って追加してください。",
+        modifier = Modifier.padding(16.dp),
+    ) {
         AppButton(onClick = onManageConnections) { Text("接続を追加") }
     }
 }

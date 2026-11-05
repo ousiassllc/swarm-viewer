@@ -399,7 +399,9 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 | atoms | `Spinner` | `Size` | `hx-indicator` 用 |
 | atoms | `Toast` | `Message` | OOB 用。1 行の短文（エラー詳細には使わず、`Alert` を使う） |
 | atoms | `Alert` | `Kind`（`info`・`success`・`warning`・`danger`）・`Message`・`Attrs`・子要素 | インラインアラート（アイコン＋本文）。応答全体の失敗・フォームのエラー・警告バナー・取得失敗バナーはすべてこれに載せる。状態は色だけでなくアイコンと文言でも伝える（ガイド C4）。`danger`・`warning` は `role="alert"`、`info`・`success` は `role="status"` |
-| atoms | `Icon` | `Name`・`Class` | Iconoir（MIT）の線画をインライン `<svg>`（`aria-hidden`・`currentColor`）で出す。現在は `warning-circle`・`warning-triangle`・`info-circle`・`check-circle` |
+| atoms | `Icon` | `Name`・`Class` | Iconoir（MIT）の線画をインライン `<svg>`（`aria-hidden`・`currentColor`）で出す。現在は `warning-circle`・`warning-triangle`・`info-circle`・`check-circle`・`check` |
+| atoms | `Checkbox` | `Name`・`Value`・`Checked` | 18px・`--r-sm`・外枠 `--mute`。オンの印は Iconoir の `check`（インライン SVG） |
+| atoms | `EmptyState` | `Message`・子要素 | 空状態（破線の枠・`--r-lg`・padding 48 / モバイル 24・32px のアイコン＋文言＋子要素の主ボタン）。ローディングは `Spinner` を使う |
 | atoms | `Button` / `Input` | 通常の属性 | |
 | molecules | `PaneCard` | `Pane`・`Stale`・`Highlight`・`ReportWaiting` | 状態ラベル・activity・note 要約。`ReportWaiting` は state バッジの隣に「報告待ち」を出す。操作ボタンは**持たない** |
 | molecules | `UsageRow` | `Label`・`Slot` | `unit` で percent / usd を出し分け。`available: false` は「—」 |
@@ -516,3 +518,4 @@ func main() {
 | 1.7 | 2026-11-05 | `Host` に `Mem` を追加 | Issue #10 |
 | 1.8 | 2026-11-05 | `PaneCard` に `ReportWaiting`、`AttentionBar` にグループ分けと区切り線を追記 | Issue #8 |
 | 1.9 | 2026-11-05 | atoms に `Alert`（種別・アイコン付き）と `Icon` を追加し、各所のエラー文・バナーを `Alert` に統一。`muted` バッジの文字を ink に変更 | Issue #33（デザインガイド C4・C6） |
+| 2.0 | 2026-11-05 | atoms に `Checkbox`・`EmptyState` を追加。空状態・読み込み中の表示を分け、フォームの余白と `app.css` のトークン名（`--r-*`・`--ring`・`--motion-*`・`--ease-in-out`）をガイドにそろえた | Issue #35（デザインガイド S1・S2・S4・S5） |
