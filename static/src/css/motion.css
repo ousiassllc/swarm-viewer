@@ -29,10 +29,11 @@
  * 出現と退出のモーション（ガイド M5・NFR-DSG-6）。
  * アラートとトーストは .fade-in（フェードイン 320ms・ease-out・4px 上へ）で現れる。トーストの退出は .is-leaving
  * （フェードアウト 240ms・ease-in）を app.js が付け、animationend で消す。
+ * アラートの退出も .is-leaving（同じ 240ms）。差し替えで消えるアラートへ app.js が付け、フェードが終わってから差し替える。
  * .is-settled は、ポーリングの再描画で同じ文言のアラートが差し替わっただけのとき app.js が付ける（フェードを繰り返さない）。
  * ボタンの押下は .ripple（クリック点から円が広がって消える 280ms・ease-out。ガイド M4）。円の大きさと位置は app.js が CSSOM で決める。
- * モーダル（dialog.modal。確認ダイアログとペアリング確認）は、本体を .fade-in・.is-leaving、スクラム（::backdrop）を backdrop-in / out で
- * 同じ長さでフェードさせる（ガイド O1）。
+ * モーダル（dialog.modal。確認ダイアログとペアリング確認）は、本体を .modal-in（--motion-slow 280ms・ease-out）、スクラム（::backdrop）を
+ * backdrop-in（同じ 280ms）で出し、退出は本体を .is-leaving・スクラムを backdrop-out の 240ms・ease-in でフェードさせる（ガイド O1・M5）。
  * reduced-motion ではどれも付けない（退出は app.js が即時に消す）。
  */
 @layer components {
@@ -96,8 +97,12 @@
     background-color: var(--scrim);
   }
 
-  dialog.modal.fade-in::backdrop {
-    animation: backdrop-in var(--motion-fade-in) var(--ease-out) both;
+  dialog.modal-in::backdrop {
+    animation: backdrop-in var(--motion-slow) var(--ease-out) both;
+  }
+
+  .modal-in {
+    animation: fade-in var(--motion-slow) var(--ease-out) both;
   }
 
   dialog.modal.is-leaving::backdrop {
@@ -112,7 +117,8 @@
     animation: none;
   }
 
-  .fade-in.is-leaving {
+  .fade-in.is-leaving,
+  .modal-in.is-leaving {
     animation: fade-out var(--motion-fade-out) var(--ease-in) forwards;
   }
 
@@ -127,7 +133,9 @@
   @media (prefers-reduced-motion: reduce) {
     .fade-in,
     .fade-in.is-leaving,
-    dialog.modal.fade-in::backdrop,
+    .modal-in,
+    .modal-in.is-leaving,
+    dialog.modal-in::backdrop,
     dialog.modal.is-leaving::backdrop {
       animation: none;
     }
