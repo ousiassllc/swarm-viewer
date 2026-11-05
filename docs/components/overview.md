@@ -399,7 +399,7 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 | atoms | `Spinner` | `Size` | `hx-indicator` 用 |
 | atoms | `Toast` | `Kind`・`Message` | OOB 用 |
 | atoms | `Button` / `Input` | 通常の属性 | |
-| molecules | `PaneCard` | `Pane`・`Stale` | 状態ラベル・activity・note 要約。操作ボタンは**持たない** |
+| molecules | `PaneCard` | `Pane`・`Stale`・`Highlight`・`ReportWaiting` | 状態ラベル・activity・note 要約。`ReportWaiting` は state バッジの隣に「報告待ち」を出す。操作ボタンは**持たない** |
 | molecules | `UsageRow` | `Label`・`Slot` | `unit` で percent / usd を出し分け。`available: false` は「—」 |
 | molecules | `HostRow` | `Label`・`Percent`・`Detail` | |
 | molecules | `SessionTab` | `ConnectionID`・`Session`・`Selected` | `hx-get` |
@@ -408,7 +408,7 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 | organisms | `PaneGrid` | `Layout`・`[]Pane` | `Layout.Valid` でなければリスト表示 |
 | organisms | `UsagePanel` | `Usage`・`Stale` | `usage.status` による分岐（[機能要件 §5.1](../requirements/functional.md)） |
 | organisms | `HostPanel` | `Host` | |
-| organisms | `AttentionBar` | `[]Attention`・`[]Warning` | |
+| organisms | `AttentionBar` | `[]Attention`・`[]Warning`・`Auth` | ペイン関連とログイン関連の 2 グループに分け、グループ間とエージェントごとに区切り線を入れる（[機能要件 §7](../requirements/functional.md)） |
 | organisms | `SnapshotView` | `SnapshotResult`・`PollSeconds`・`Repair` | ポーリング属性（`hx-trigger`）を出す／出さないの判断を含む |
 | organisms | `ConnectionList` | `[]Connection` | |
 | pages | `MainPage` | 接続・タブ・スナップショット | |
@@ -512,3 +512,4 @@ func main() {
 | 1.5 | 2026-11-04 | 下書きの能動的な期限切れ掃除、`Confirm` 後の `Wake`、`Store.Open` の手順を追記 | 未確定の token をメモリに残さない・新規接続の最初の通知を早めるため |
 | 1.6 | 2026-11-05 | `AgentAccount`・`CursorAccount` に `Reason *string` を追加 | Issue #11 |
 | 1.7 | 2026-11-05 | `Host` に `Mem` を追加 | Issue #10 |
+| 1.8 | 2026-11-05 | `PaneCard` に `ReportWaiting`、`AttentionBar` にグループ分けと区切り線を追記 | Issue #8 |

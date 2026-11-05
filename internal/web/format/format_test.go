@@ -185,6 +185,25 @@ func TestClockAndDateTime_ZeroIsDash(t *testing.T) {
 	}
 }
 
+func TestDateTimeWithYear(t *testing.T) {
+	t.Parallel()
+	if got := format.DateTimeWithYear(time.Time{}); got != format.Dash {
+		t.Errorf("零値は Dash になるべき: %q", got)
+	}
+	// 年をまたぐ期限でも、常に年が付く。
+	for _, tt := range []struct {
+		ts   time.Time
+		want string
+	}{
+		{time.Date(2026, 9, 5, 17, 49, 0, 0, time.Local), "2026/09/05 17:49"},
+		{time.Date(2027, 1, 2, 3, 4, 0, 0, time.Local), "2027/01/02 03:04"},
+	} {
+		if got := format.DateTimeWithYear(tt.ts); got != tt.want {
+			t.Errorf("DateTimeWithYear(%v) = %q, want %q", tt.ts, got, tt.want)
+		}
+	}
+}
+
 func TestAttentionLabelAndTone(t *testing.T) {
 	t.Parallel()
 	for kind, want := range map[string]string{

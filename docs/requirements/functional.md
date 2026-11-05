@@ -67,6 +67,7 @@ graph TD
 - 上表以外の `state` 値を受け取ったときは `unknown` と同じ扱いで表示する（前方互換）
 - `stalled` のカードには `changed_ago`（画面が最後に変わってからの経過）を併記する
 - 既定の表示色（案）: `working`=accent、`asking`=warning、`idle`=success、`stalled`=error、`shell`・`unknown`=muted。色だけに依存せず、ラベルを必ず併記する
+- state とは別に、attention 由来のバッジ（`report_waiting` の「報告待ち」）をカードに併記することがある（§7）。`idle`（指示待ち）のカードに「報告待ち」が並ぶことがある
 
 ## 4. 画面
 
@@ -195,6 +196,12 @@ stateDiagram-v2
 - 未知の `kind` は無視せず、`kind` の文字列をそのまま表示する
 - `warnings[].code` が `tmux_unavailable` / `session_missing` / `pane_unreadable` / `layout_changed` のとき、警告バナーに `message` を表示する
 - `attention` の `asking` / `stalled` のペインカードは強調表示する
+- `attention` の `report_waiting` に該当するペイン（`pane` が一致）のカードは、state バッジの隣に「報告待ち」バッジを出す。state バッジは消さずに並べ、`detail` は出さない。枠色の強調はしない（強調は `asking` / `stalled` だけ）。`pane` が空の項目はどのカードにも付けない
+- 要対応バーの `attention[]` は次の 2 グループに分けて表示する。API が返す順は保証がないため、グループ内は並べ替える
+  1. ペイン関連（`pane` が付く項目。未知の `kind` も含む。`auth_expired` / `auth_expiring` は除く）: ペイン位置順（T1…T4、B1…B4）
+  2. エージェント・ログイン関連（`auth_expired` / `auth_expiring`、および `pane` が空の項目）: エージェント名（`detail`）順。同じエージェントの項目は 1 つのブロックにまとめる
+- 2 グループの間には区切り線を入れ、ログイン関連ではエージェント（claude / codex / cursor …）ごとにもそれより薄い区切り線を入れる。片方のグループしかないとき、エージェントが 1 つしかないときは、その分の線を出さない
+- ログイン期限（`auth.agents[].expires_at`）は年付きの「YYYY/MM/DD HH:MM」で表示する（年をまたぐ期限の誤読を防ぐ）。他の日時（「MM/DD HH:MM」）は変えない
 
 ## 8. OS 通知（FR-NTF-1〜3）
 
@@ -271,3 +278,4 @@ stateDiagram-v2
 | 1.5 | 2026-11-03 | 通知オフ中も画面更新で通知済み記録は更新する規則を追加 | コンポーネント設計（`Observe`）との整合 |
 | 1.6 | 2026-11-05 | §5.2 に、2 枠とも `available: false` のアカウントを「取得できません」1 行にまとめ、`reason` があれば理由を添える規則を追加 | Issue #11（「—」2 行では何が起きているか分からないため） |
 | 1.7 | 2026-11-05 | §6 にメモリ（`host.mem`）の行を追加し、「`mem_free_gb` は表示しない」を「メモリは `host.mem` を使う」に整理。行の列（ラベル・バー・値）の幅を固定し、バーの幅をそろえる規則を追加 | Issue #10（メモリの使用率の表示、ゲージの横幅のばらつき） |
+| 1.8 | 2026-11-05 | §3 に attention 由来のバッジを併記する注記を追加。§7 に、`report_waiting` のペインカードへの「報告待ち」バッジ、要対応バーのグループ分けと区切り線、ログイン期限の年表示を追加 | Issue #8（カードと要対応バーの表示の食い違い、要対応バーの読みにくさ） |

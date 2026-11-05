@@ -80,6 +80,15 @@ func DateTime(t time.Time) string {
 	return t.Local().Format("01/02 15:04")
 }
 
+// DateTimeWithYear は時刻をローカル時刻の「YYYY/MM/DD HH:MM」にする。零値は Dash。
+// 年をまたぐ期限を誤読させたくない箇所（ログイン期限）で使う。
+func DateTimeWithYear(t time.Time) string {
+	if t.IsZero() {
+		return Dash
+	}
+	return t.Local().Format("2006/01/02 15:04")
+}
+
 // Until は t までの残り時間を「あと N 分／時間／日」の形にする（機能要件 §5.2）。
 // 1 分未満・過去は「まもなく」。端数は切り捨てる。now は呼び出し側が渡す（テストで固定できる）。
 func Until(t, now time.Time) string {

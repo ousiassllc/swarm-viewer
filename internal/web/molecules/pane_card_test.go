@@ -95,3 +95,20 @@ func TestPaneCard_EscapesUntrustedText(t *testing.T) {
 	}
 	webtest.MustContain(t, html, "&lt;script&gt;")
 }
+
+func TestPaneCard_ReportWaitingBadge(t *testing.T) {
+	t.Parallel()
+	pane := domain.Pane{Pos: "T1", State: domain.StateIdle, Title: "t"}
+
+	html := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane, ReportWaiting: true}))
+	webtest.MustContain(t, html, "報告待ち", "指示待ち")
+	if strings.Index(html, "指示待ち") > strings.Index(html, "報告待ち") {
+		t.Error("「報告待ち」は state バッジの後に出る")
+	}
+	// report_waiting は枠色で強調しない（強調は asking / stalled だけ）。
+	webtest.MustNotContain(t, html, "ring-amber-400")
+
+	html = webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane}))
+	webtest.MustContain(t, html, "指示待ち")
+	webtest.MustNotContain(t, html, "報告待ち")
+}
