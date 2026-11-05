@@ -20,7 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -29,13 +28,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ousiassllc.swarmviewer.R
 import com.ousiassllc.swarmviewer.domain.ALLOWED_SCREEN_POLL_SECONDS
 
 /**
- * 設定画面（A3。機能要件 §12.4）。画面更新間隔（5 / 10 / 30 / 60 秒）の選択、表示名・バージョン、接続管理（A1）への導線。
- * 通知の項目は後続の変更が [SettingsSection] として同じ画面に足す。
+ * 設定画面（A3。機能要件 §12.4）。画面更新間隔（5 / 10 / 30 / 60 秒）の選択、通知の項目（[NotificationSettings]）、
+ * 表示名・バージョン、接続管理（A1）への導線。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,7 +45,11 @@ fun SettingsScreen(
     onBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { viewModel.refresh() }
+    // 開いたとき・システムの通知設定から戻ったときに、設定と通知の許可の状態を読み直す。
+    LifecycleResumeEffect(viewModel) {
+        viewModel.refresh()
+        onPauseOrDispose {}
+    }
 
     Scaffold(
         topBar = {
@@ -74,6 +78,7 @@ fun SettingsScreen(
                     )
                 }
             }
+            state.settings?.let { NotificationSettings(state, it, viewModel) }
             SettingsSection("接続") {
                 OutlinedButton(onClick = onOpenConnections, modifier = Modifier.fillMaxWidth()) { Text("接続を管理") }
             }
@@ -102,7 +107,7 @@ fun SettingsSection(
 }
 
 @Composable
-private fun RadioRow(
+internal fun RadioRow(
     label: String,
     selected: Boolean,
     onSelect: () -> Unit,

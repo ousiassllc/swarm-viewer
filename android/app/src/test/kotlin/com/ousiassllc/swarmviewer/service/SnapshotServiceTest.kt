@@ -21,6 +21,8 @@ class SnapshotServiceTest {
     private val store = FakeViewerStore()
     private val now = Instant.parse("2026-11-05T01:02:03Z")
     private var failure: FetchException? = null
+    private val observed = ArrayList<Triple<String, String, Instant>>()
+    private var observerFailure: Exception? = null
     private var sessions = listOf(Session("s0", true), Session("s1", false), Session("s2", true))
     private val service =
         SnapshotService(
@@ -30,6 +32,11 @@ class SnapshotServiceTest {
                 Report(panes = listOf(Pane(pos = "T1", id = "%1", title = session)))
             },
             store = store,
+            attention =
+                AttentionObserver { connection, session, _, at ->
+                    observed += Triple(connection.id, session, at)
+                    observerFailure?.let { throw it }
+                },
             clock = Clock.fixed(now, ZoneOffset.UTC),
         )
 
@@ -102,5 +109,36 @@ class SnapshotServiceTest {
             assertEquals("s2", service.lastSession("a"))
             assertNull(service.lastSession("b"))
             assertNull(service.lastSession("missing"))
+        }
+
+    @Test
+    fun aSuccessfulRefreshFeedsTheNotificationJudgement() =
+        runBlocking {
+            store.connectionRows["a"] = connection("a")
+
+            service.refresh("a", "s0")
+
+            assertEquals(listOf(Triple("a", "s0", now)), observed)
+        }
+
+    @Test
+    fun aFailedRefreshDoesNotTouchTheNotificationRecords() {
+        store.connectionRows["a"] = connection("a")
+        failure = FetchException(ErrKind.Unreachable)
+
+        assertThrows(FetchException::class.java) { runBlocking { service.refresh("a", "s0") } }
+
+        assertEquals(0, observed.size) // 取得に失敗したときは通知済みの記録を変えない（機能要件 §8.3）
+    }
+
+    @Test
+    fun aFailureInTheNotificationBookkeepingDoesNotFailTheRefresh() =
+        runBlocking {
+            store.connectionRows["a"] = connection("a")
+            observerFailure = IllegalStateException("db is broken")
+
+            val snapshot = service.refresh("a", "s0")
+
+            assertEquals(snapshot, service.cached("a", "s0")) // 取得できた表示は保存され、返る
         }
 }

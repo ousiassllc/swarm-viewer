@@ -74,6 +74,7 @@ class MainViewModel(
     private var fetchJob: Job? = null
     private var started = false
     private var sessionsStale = true
+    private var pendingOpen: Pair<String, String>? = null
 
     /** 画面が見える（ライフサイクルが STARTED 以上）。接続の一覧を読み直し、即時に取得してポーリングを始める。 */
     fun onStart() {
@@ -107,6 +108,18 @@ class MainViewModel(
             showSession(connectionId, id)
             if (started) startPolling(reload = false)
         }
+    }
+
+    /**
+     * 通知のタップなどで、接続×セッションを開く。その接続を選択し、セッションを記憶して表示する。画面が見えるようになってから
+     * （または、すでに見えていれば直ちに）読み直して適用する。存在しない接続は無視し、許可されていないセッションは先頭の許可セッションになる。
+     */
+    fun openSession(
+        connectionId: String,
+        session: String,
+    ) {
+        pendingOpen = connectionId to session
+        if (started) startPolling(reload = true)
     }
 
     /** ヘッダーのセレクタで接続を切り替える。 */
@@ -148,6 +161,7 @@ class MainViewModel(
 
     /** 接続の一覧と選択を読み直す。選択中の接続が変わっていれば、その接続の記憶したセッションと前回取得を出す。 */
     private suspend fun reload() {
+        val opened = pendingOpen?.also { pendingOpen = null }?.let { (connectionId, session) -> open(connectionId, session) } == true
         val items =
             try {
                 connections.list()
@@ -158,7 +172,7 @@ class MainViewModel(
                 return
             }
         val selected = items.firstOrNull { it.selected }
-        val changed = selected?.id != mutableState.value.connectionId
+        val changed = opened || selected?.id != mutableState.value.connectionId
         mutableState.update { it.copy(connections = items, needsRepair = selected?.needsRepair == true) }
         if (!changed) return
         sessionsStale = true
@@ -172,6 +186,16 @@ class MainViewModel(
         mutableState.update { it.copy(connectionId = id, sessions = emptyList(), sessionsLoaded = false) }
         val last = attempt { snapshots.lastSession(id) }
         showSession(id, last)
+    }
+
+    /** 通知から開く接続を選択してセッションを記憶する。接続が無ければ false。 */
+    private suspend fun open(
+        connectionId: String,
+        session: String,
+    ): Boolean {
+        if (attempt { connections.select(connectionId) } != true) return false
+        attempt { snapshots.remember(connectionId, session) }
+        return true
     }
 
     /** [session] を表示対象にし、保存済みの前回取得（あれば）を出す。 */

@@ -8,6 +8,7 @@ import com.ousiassllc.swarmviewer.domain.Pane
 import com.ousiassllc.swarmviewer.domain.PaneState
 import com.ousiassllc.swarmviewer.domain.Report
 import com.ousiassllc.swarmviewer.domain.Session
+import com.ousiassllc.swarmviewer.service.AttentionObserver
 import com.ousiassllc.swarmviewer.service.ConnectionService
 import com.ousiassllc.swarmviewer.service.ReportFetcher
 import com.ousiassllc.swarmviewer.service.SessionLister
@@ -86,6 +87,7 @@ internal abstract class MainViewModelFixture {
                     },
                 reports = reports,
                 store = store,
+                attention = AttentionObserver { _, _, _, _ -> },
             ),
             connections,
             SettingsService(store),

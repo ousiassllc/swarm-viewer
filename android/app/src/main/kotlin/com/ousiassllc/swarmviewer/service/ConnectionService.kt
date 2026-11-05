@@ -28,13 +28,15 @@ data class ConnectionItem(
  * 接続の一覧・切替・削除と、再ペアリングが必要な接続の管理（機能要件 §4.2、FR-PAIR-3・4）。
  * 削除は token → 接続の行の順（[ConnectionRepository.delete]）で、スナップショット・通知済み状態は外部キーで連鎖削除される。
  *
- * 401・403 の接続（[markNeedsRepair]）は DB に状態を持たず、メモリ上の集合だけで保持する（API 仕様 §1.5）。
- * アプリの再起動後は、初回の取得で再度判定される。
+ * 画面の取得で 401・403 を受けた接続（[markNeedsRepair]）は DB に状態を持たず、メモリ上の集合だけで保持する（API 仕様 §1.5）。
+ * アプリの再起動後は、初回の取得で再度判定される。バックグラウンドの確認が 401・403 と判定した接続は [flags] にも残り（プロセスをまたぐ）、
+ * 再ペアリングか削除まで一覧で「再ペアリングが必要」になる。
  */
 class ConnectionService(
     private val store: ViewerStore,
     private val tokens: TokenStore,
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    private val flags: RepairFlags = InMemoryRepairFlags(),
 ) {
     private val repository = ConnectionRepository(store, tokens)
     private val repairIds = MutableStateFlow<Set<String>>(emptySet())
@@ -51,7 +53,7 @@ class ConnectionService(
         val selectedId = selectedId(connections)
         val flagged = repairIds.value
         return withContext(io) {
-            connections.map { it.toItem(selectedId, it.id in flagged || tokens.get(it.id) == null) }
+            connections.map { it.toItem(selectedId, it.id in flagged || flags.isFlagged(it.id) || tokens.get(it.id) == null) }
         }
     }
 
@@ -74,8 +76,11 @@ class ConnectionService(
     /** 401・403 を受けた接続を、再ペアリングが必要として記録する。 */
     fun markNeedsRepair(id: String) = repairIds.update { it + id }
 
-    /** 再ペアリングに成功した接続（または削除した接続）の記録を外す。 */
-    fun markRepaired(id: String) = repairIds.update { it - id }
+    /** 再ペアリングに成功した接続（または削除した接続）の記録を外す。バックグラウンドの確認が付けた記録（[flags]）も外す。 */
+    fun markRepaired(id: String) {
+        repairIds.update { it - id }
+        flags.clear(id)
+    }
 
     private suspend fun selectedId(connections: List<Connection>): String? {
         val last = store.settings().lastConnectionId

@@ -137,4 +137,53 @@ internal class MainViewModelSessionTest : MainViewModelFixture() {
             assertFalse(shown.contains("48120"))
             viewModel.onStop()
         }
+
+    @Test
+    fun openingASessionFromANotificationSelectsThatConnectionAndSession() =
+        runTest {
+            addConnection("b", "100.64.0.2")
+            val viewModel = started()
+            assertEquals("a", viewModel.state.value.connectionId)
+
+            viewModel.openSession("b", "s1")
+            runCurrent()
+
+            val state = viewModel.state.value
+            assertEquals("b", state.connectionId)
+            assertEquals("s1", state.session)
+            assertEquals("b" to "s1", reports.calls.last())
+            assertEquals("s1", store.connectionRows["b"]?.lastSession)
+            assertEquals("b", store.settingsRow?.lastConnectionId)
+            viewModel.onStop()
+        }
+
+    @Test
+    fun openingASessionBeforeTheScreenIsVisibleAppliesAtTheNextStart() =
+        runTest {
+            addConnection("b", "100.64.0.2")
+            val viewModel = newViewModel()
+
+            viewModel.openSession("b", "s1") // 通知タップでプロセスが起動した直後。画面はまだ見えていない
+            viewModel.onStart()
+            runCurrent()
+
+            assertEquals("b", viewModel.state.value.connectionId)
+            assertEquals("s1", viewModel.state.value.session)
+            viewModel.onStop()
+        }
+
+    @Test
+    fun openingAnUnknownConnectionOrAForbiddenSessionIsHarmless() =
+        runTest {
+            val viewModel = started()
+
+            viewModel.openSession("gone", "s1")
+            runCurrent()
+            assertEquals("a", viewModel.state.value.connectionId) // 存在しない接続は無視する
+
+            viewModel.openSession("a", "hidden") // 許可されていないセッション → 先頭の許可セッションになる
+            runCurrent()
+            assertEquals("s0", viewModel.state.value.session)
+            viewModel.onStop()
+        }
 }
