@@ -166,8 +166,14 @@ func TestSnapshotView_InitialWithoutErrorShowsPreviousNotice(t *testing.T) {
 	html := webtest.Render(t, organisms.SnapshotStatus(p))
 	webtest.MustContain(t, html, `id="snapshot-status"`, "前回の状態を表示中", "前回取得 11:58")
 	webtest.MustNotContain(t, html, "hx-swap-oob")
+	// 直前値が無い初回はエラーではないので、バナーは出さず領域に「読み込み中…」だけを出す。
 	p.Snapshot = domain.Snapshot{}
-	webtest.MustContain(t, webtest.Render(t, organisms.SnapshotStatus(p)), "読み込み中…")
+	status := webtest.Render(t, organisms.SnapshotStatus(p))
+	webtest.MustContain(t, status, `id="snapshot-status"`)
+	webtest.MustNotContain(t, status, `role="alert"`, "読み込み中…")
+	region := webtest.Render(t, organisms.SnapshotRegion(p))
+	webtest.MustContain(t, region, "読み込み中…")
+	webtest.MustNotContain(t, region, "表示できるデータがありません")
 }
 
 func TestSnapshotView_ContainsAllPanels(t *testing.T) {
