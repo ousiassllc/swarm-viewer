@@ -32,7 +32,8 @@ func TestUsageRow_Percent(t *testing.T) {
 	for _, tt := range tests {
 		slot := domain.Slot{Available: true, Used: f(tt.used), Unit: domain.UnitPercent, Status: "ok"}
 		html := webtest.Render(t, molecules.UsageRow(molecules.UsageRowProps{Label: "5 時間枠", Slot: slot, Now: now}))
-		webtest.MustContain(t, html, "<progress", tt.want, "5 時間枠")
+		// 塗りの両端も丸い（ガイド §4 進捗の `border-radius: inherit`。S1）。
+		webtest.MustContain(t, html, "<progress", tt.want, "5 時間枠", "[&amp;::-webkit-progress-value]:rounded-full", "[&amp;::-moz-progress-bar]:rounded-full")
 		if tt.name == "79.9" {
 			webtest.MustNotContain(t, html, "[&amp;::-webkit-progress-value]:bg-warning", "[&amp;::-webkit-progress-value]:bg-danger")
 		}
@@ -217,9 +218,12 @@ func TestSessionTab(t *testing.T) {
 	html := webtest.Render(t, molecules.SessionTab(molecules.SessionTabProps{ConnectionID: "01ABC", Session: "dev work", Selected: true}))
 	webtest.MustContain(t, html, `hx-get="/connections/01ABC/sessions/dev%20work"`, `hx-target="#main"`, `aria-current="page"`, "dev work")
 	// 2px の下線は親の 1px の罫線に重ねる（-mb-px。ガイド §4・S4）。選択中も選択外も同じ。
-	webtest.MustContain(t, html, "-mb-px", "border-b-2", "border-accent")
+	webtest.MustContain(t, html, "-mb-px", "border-b-2", "border-accent", "hover-fade")
 	html = webtest.Render(t, molecules.SessionTab(molecules.SessionTabProps{ConnectionID: "01ABC", Session: "0"}))
-	webtest.MustContain(t, html, "-mb-px", "border-b-2", "border-transparent")
+	webtest.MustContain(t, html, "-mb-px", "border-b-2", "border-transparent", "hover:text-ink", "hover-fade")
+	// 余白と形はガイドの見本どおり（上下 10px・左右 0・角丸とホバーの面なし。ガイド S1・S2）。
+	webtest.MustContain(t, html, "py-2.5")
+	webtest.MustNotContain(t, html, "px-", "rounded", "hover:bg-")
 	webtest.MustNotContain(t, html, "aria-current")
 }
 

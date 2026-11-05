@@ -110,7 +110,7 @@ func TestSnapshotView_UnauthorizedStopsPollingAndOffersRepair(t *testing.T) {
 		p.Err = &domain.FetchError{Kind: kind}
 		html := webtest.Render(t, organisms.SnapshotView(p))
 		webtest.MustNotContain(t, html, "hx-trigger", "hx-sync", "次回再試行")
-		webtest.MustContain(t, html, `href="/pairing"`, "再ペアリング", "前回取得 11:58")
+		webtest.MustContain(t, html, `href="/pairing"`, "再ペアリング", "前回取得 11:58", `class="text-link hover-fade text-ink"`)
 	}
 }
 
@@ -128,9 +128,9 @@ func TestSnapshotView_StaleIsGrayedWithBanner(t *testing.T) {
 		"前回取得 11:58", "次回再試行 10 秒後", "timeout",
 		`hx-trigger="every 10s, refresh from:body"`, // 到達不可は自動再試行する
 	)
-	// カードもグレーアウト。
-	if strings.Count(html, "opacity-50") < 4 {
-		t.Errorf("ペインカードと利用上限のグレーアウトが足りない:\n%s", html)
+	// グレーアウトは領域の 1 回だけ。カードや利用上限で重ねると opacity が掛け算になる（ガイド C5）。
+	if n := strings.Count(html, "opacity-50"); n != 1 {
+		t.Errorf("opacity-50 は領域の 1 か所だけのはず（%d 回）:\n%s", n, html)
 	}
 }
 

@@ -12,15 +12,16 @@ import (
 type UsagePanelProps struct {
 	// Usage は report の usage（ホスト全体の値）。
 	Usage domain.Usage
-	// Stale は直前値の表示中（取得失敗）のとき true。グレーアウトする。
-	Stale bool
+	// RegionGrayed は取得失敗で領域全体（#snapshot）が既にグレーアウトされているとき true。
+	// opacity は入れ子で掛け算になるので、このときパネル単体のグレーアウトはかけない（ガイド C5）。
+	RegionGrayed bool
 	// Now は相対時間の基準。
 	Now time.Time
 }
 
-// usageGray は usage.status が stale、または画面全体が直前値のときグレーアウトする。
+// usageGray は usage.status が stale で、領域全体がまだグレーアウトされていないときだけパネル単体をグレーアウトする。
 func usageGray(p UsagePanelProps) bool {
-	return p.Stale || domain.NormalizeUsageStatus(p.Usage.Status) == domain.UsageStale
+	return !p.RegionGrayed && domain.NormalizeUsageStatus(p.Usage.Status) == domain.UsageStale
 }
 
 func usageSectionClass(p UsagePanelProps) string {

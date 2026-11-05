@@ -8,11 +8,11 @@ import (
 )
 
 // PaneCardProps は PaneCard の入力。
+// 取得失敗で直前値を表示しているときのグレーアウトは領域（organisms.SnapshotView の #snapshot）が 1 回だけかける。
+// opacity は入れ子で掛け算になるので、カード単体ではかけない（ガイド C5）。
 type PaneCardProps struct {
 	// Pane は表示するペイン。title・activity・note は信頼できない入力で、Templ のエスケープで文字列として描画する（NFR-SEC-10）。
 	Pane domain.Pane
-	// Stale は取得に失敗して直前値を表示しているとき true（グレーアウトする）。
-	Stale bool
 	// Highlight は attention の asking / stalled に該当するペインのとき true（強調表示する。機能要件 §7）。
 	Highlight bool
 	// ReportWaiting は attention の report_waiting に該当するペインのとき true（state バッジの隣に「報告待ち」を出す。機能要件 §7）。
@@ -21,14 +21,10 @@ type PaneCardProps struct {
 
 func paneCardClass(p PaneCardProps) string {
 	base := "flex min-w-0 flex-col gap-1 rounded-lg border bg-surface p-4 text-sm"
-	border := "border-border"
 	if p.Highlight {
-		border = "border-warning ring-2 ring-warning/40"
+		return base + " border-warning ring-2 ring-warning/40"
 	}
-	if p.Stale {
-		return base + " " + border + " opacity-50 grayscale"
-	}
-	return base + " " + border
+	return base + " border-border"
 }
 
 func agentName(a *string) string {

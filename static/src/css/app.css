@@ -172,6 +172,22 @@
 }
 
 /*
+ * テキストリンク（ガイド §4・tokens-preview の `a.tl`）: Regular・下線 --mute・下線の位置 3px。ホバーは下線の色を --mute → --ink にするだけ
+ * （面は付けない。遷移は .hover-fade）。文字色は呼び出し側が text-ink で付ける。
+ */
+@layer components {
+  .text-link {
+    text-decoration-line: underline;
+    text-decoration-color: var(--mute);
+    text-underline-offset: 3px;
+  }
+
+  .text-link:hover {
+    text-decoration-color: var(--ink);
+  }
+}
+
+/*
  * フォーカスリング: 2px solid --focus・offset 2（ガイド C3）。
  * 入力欄・select は atoms.FieldClass が outline を ring（--focus の 40%）に置き換える。
  */

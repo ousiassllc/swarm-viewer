@@ -18,7 +18,7 @@ type ProgressBarProps struct {
 // ProgressBar は使用率のバー。幅は <progress> の value で表し、style 属性は使わない（CSP）。
 templ ProgressBar(p ProgressBarProps) {
 	<progress
-		class={ "h-1.5 w-full appearance-none overflow-hidden rounded-full [&::-webkit-progress-bar]:bg-accent-soft", format.BarClass(p.Tone) }
+		class={ "h-1.5 w-full appearance-none overflow-hidden rounded-full [&::-webkit-progress-bar]:bg-accent-soft [&::-webkit-progress-value]:rounded-full [&::-moz-progress-bar]:rounded-full", format.BarClass(p.Tone) }
 		max="100"
 		value={ strconv.FormatFloat(format.BarValue(p.Percent), 'f', -1, 64) }
 		aria-label={ p.Label }

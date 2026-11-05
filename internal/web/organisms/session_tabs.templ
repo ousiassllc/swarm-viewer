@@ -24,7 +24,7 @@ type SessionTabsProps struct {
 templ SessionTabs(p SessionTabsProps) {
 	<nav
 		id={ SessionTabsID }
-		class="flex flex-wrap gap-1 border-b border-border"
+		class="flex flex-wrap gap-6 border-b border-border"
 		aria-label="セッション"
 		if p.OOB {
 			hx-swap-oob="true"

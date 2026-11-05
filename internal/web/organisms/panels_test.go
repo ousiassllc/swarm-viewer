@@ -148,11 +148,17 @@ func TestUsagePanel_CodexBothSlotsUnavailable(t *testing.T) {
 	webtest.MustNotContain(t, html, "—", "5 時間枠")
 }
 
-func TestUsagePanel_StaleFlagGraysOut(t *testing.T) {
+// 領域（#snapshot）が既にグレーアウトしているとき、usage.status が stale のパネルは重ねてグレーアウトしない（opacity が掛け算になる。ガイド C5）。
+func TestUsagePanel_RegionGrayedSkipsOwnGrayOut(t *testing.T) {
 	t.Parallel()
-	html := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: domain.Usage{Status: domain.UsageOK}, Stale: true, Now: now}))
-	webtest.MustContain(t, html, "opacity-50")
-	webtest.MustNotContain(t, html, "古いデータ")
+	u := domain.Usage{Status: domain.UsageStale}
+	own := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now}))
+	webtest.MustContain(t, own, "opacity-50", "古いデータ")
+	inRegion := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, RegionGrayed: true, Now: now}))
+	webtest.MustContain(t, inRegion, "古いデータ")
+	webtest.MustNotContain(t, inRegion, "opacity-50")
+	ok := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: domain.Usage{Status: domain.UsageOK}, RegionGrayed: true, Now: now}))
+	webtest.MustNotContain(t, ok, "opacity-50")
 }
 
 func TestUsagePanel_CursorNullWindow(t *testing.T) {
@@ -299,6 +305,8 @@ func TestSessionTabs(t *testing.T) {
 		Sessions: []domain.Session{{ID: "0", Allowed: true}, {ID: "1", Allowed: true}, {ID: "hidden", Allowed: false}},
 	}))
 	webtest.MustContain(t, html, `hx-get="/connections/c1/sessions/0"`, `hx-get="/connections/c1/sessions/1"`)
+	// タブ間は 24px（ガイドのタブ見本。S2）。
+	webtest.MustContain(t, html, "gap-6")
 	webtest.MustNotContain(t, html, "hidden")
 	if strings.Count(html, "aria-current") != 1 {
 		t.Error("選択中は 1 つだけ")

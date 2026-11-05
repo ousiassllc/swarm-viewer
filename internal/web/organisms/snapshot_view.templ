@@ -111,9 +111,9 @@ templ SnapshotRegion(p SnapshotViewProps) {
 			@atoms.EmptyState(atoms.EmptyStateProps{Message: emptyMessage(p)})
 		} else {
 			@AttentionBar(AttentionBarProps{Attention: p.Snapshot.Report.Attention, Warnings: p.Snapshot.Report.Warnings, Auth: p.Snapshot.Report.Auth})
-			@PaneGrid(PaneGridProps{Layout: p.Snapshot.Report.Layout, Panes: p.Snapshot.Report.Panes, Attention: p.Snapshot.Report.Attention, Stale: !p.Fresh})
+			@PaneGrid(PaneGridProps{Layout: p.Snapshot.Report.Layout, Panes: p.Snapshot.Report.Panes, Attention: p.Snapshot.Report.Attention})
 			<div class="grid gap-4 md:grid-cols-2">
-				@UsagePanel(UsagePanelProps{Usage: p.Snapshot.Report.Usage, Stale: !p.Fresh, Now: p.Now})
+				@UsagePanel(UsagePanelProps{Usage: p.Snapshot.Report.Usage, RegionGrayed: !p.Fresh, Now: p.Now})
 				@HostPanel(HostPanelProps{Host: p.Snapshot.Report.Host})
 			</div>
 		}
@@ -140,7 +140,7 @@ templ SnapshotStatus(p SnapshotViewProps) {
 }
 
 templ repairLink() {
-	<a href={ templ.SafeURL(paths.Pairing) } hx-get={ paths.Pairing } hx-target="#main" class="text-ink underline decoration-mute underline-offset-2">再ペアリング</a>
+	<a href={ templ.SafeURL(paths.Pairing) } hx-get={ paths.Pairing } hx-target="#main" class="text-link hover-fade text-ink">再ペアリング</a>
 }
 
 // SnapshotBanner は取得失敗・前回値表示のバナー本体。Fresh のとき、および初回の読み込み中（isLoading）は何も描画しない。
