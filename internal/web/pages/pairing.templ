@@ -127,6 +127,6 @@ templ DraftExpiredPage(shell layout.BaseProps) {
 // DraftExpiredContent は「もう一度ペアリングしてください」のフラグメント。
 templ DraftExpiredContent() {
 	@pageTitle("もう一度ペアリングしてください")
-	<p class="text-sm text-ink">確認画面の有効期限が切れました。</p>
+	@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertWarning, Message: "確認画面の有効期限が切れました。"})
 	@navLink(paths.Pairing, "ペアリングをやり直す")
 }

@@ -146,7 +146,8 @@ func TestPairingDraft_ConfirmError(t *testing.T) {
 func TestDraftExpiredPage(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, pages.DraftExpiredPage(shell))
-	webtest.MustContain(t, html, "もう一度ペアリングしてください", `href="/pairing"`, "確認画面の有効期限が切れました。")
+	webtest.MustContain(t, html, "もう一度ペアリングしてください", `href="/pairing"`, "確認画面の有効期限が切れました。",
+		`role="alert"`, "data-alert", "border-l-warning", "text-warning")
 	webtest.MustNotContain(t, html, "ペアリングの確認画面", "もう一度貼り付けてください")
 }
 
@@ -162,6 +163,13 @@ func TestConnectionsAndNoSessions(t *testing.T) {
 	webtest.MustNotContain(t, empty, "接続「")
 }
 
+func TestConnectionErrorContent_IsDangerAlert(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, pages.ConnectionErrorContent(pages.ConnectionErrorProps{ConnectionID: "01A", Name: "devbox", Err: &domain.FetchError{Kind: domain.ErrProtocol}}))
+	webtest.MustContain(t, html, "接続できません", `role="alert"`, "data-alert", "border-l-danger", "text-danger", "接続「devbox」: ", `href="/connections"`)
+	webtest.MustNotContain(t, html, `<p class="text-sm text-ink">接続「`)
+}
+
 func TestSettingsPage(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, pages.SettingsPage(shell, pages.SettingsProps{Form: organisms.SettingsFormProps{Settings: domain.DefaultSettings()}}))
@@ -170,13 +178,14 @@ func TestSettingsPage(t *testing.T) {
 
 func TestRecoveryPage(t *testing.T) {
 	t.Parallel()
-	for reason, want := range map[pages.RecoveryReason]string{
-		pages.RecoveryCorrupt:      "壊れている可能性",
-		pages.RecoverySchemaTooNew: "より新しい版",
-		"whatever":                 "壊れている可能性",
+	for reason, tt := range map[pages.RecoveryReason]struct{ want, kind string }{
+		pages.RecoveryCorrupt:      {"壊れている可能性", "danger"},
+		pages.RecoverySchemaTooNew: {"より新しい版", "warning"},
+		"whatever":                 {"壊れている可能性", "danger"},
 	} {
 		html := webtest.Render(t, pages.RecoveryPage(shell, pages.RecoveryProps{Reason: reason}))
-		webtest.MustContain(t, html, want, `hx-post="/recovery/reset"`, `hx-confirm=`, "保存データを初期化する", "秘密領域に残ります",
+		// 状態はアイコン＋左の状態色の帯の Alert で伝える（C4）。data-recovery-reason は Alert の属性に載る。
+		webtest.MustContain(t, html, tt.want, "data-alert", `data-recovery-reason="`+string(reason)+`"`, "border-l-"+tt.kind, "text-"+tt.kind, `hx-post="/recovery/reset"`, `hx-confirm=`, "保存データを初期化する", "秘密領域に残ります",
 			`data-confirm-title="保存データを初期化"`, `data-confirm-label="初期化する"`)
 	}
 	webtest.MustContain(t, webtest.Render(t, pages.RecoveryContent(pages.RecoveryProps{Error: "初期化に失敗しました"})), "初期化に失敗しました")
