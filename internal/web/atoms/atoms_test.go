@@ -154,7 +154,7 @@ func TestButton_HoverFade(t *testing.T) {
 func TestConfirmDialog(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, atoms.ConfirmDialog())
-	webtest.MustContain(t, html, `<dialog id="confirm-dialog"`, "data-modal", "rounded-xl", "border border-border", "shadow-modal", "m-auto",
+	webtest.MustContain(t, html, `<dialog id="confirm-dialog"`, "data-modal", "rounded-xl", "border border-border", "[box-shadow:var(--shadow-modal)]", "m-auto",
 		"data-confirm-title", "data-confirm-message", "data-confirm-action", "text-danger", "border-danger/45", `data-modal-result="cancel"`, "キャンセル")
 	webtest.MustNotContain(t, html, "<script", "onclick", "hx-on", " open")
 	// ガイドの見本の構造: ヘッダー（見出し＋閉じる × のアイコンボタン・下に線）・本文・フッター（右寄せ・ボタン間 8px・上に線）。幅は max 420px（26.25rem）。

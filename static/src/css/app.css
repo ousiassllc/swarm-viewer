@@ -66,6 +66,9 @@
 
   /* モーダルのスクラム（ガイド O1）: ライトは --ink の 40%。ダークは --ink が白になるので、暗い --bone の 60% にする。 */
   --scrim: color-mix(in srgb, var(--ink) 40%, transparent);
+
+  /* モーダルの影（ガイド C5）。ダークは下の dark ブロックで濃くする。 */
+  --shadow-modal: 0 1px 2px rgb(0 0 0 / 0.06);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -93,7 +96,8 @@
 /*
  * Tailwind 側のテーマ。--color-* を空にして既定のパレット（slate・sky など）を使えなくし、ガイドのトークンだけを残す。
  * サイズはガイドのスケール（本文 16px 基準・行間付き）、角丸は --r-sm 4 / --r-md 8 / --r-lg 12 / --r-xl 16 / --r-full 9999、
- * 影はモーダルだけ（--shadow-modal）。Tailwind を更新したら node_modules/tailwindcss/theme.css と見比べる。
+ * 影はモーダルだけ。--shadow-modal は @theme に置かず :root（ライト）とダークの :root で持つ（@theme に置くと Tailwind v4 は値をクラスに埋め込み、ダークの上書きが効かない）。
+ * モーダルは `[box-shadow:var(--shadow-modal)]` で読む。Tailwind を更新したら node_modules/tailwindcss/theme.css と見比べる。
  */
 @theme inline {
   --color-*: initial;
@@ -140,7 +144,6 @@
   --animate-spin: spin 0.9s linear infinite;
 
   --shadow-*: initial;
-  --shadow-modal: 0 1px 2px rgb(0 0 0 / 0.06);
 }
 
 /*
