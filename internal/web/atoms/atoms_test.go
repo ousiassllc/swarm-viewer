@@ -98,6 +98,9 @@ func TestCheckbox(t *testing.T) {
 	html := webtest.Render(t, atoms.Checkbox(atoms.CheckboxProps{Name: "debug_log", Value: "on", Checked: true}))
 	webtest.MustContain(t, html, `type="checkbox"`, `name="debug_log"`, `value="on"`, " checked ", "h-[18px] w-[18px]", "rounded-sm", "border-mute", "appearance-none", "peer-checked:visible", "M5 13.3636L8.03559")
 	webtest.MustNotContain(t, html, "accent-accent")
+	// チェック印は 16px（--icon-sm）で箱の中央に置く。箱いっぱいの 18px にしない（ガイド I2）。
+	webtest.MustContain(t, html, "absolute inset-0 m-auto h-4 w-4")
+	webtest.MustNotContain(t, html, "inset-0 h-full w-full")
 	webtest.MustNotContain(t, webtest.Render(t, atoms.Checkbox(atoms.CheckboxProps{Name: "n", Value: "on"})), " checked ")
 }
 
