@@ -82,6 +82,54 @@ func TestUsagePanel_StatusBranches(t *testing.T) {
 	webtest.MustNotContain(t, webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now})), "<details")
 }
 
+func TestUsagePanel_BothSlotsUnavailableIsOneLine(t *testing.T) {
+	t.Parallel()
+	render := func(a domain.AgentAccount) string {
+		u := domain.Usage{Status: domain.UsageOK, Claude: []domain.AgentAccount{a}}
+		return webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now}))
+	}
+
+	// 2 枠とも取れない（reason なし・古い swarm-console）: 「取得できません」1 行。「—」・枠ラベルは出ない。
+	html := render(domain.AgentAccount{Account: "account-1"})
+	webtest.MustContain(t, html, "Claude · account-1", "取得できません")
+	webtest.MustNotContain(t, html, "—", "5 時間枠", "7 日枠", "ログイン切れ")
+	if n := strings.Count(html, "取得できません"); n != 1 {
+		t.Errorf("「取得できません」は 1 回のはず: %d 回\n%s", n, html)
+	}
+
+	// reason があれば理由を添える。
+	for reason, want := range map[string]string{
+		"without_usage": "使用量を取れませんでした（ログイン切れの可能性）",
+		"no_email":      "アカウントを特定できません（ログイン切れの可能性）",
+	} {
+		html = render(domain.AgentAccount{Account: "account-1", Reason: strp(reason)})
+		webtest.MustContain(t, html, "取得できません", want)
+		webtest.MustNotContain(t, html, "—", "5 時間枠")
+	}
+
+	// 知らない reason は理由なし（「取得できません」だけ）。
+	html = render(domain.AgentAccount{Account: "account-1", Reason: strp("brand-new")})
+	webtest.MustContain(t, html, "取得できません")
+	webtest.MustNotContain(t, html, "brand-new", "ログイン切れ", "—")
+
+	// 片方だけ取れない: これまでどおり 2 行（取れない枠は「—」）。reason があっても理由は出さない。
+	ok := domain.Slot{Available: true, Used: fp(30), Unit: domain.UnitPercent}
+	html = render(domain.AgentAccount{Account: "account-1", FiveHour: ok, Reason: strp("without_usage")})
+	webtest.MustContain(t, html, "5 時間枠", "7 日枠", "30%", "—")
+	webtest.MustNotContain(t, html, "ログイン切れ")
+	if strings.Contains(html, ">取得できません<") {
+		t.Errorf("片方だけ取れないアカウントに 1 行表示を出さない:\n%s", html)
+	}
+}
+
+func TestUsagePanel_CodexBothSlotsUnavailable(t *testing.T) {
+	t.Parallel()
+	u := domain.Usage{Status: domain.UsageOK, Codex: []domain.AgentAccount{{Account: "cx", Reason: strp("no_email")}}}
+	html := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now}))
+	webtest.MustContain(t, html, "Codex · cx", "取得できません", "アカウントを特定できません")
+	webtest.MustNotContain(t, html, "—", "5 時間枠")
+}
+
 func TestUsagePanel_StaleFlagGraysOut(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: domain.Usage{Status: domain.UsageOK}, Stale: true, Now: now}))
@@ -100,6 +148,7 @@ func TestHostPanel(t *testing.T) {
 	t.Parallel()
 	h := domain.Host{
 		CPU:  domain.CPU{Available: true, UsedPercent: 96},
+		Mem:  domain.Mem{Available: true, TotalGB: 128, UsedGB: 41.3, UsedPercent: 32.3},
 		Swap: domain.Swap{Available: true, TotalGB: 0},
 		Disk: []domain.Disk{
 			{Mount: "/", Available: true, UsedPercent: 81, FreeGB: 12.34},
@@ -107,13 +156,38 @@ func TestHostPanel(t *testing.T) {
 		},
 	}
 	html := webtest.Render(t, organisms.HostPanel(organisms.HostPanelProps{Host: h}))
-	webtest.MustContain(t, html, "CPU", "96%", "bg-red-500", "スワップ", "なし", "12.3 GB 空き", "bg-amber-500", "/data", "—")
-	webtest.MustNotContain(t, html, "load", "メモリ")
+	webtest.MustContain(t, html, "CPU", "96%", "bg-red-500", "メモリ", "32.3%", "41.3 GB / 128 GB", "スワップ", "なし", "12.3 GB 空き", "bg-amber-500", "/data", "—")
+	webtest.MustNotContain(t, html, "load")
+	// 表示順: CPU → メモリ → スワップ → ディスク。
+	cpu, mem, swap, disk := strings.Index(html, "CPU"), strings.Index(html, "メモリ"), strings.Index(html, "スワップ"), strings.Index(html, "/data")
+	if cpu >= mem || mem >= swap || swap >= disk {
+		t.Errorf("行の順が CPU → メモリ → スワップ → ディスクでない:\n%s", html)
+	}
 
 	h.Swap = domain.Swap{Available: true, TotalGB: 4, UsedGB: 1, UsedPercent: 25}
 	webtest.MustContain(t, webtest.Render(t, organisms.HostPanel(organisms.HostPanelProps{Host: h})), "1 GB / 4 GB", "25%")
 	h.Swap = domain.Swap{}
 	webtest.MustContain(t, webtest.Render(t, organisms.HostPanel(organisms.HostPanelProps{Host: h})), "スワップ")
+}
+
+func TestHostPanel_Mem(t *testing.T) {
+	t.Parallel()
+	render := func(m domain.Mem) string {
+		h := domain.Host{CPU: domain.CPU{Available: true}, Mem: m, Swap: domain.Swap{Available: true, TotalGB: 4, UsedGB: 1, UsedPercent: 25}}
+		return webtest.Render(t, organisms.HostPanel(organisms.HostPanelProps{Host: h}))
+	}
+
+	// しきい値色は CPU などと同じ（80 / 95）。
+	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 79.9, UsedPercent: 79.9}), "79.9%", "79.9 GB / 100 GB", "bg-sky-500")
+	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 80, UsedPercent: 80}), "bg-amber-500")
+	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 95, UsedPercent: 95}), "bg-red-500")
+
+	// host.mem が無い（古い swarm-console）・available: false は「メモリ」の行を「—」で出す。ほかの行は崩れない。
+	for _, m := range []domain.Mem{{}, {Available: false, TotalGB: 8, UsedGB: 4, UsedPercent: 50}} {
+		html := render(m)
+		webtest.MustContain(t, html, "メモリ", "—", "スワップ", "1 GB / 4 GB", "25%")
+		webtest.MustNotContain(t, html, "8 GB", "50%")
+	}
 }
 
 func TestPaneGrid_Layout(t *testing.T) {

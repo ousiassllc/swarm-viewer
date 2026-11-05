@@ -212,6 +212,25 @@ func TestUsageStatusLabel(t *testing.T) {
 	}
 }
 
+func TestUsageReasonLabel(t *testing.T) {
+	t.Parallel()
+	str := func(s string) *string { return &s }
+	for name, tt := range map[string]struct {
+		in   *string
+		want string
+	}{
+		"without_usage": {str("without_usage"), "使用量を取れませんでした（ログイン切れの可能性）"},
+		"no_email":      {str("no_email"), "アカウントを特定できません（ログイン切れの可能性）"},
+		"知らない値":         {str("brand-new"), ""},
+		"空文字":           {str(""), ""},
+		"nil":           {nil, ""},
+	} {
+		if got := format.UsageReasonLabel(tt.in); got != tt.want {
+			t.Errorf("%s: UsageReasonLabel = %q, want %q", name, got, tt.want)
+		}
+	}
+}
+
 func TestNoteSummary(t *testing.T) {
 	t.Parallel()
 	if r, i, m := format.NoteSummary(nil); r != "" || i != nil || m != 0 {

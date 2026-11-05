@@ -37,7 +37,7 @@ graph TD
 | FR-PANE-2 | ペインカード | `pos`・`agent`・`state`・`title`・`elapsed`・`activity`・`note` を表示する（§4） |
 | FR-PANE-3 | 状態表示 | `state` を §3 の表示ラベルで表示する |
 | FR-USE-1 | 利用上限パネル | `usage.claude[]`・`usage.codex[]`・`usage.cursor[]` を表示する（§5） |
-| FR-USE-2 | ホスト負荷 | `host.cpu`・`host.swap`・`host.disk[]` の使用率を表示する（§6） |
+| FR-USE-2 | ホスト負荷 | `host.cpu`・`host.mem`・`host.swap`・`host.disk[]` の使用率を表示する（§6） |
 | FR-ATT-1 | 要対応表示 | `attention[]`・`warnings[]` をバッジ・バナーで表示する（§7） |
 | FR-POLL-1 | 画面更新ポーリング | 選択中セッションを既定 10 秒（設定可能）で `report` 取得する |
 | FR-POLL-2 | 手動更新 | 即時に再取得する |
@@ -151,6 +151,8 @@ stateDiagram-v2
 - Claude / Codex: `account` ごとに `five_hour`（5 時間枠）・`seven_day`（7 日枠）を表示する。API 上の 7 日枠のキーは `seven_day`
 - Cursor: `account` ごとに `window`（`monthly` / `weekly` / `null`）と `models` を表示する
 - 各枠は `available` を必ず確認する。`available: false` は「—」表示（バー・数値なし）
+- Claude / Codex で `five_hour`・`seven_day` の 2 枠とも `available: false` のアカウントは、「—」を 2 行出さず「取得できません」を 1 行で出す。`reason`（枠を取れなかった理由）があれば理由を添える。片方だけ `available: false` のアカウントは、上の規則どおり 2 行のまま（取れない枠は「—」）。Cursor は枠が 1 つなので「—」のまま
+- `reason` の表示: `without_usage` →「使用量を取れませんでした（ログイン切れの可能性）」、`no_email` →「アカウントを特定できません（ログイン切れの可能性）」。`null`・欠落（`reason` を返さない古い swarm-console）・知らない値は理由なし（「取得できません」だけ）。原因は swarm-console からは確かには分からないため「可能性」と書く。`auth.agents` とは結び付けない
 - `unit` が `percent` の枠はプログレスバー＋数値（`used` %）で表示する。`unit` が `usd` の枠は金額（`$` 付き）のみで、バー・しきい値色は付けない
 - リセット時刻 `resets_at` はローカル時刻で表示し、相対表示（「あと 3 時間」）を併記する。`null` なら非表示
 
@@ -170,11 +172,13 @@ stateDiagram-v2
 | 表示 | フィールド | 備考 |
 |------|-----------|------|
 | CPU | `host.cpu.used_percent` | `available: false` は「—」 |
+| メモリ | `host.mem.used_percent`（`used_gb` / `total_gb`） | `available: false`、および `host.mem` を返さない古い swarm-console は「—」（行は出す） |
 | スワップ | `host.swap.used_percent`（`used_gb` / `total_gb`） | `total_gb: 0`（スワップ無し）は「なし」 |
 | ディスク | `host.disk[]` の `mount`、`used_percent`、`free_gb` | マウントごとに 1 行。`available: false` は「—」 |
 
 - ホスト全体の値でセッションに属さない。しきい値色は §5.3 と同じ規則を使う
-- `load1`・`mem_free_gb` は表示しない
+- `load1`・`mem_free_gb` は表示しない（メモリは `host.mem` を使う）
+- 表示順は CPU → メモリ → スワップ → ディスク。各行は「ラベル（固定幅）・バー（残り）・値（固定幅）」の 3 列に並べ、バーの左端と右端を全行でそろえる。値の列に率と補足（「87% 108.5 GB 空き」「41% 41.3 GB / 128 GB」）をまとめて右寄せにし、はみ出したら省略（`title` で全文）。「—」「なし」の行もバーの列は空にして同じ 3 列にのせる
 
 ## 7. 要対応・警告（FR-ATT-1）
 
@@ -265,3 +269,5 @@ stateDiagram-v2
 | 1.3 | 2026-11-03 | 前回スナップショットの表示（FR-POLL-4）を追加。初回の通知抑止の範囲を「全許可セッションの一巡」に明確化 | ER 設計（snapshots・`connections.baselined_at`）との整合 |
 | 1.4 | 2026-11-03 | `invalid_args` の判定から未確認の `details.field` を除去。401/403 の接続は自動ポーリングを止める規則を追加 | API 仕様との整合 |
 | 1.5 | 2026-11-03 | 通知オフ中も画面更新で通知済み記録は更新する規則を追加 | コンポーネント設計（`Observe`）との整合 |
+| 1.6 | 2026-11-05 | §5.2 に、2 枠とも `available: false` のアカウントを「取得できません」1 行にまとめ、`reason` があれば理由を添える規則を追加 | Issue #11（「—」2 行では何が起きているか分からないため） |
+| 1.7 | 2026-11-05 | §6 にメモリ（`host.mem`）の行を追加し、「`mem_free_gb` は表示しない」を「メモリは `host.mem` を使う」に整理。行の列（ラベル・バー・値）の幅を固定し、バーの幅をそろえる規則を追加 | Issue #10（メモリの使用率の表示、ゲージの横幅のばらつき） |

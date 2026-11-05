@@ -1,1 +1,4 @@
 * text=auto eol=lf
+
+# フォントは Git に改行変換させない
+*.woff2 binary

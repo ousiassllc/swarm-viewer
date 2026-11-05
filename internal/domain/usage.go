@@ -45,17 +45,21 @@ type Slot struct {
 }
 
 // AgentAccount は Claude / Codex のアカウント 1 件。
+// Reason は枠を取れなかった理由のコード（without_usage・no_email など）。無い古い swarm-console では nil。
 type AgentAccount struct {
-	Account  string `json:"account"`
-	FiveHour Slot   `json:"five_hour"`
-	SevenDay Slot   `json:"seven_day"`
+	Account  string  `json:"account"`
+	FiveHour Slot    `json:"five_hour"`
+	SevenDay Slot    `json:"seven_day"`
+	Reason   *string `json:"reason"`
 }
 
 // CursorAccount は Cursor のアカウント 1 件。Window は monthly・weekly など。枠が無ければ nil。
+// Reason は AgentAccount と同じ。viewer は Cursor では使わない（枠が 1 つで「—」で足りるため）。
 type CursorAccount struct {
 	Account string  `json:"account"`
 	Window  *string `json:"window"`
 	Models  Slot    `json:"models"`
+	Reason  *string `json:"reason"`
 }
 
 // Usage は利用上限パネルの値（ホスト全体）。

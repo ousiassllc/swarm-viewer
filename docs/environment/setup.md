@@ -41,7 +41,7 @@ swarm-viewer/
 └── .gitignore                 # 生成物（*_templ.go・static/dist/ など）を除外
 ```
 
-- `package.json` は **devDependencies のみ**（実行時の JS 依存はない。`static/dist/js/` に配置するのは htmx と自前の `app.js`）
+- `package.json` は **devDependencies のみ**（実行時の JS 依存はない。`static/dist/js/` に配置するのは htmx と自前の `app.js`。フォントの woff2 は変換済みのものを `static/src/fonts/` にコミットし、ビルドでは変換しない）
 - ロックファイルは `bun.lock`（bun のバージョンが出力する形式に従う）。`package-lock.json`・`yarn.lock`・`pnpm-lock.yaml` は作らない・コミットしない
 
 ## 3. 開発環境セットアップ
@@ -71,7 +71,7 @@ swarm-viewer/
 | タスク | 内容 |
 |--------|------|
 | `task setup` | `bun install --frozen-lockfile` → `bunx lefthook install` → `task generate`。clone 直後に 1 回実行する |
-| `task generate` | `go tool templ generate` → Tailwind CLI で `static/dist/css/app.css` を生成（`bunx @tailwindcss/cli -i static/src/css/app.css -o static/dist/css/app.css --minify`）→ htmx（と `response-targets` 拡張）を `node_modules` から、`app.js` を `static/src/js/` から `static/dist/js/` へコピー |
+| `task generate` | `go tool templ generate` → Tailwind CLI で `static/dist/css/app.css` を生成（`bunx @tailwindcss/cli -i static/src/css/app.css -o static/dist/css/app.css --minify`）→ htmx（と `response-targets` 拡張）を `node_modules` から、`app.js` を `static/src/js/` から `static/dist/js/` へコピー → Symbols Nerd Font の woff2（コミット済みの `static/src/fonts/`）を `static/dist/fonts/` へコピー |
 | `task fmt` | `golangci-lint fmt` → `go tool templ fmt .` → `bunx biome format --write .` |
 | `task lint` | `golangci-lint run ./...` → `go tool templ fmt -fail .` → `bunx biome check .` → `bunx linterly check` |
 | `task test` | `task generate` → `go test ./...` |
@@ -315,3 +315,4 @@ Lit を導入して `/api/v1/...` を Huma に登録する時点で、次を追�
 | 1.1 | 2026-11-03 | CI のランナーをセルフホステッド（Linux）に変更。ジョブ内の `apt` を廃止して事前導入前提にした。Windows / macOS 向けの `go vet` を追加。pre-commit の `task generate` を常時実行に変更 | 実行環境の指定と、Linux CI では拾えないビルドタグ依存コードの穴埋め |
 | 1.2 | 2026-11-04 | CI: Linux ランナーに GTK 系の開発パッケージが無いため Linux の検査から Wails 直下を外し Windows 向け検査で補う。`build` を `wails3 build` から Windows 向けの `go build` に変更。`setup-go` のキャッシュを無効化 | 実ランナーの環境と、post ステップの停止 |
 | 1.3 | 2026-11-04 | §5.5「リリース」を追加（release.yml のトリガー・版の決め方・ジョブ構成・ランナー・権限・成果物・`SHA256SUMS`）。§5.2 の `test` に `plan-release_test.sh` を追加。§5.3 を release.yml による配布に、§5.4 を Release の成果物での実機確認に更新 | Issue #3（Windows / macOS の配布物を CI で作り Releases へ載せる） |
+| 1.4 | 2026-11-05 | `task generate` に、フォント（`static/src/fonts/` → `static/dist/fonts/`）のコピーを追加 | Issue #9 |

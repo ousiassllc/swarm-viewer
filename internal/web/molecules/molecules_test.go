@@ -1,8 +1,12 @@
 package molecules_test
 
 import (
+	"slices"
+	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/net/html"
 
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
 	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
@@ -95,6 +99,100 @@ func TestHostRow(t *testing.T) {
 	webtest.MustNotContain(t, html, "<progress")
 	html = webtest.Render(t, molecules.HostRow(molecules.HostRowProps{Label: "/", Percent: 50, Available: true, Detail: "10 GB 空き"}))
 	webtest.MustContain(t, html, "10 GB 空き", "bg-sky-500")
+}
+
+// elementChildren は n の直下の要素を返す。
+func elementChildren(n *html.Node) []*html.Node {
+	var out []*html.Node
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if c.Type == html.ElementNode {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// textOf は n 以下のテキストを連結し、空白の連続を 1 つにして前後を落とす。
+func textOf(n *html.Node) string {
+	return strings.Join(strings.Fields(rawText(n)), " ")
+}
+
+func rawText(n *html.Node) string {
+	if n.Type == html.TextNode {
+		return n.Data
+	}
+	var sb strings.Builder
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		sb.WriteString(rawText(c))
+	}
+	return sb.String()
+}
+
+// hasElement は n 以下にタグ名 tag の要素があるか。
+func hasElement(n *html.Node, tag string) bool {
+	if n.Type == html.ElementNode && n.Data == tag {
+		return true
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		if hasElement(c, tag) {
+			return true
+		}
+	}
+	return false
+}
+
+// どの行も 3 列のグリッド（ラベル・バー・値）で、バーの幅が右側の文字の長さで変わらない（Issue #10 B）。
+func TestHostRow_ThreeColumnGrid(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		props molecules.HostRowProps
+		value string // 値の列（3 つ目）の文言
+		bar   bool   // 2 つ目の列にバーがあるか
+	}{
+		{"CPU（補足なし）", molecules.HostRowProps{Label: "CPU", Percent: 1, Available: true}, "1%", true},
+		{"ディスク", molecules.HostRowProps{Label: "/", Percent: 87, Available: true, Detail: "108.5 GB 空き"}, "87% 108.5 GB 空き", true},
+		{"メモリ", molecules.HostRowProps{Label: "メモリ", Percent: 41, Available: true, Detail: "41.3 GB / 128 GB"}, "41% 41.3 GB / 128 GB", true},
+		{"スワップなし", molecules.HostRowProps{Label: "スワップ", Available: true, NoBar: true, Detail: "なし"}, "なし", false},
+		{"取れない", molecules.HostRowProps{Label: "メモリ"}, "—", false},
+	}
+	for _, tt := range tests {
+		out := webtest.Render(t, molecules.HostRow(tt.props))
+		webtest.MustNotContain(t, out, "flex-1", "shrink-0")
+		if webtest.AllAttrKeys(t, out)["style"] {
+			t.Errorf("%s: style 属性を使わない（CSP）:\n%s", tt.name, out)
+		}
+
+		root := webtest.Elements(t, out, "div")[0]
+		class, _ := webtest.Attr(root, "class")
+		for _, want := range []string{"grid", "grid-cols-[4rem_minmax(0,1fr)_10rem]"} {
+			if !slices.Contains(strings.Fields(class), want) {
+				t.Errorf("%s: 行の class に %q が無い: %q", tt.name, want, class)
+			}
+		}
+		cols := elementChildren(root)
+		if len(cols) != 3 {
+			t.Fatalf("%s: 列は 3 つのはず: %d\n%s", tt.name, len(cols), out)
+		}
+		if got := textOf(cols[0]); got != tt.props.Label {
+			t.Errorf("%s: ラベルの列 = %q", tt.name, got)
+		}
+		hasBar := hasElement(cols[1], "progress")
+		if hasBar != tt.bar || (!tt.bar && textOf(cols[1]) != "") {
+			t.Errorf("%s: バーの列が想定と違う（bar=%v）", tt.name, hasBar)
+		}
+		// 率と補足は値の列の 1 つの要素にまとまっている。
+		if got := textOf(cols[2]); got != tt.value {
+			t.Errorf("%s: 値の列 = %q, want %q", tt.name, got, tt.value)
+		}
+		if class, _ := webtest.Attr(cols[2], "class"); !strings.Contains(class, "truncate") || !strings.Contains(class, "text-right") {
+			t.Errorf("%s: 値の列は右寄せ・truncate: %q", tt.name, class)
+		}
+	}
+
+	// 値の列が tabular-nums・title 付き（はみ出したとき全文を読める）。
+	out := webtest.Render(t, molecules.HostRow(molecules.HostRowProps{Label: "/", Percent: 87, Available: true, Detail: "108.5 GB 空き"}))
+	webtest.MustContain(t, out, "tabular-nums", `title="87% 108.5 GB 空き"`)
 }
 
 func TestSessionTab(t *testing.T) {

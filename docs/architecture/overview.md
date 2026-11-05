@@ -116,11 +116,13 @@ swarm-viewer/
 │       ├── pages/               #   main / connections / pairing / settings
 │       └── layout/              #   base（head・htmx・CSP meta・CSRF meta）
 └── static/
-    ├── src/css/app.css          # Tailwind エントリ
+    ├── src/css/app.css          # Tailwind エントリ（@font-face を含む）
+    ├── src/fonts/               # Symbols Nerd Font Mono（woff2）と MIT のライセンス原文（コミットする）
     └── dist/                    # ビルド成果物（go:embed 対象）
         ├── js/htmx.min.js
         ├── js/app.js            # 可視性制御（非表示中のポーリング停止・復帰時の即時取得）
-        └── css/app.css
+        ├── css/app.css
+        └── fonts/SymbolsNerdFontMono-Regular.woff2
 ```
 
 ### 4.2 依存ルール
@@ -298,6 +300,7 @@ graph LR
 - token は repository 層の中だけで扱い、ハンドラ・テンプレート・ログに値を渡さない。ドメイン型の `Connection` は token を持たない（秘密領域のキーだけを持つ）
 - アセットハンドラは WebView のみから呼ばれる（TCP ポートなし）。それでも画面の状態変更ルート（POST/DELETE）には CSRF トークンを要求する（`<body hx-headers='{"X-CSRF-Token":"…"}'>` で配布。トークンはプロセス起動ごとに生成）
 - CSP: `default-src 'self'`、`connect-src 'self'`、`script-src 'self'`（`unsafe-eval`・`unsafe-inline` なし）、`style-src 'self'`、インラインスクリプトなし（NFR-SEC-9）。HTMX は `<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>` で eval とインラインスタイル注入を止める。外部ホストへは WebView から一切アクセスしない
+- フォント: Nerd Font のアイコン（PUA）は同梱の Symbols Nerd Font Mono（woff2。`static/src/fonts/` → generate で `static/dist/fonts/` → `/static/fonts/`）で描き、`app.css` の `@font-face` は `unicode-range` を PUA に絞る。日本語・英字は OS のフォント（Tailwind 既定の `font-sans` スタック）に任せる。CSP は変えない（`default-src 'self'`。NFR-SEC-9）。サブセット化はしない
 - 画面に出す文字列はすべて Templ のエスケープに任せ、HTML として解釈しない（`templ.Raw` を使わない。NFR-SEC-10）
 - MCP の許可リスト: `sessions_list`・`report`（v1 で呼ぶのは 2 本）。リストは repository/report 内の定数で、それ以外のツール名は呼び出し時にエラーにする（NFR-SEC-1）
 
@@ -356,3 +359,4 @@ graph LR
 | 1.3 | 2026-11-03 | 生成物（`_templ.go`・`static/dist/`）をコミットしないと確定 | 環境構築ドキュメントでの決定 |
 | 1.4 | 2026-11-04 | リダイレクト（302・303）を廃止しその場に描画・`HX-Redirect` に変更。初回描画をホストと通信しない方式にし、タブを snapshot 応答の OOB で更新。§11 に #7 を追加 | WebKit の WebView が `http.Redirect` を扱えないため。到達不能なホストで初回表示が遅れるため |
 | 1.5 | 2026-11-04 | §11 #3（URL スキームの実機登録）の検証手順を「Release の成果物をインストールして確認」で確定 | Issue #3（release.yml で配布物を CI が作るようになったため） |
+| 1.6 | 2026-11-05 | §7 にフォントの扱い（同梱の Symbols Nerd Font・PUA のみ・`static/dist/fonts/`）を追記 | Issue #9 |
