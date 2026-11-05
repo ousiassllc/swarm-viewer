@@ -1,0 +1,71 @@
+package atoms
+
+// AlertKind はインラインアラートの種類（ガイドの お知らせ / 成功 / 注意 / エラー）。
+type AlertKind string
+
+// AlertKind の値。
+const (
+	AlertInfo    AlertKind = "info"
+	AlertSuccess AlertKind = "success"
+	AlertWarning AlertKind = "warning"
+	AlertDanger  AlertKind = "danger"
+)
+
+// AlertProps は Alert の入力。
+type AlertProps struct {
+	// Kind は種類。未知の値は danger。
+	Kind AlertKind
+	// Message は本文の 1 文。複数行・リンクなどを載せるときは空にして、子要素に書く。
+	Message string
+	// Attrs は data-* など追加の属性。値は Templ がエスケープする。
+	Attrs templ.Attributes
+}
+
+func alertClass(k AlertKind) string {
+	const base = "flex items-start gap-2 rounded-lg border px-4 py-3 text-sm "
+	switch k {
+	case AlertInfo:
+		return base + "border-info/60 bg-info/10 text-info"
+	case AlertSuccess:
+		return base + "border-success/60 bg-success/10 text-success"
+	case AlertWarning:
+		return base + "border-warning/60 bg-warning/10 text-warning"
+	default:
+		return base + "border-danger/60 bg-danger/10 text-danger"
+	}
+}
+
+func alertIcon(k AlertKind) IconName {
+	switch k {
+	case AlertInfo:
+		return IconInfoCircle
+	case AlertSuccess:
+		return IconCheckCircle
+	case AlertWarning:
+		return IconWarningTriangle
+	default:
+		return IconWarningCircle
+	}
+}
+
+// alertRole は読み上げの強さ。注意・エラーは即時（alert）、お知らせ・成功は控えめ（status）。
+func alertRole(k AlertKind) string {
+	if k == AlertInfo || k == AlertSuccess {
+		return "status"
+	}
+	return "alert"
+}
+
+// Alert はインラインアラート（アイコン＋本文）。状態は色だけでなく、アイコンと文言でも伝える。
+// 応答全体の失敗（Recover・CSRF・404 など）、フォームのエラー、取得失敗・警告のバナーはすべてこれに載せる。
+templ Alert(p AlertProps) {
+	<div role={ alertRole(p.Kind) } class={ alertClass(p.Kind) } { p.Attrs... }>
+		@Icon(alertIcon(p.Kind), "mt-0.5 h-5 w-5")
+		<div class="flex min-w-0 flex-1 flex-col gap-1">
+			if p.Message != "" {
+				<p>{ p.Message }</p>
+			}
+			{ children... }
+		</div>
+	</div>
+}

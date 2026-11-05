@@ -47,7 +47,7 @@ templ RecoveryContent(p RecoveryProps) {
 	<p class="text-sm text-ink" data-recovery-reason={ string(p.Reason) }>{ recoveryMessage(p.Reason) }</p>
 	<p class="text-sm text-ink">保存していた token は OS の秘密領域に残ります。初期化後に接続をペアリングし直してください。</p>
 	if p.Error != "" {
-		<p role="alert" class="text-sm text-danger">{ p.Error }</p>
+		@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: p.Error})
 	}
 	<div>
 		@atoms.Button(atoms.ButtonProps{Label: "保存データを初期化する", Variant: atoms.ButtonDanger, Attrs: templ.Attributes{

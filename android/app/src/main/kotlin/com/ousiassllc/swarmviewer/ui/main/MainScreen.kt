@@ -38,6 +38,7 @@ import com.ousiassllc.swarmviewer.data.store.Snapshot
 import com.ousiassllc.swarmviewer.domain.Report
 import com.ousiassllc.swarmviewer.service.ConnectionItem
 import com.ousiassllc.swarmviewer.ui.NEEDS_REPAIR_LABEL
+import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import java.time.Instant
 
@@ -205,10 +206,11 @@ private fun StatusLine(
     val snapshot: Snapshot? = state.snapshot
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         if (state.needsRepair) {
-            Text(NEEDS_REPAIR_LABEL, color = MaterialTheme.colorScheme.error)
-            AppButton(onClick = onRepair) { Text("再ペアリング") }
+            AppAlert(NEEDS_REPAIR_LABEL) {
+                AppButton(onClick = onRepair) { Text("再ペアリング") }
+            }
         }
-        state.failure?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+        state.failure?.let { AppAlert(it) }
         if (snapshot != null) {
             val label = if (state.showsPreviousFetch) "前回取得" else "最終更新"
             MutedText("$label ${formatClock(snapshot.fetchedAt)}")

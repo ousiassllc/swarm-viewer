@@ -397,7 +397,9 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 | atoms | `Badge` | `Text`・`Tone` | エージェント種別・状態・要対応 |
 | atoms | `ProgressBar` | `Percent`・`Tone` | 利用上限・ホスト負荷 |
 | atoms | `Spinner` | `Size` | `hx-indicator` 用 |
-| atoms | `Toast` | `Message` | OOB 用。1 行の短文（エラー詳細には使わず、`Alert` かインラインアラートを使う） |
+| atoms | `Toast` | `Message` | OOB 用。1 行の短文（エラー詳細には使わず、`Alert` を使う） |
+| atoms | `Alert` | `Kind`（`info`・`success`・`warning`・`danger`）・`Message`・`Attrs`・子要素 | インラインアラート（アイコン＋本文）。応答全体の失敗・フォームのエラー・警告バナー・取得失敗バナーはすべてこれに載せる。状態は色だけでなくアイコンと文言でも伝える（ガイド C4）。`danger`・`warning` は `role="alert"`、`info`・`success` は `role="status"` |
+| atoms | `Icon` | `Name`・`Class` | Iconoir（MIT）の線画をインライン `<svg>`（`aria-hidden`・`currentColor`）で出す。現在は `warning-circle`・`warning-triangle`・`info-circle`・`check-circle` |
 | atoms | `Button` / `Input` | 通常の属性 | |
 | molecules | `PaneCard` | `Pane`・`Stale`・`Highlight`・`ReportWaiting` | 状態ラベル・activity・note 要約。`ReportWaiting` は state バッジの隣に「報告待ち」を出す。操作ボタンは**持たない** |
 | molecules | `UsageRow` | `Label`・`Slot` | `unit` で percent / usd を出し分け。`available: false` は「—」 |
@@ -410,7 +412,7 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 | organisms | `HostPanel` | `Host` | |
 | organisms | `AttentionBar` | `[]Attention`・`[]Warning`・`Auth` | ペイン関連とログイン関連の 2 グループに分け、グループ間とエージェントごとに区切り線を入れる（[機能要件 §7](../requirements/functional.md)） |
 | organisms | `SnapshotView` | `SnapshotResult`・`PollSeconds`・`Repair` | ポーリング属性（`hx-trigger`）を出す／出さないの判断を含む |
-| organisms | `ConnectionList` | `[]Connection`・`Error` | `Error` があれば一覧の上にインラインアラートを出す（削除失敗） |
+| organisms | `ConnectionList` | `[]Connection`・`Error` | `Error` があれば一覧の上に `Alert`（`danger`）を出す（削除失敗） |
 | pages | `MainPage` | 接続・タブ・スナップショット | |
 | pages | `PairingPage` / `PairingDraftPage` / `ConnectionsPage` / `SettingsPage` / `NoSessionsPage` / `DraftExpiredPage` / `RecoveryPage`（DB 破損時） | | |
 | layout | `Base` | `Title`・`CSRFToken` | `<head>`（CSP は HTTP ヘッダで付与。`htmx-config` の meta を含む）、`<body hx-headers='{"X-CSRF-Token":"…"}'>`、`htmx.min.js`・`app.js`・`app.css` を読み込む |
@@ -513,3 +515,4 @@ func main() {
 | 1.6 | 2026-11-05 | `AgentAccount`・`CursorAccount` に `Reason *string` を追加 | Issue #11 |
 | 1.7 | 2026-11-05 | `Host` に `Mem` を追加 | Issue #10 |
 | 1.8 | 2026-11-05 | `PaneCard` に `ReportWaiting`、`AttentionBar` にグループ分けと区切り線を追記 | Issue #8 |
+| 1.9 | 2026-11-05 | atoms に `Alert`（種別・アイコン付き）と `Icon` を追加し、各所のエラー文・バナーを `Alert` に統一。`muted` バッジの文字を ink に変更 | Issue #33（デザインガイド C4・C6） |

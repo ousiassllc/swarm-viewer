@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ousiassllc.swarmviewer.service.PairingDraft
+import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppCard
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
@@ -69,7 +70,7 @@ fun PairingScreen(
             } else {
                 ConfirmSection(draft = draft, busy = state.busy, onConfirm = viewModel::confirm, onCancel = viewModel::cancel)
             }
-            state.message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            state.message?.let { AppAlert(it) }
             TextButton(onClick = leave) { Text("戻る") }
         }
     }

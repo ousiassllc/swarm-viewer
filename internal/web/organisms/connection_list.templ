@@ -28,7 +28,7 @@ func deleteConfirm(name string) string {
 templ ConnectionList(p ConnectionListProps) {
 	<div id={ ConnectionListID } class="flex flex-col gap-4">
 		if p.Error != "" {
-			@atoms.Alert(p.Error)
+			@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: p.Error})
 		}
 		if len(p.Connections) == 0 {
 			<p class="text-sm text-ink">保存済みの接続はありません</p>

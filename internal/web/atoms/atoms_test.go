@@ -38,12 +38,40 @@ func TestSpinner(t *testing.T) {
 	webtest.MustContain(t, html, "h-5 w-5")
 }
 
-func TestToastAndAlert(t *testing.T) {
+func TestToast(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, atoms.Toast(atoms.ToastProps{Message: "保存しました"}))
 	webtest.MustContain(t, html, `id="toasts"`, `hx-swap-oob="true"`, `role="status"`, "保存しました")
-	html = webtest.Render(t, atoms.Alert("<b>x</b>"))
-	webtest.MustContain(t, html, `role="alert"`, "&lt;b&gt;")
+}
+
+// Alert は種類ごとにアイコン（装飾の svg）・文言・色を持ち、本文はエスケープされる（ガイド C4）。
+func TestAlert_KindsHaveIconAndText(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		kind  atoms.AlertKind
+		role  string
+		color string
+		icon  string
+	}{
+		{atoms.AlertDanger, `role="alert"`, "text-danger", "M12 7V13"},
+		{atoms.AlertWarning, `role="alert"`, "text-warning", "M20.0429 21H3.95705"},
+		{atoms.AlertInfo, `role="status"`, "text-info", "M12 11.5V16.5"},
+		{atoms.AlertSuccess, `role="status"`, "text-success", "M7 12.5L10 15.5L17 8.5"},
+		{atoms.AlertKind("???"), `role="alert"`, "text-danger", "M12 7V13"},
+	}
+	for _, tt := range tests {
+		html := webtest.Render(t, atoms.Alert(atoms.AlertProps{Kind: tt.kind, Message: "<b>x</b>"}))
+		webtest.MustContain(t, html, tt.role, tt.color, tt.icon, `<svg`, `aria-hidden="true"`, "&lt;b&gt;")
+		webtest.MustNotContain(t, html, "<b>")
+	}
+}
+
+// Message が空なら <p> を出さない（子要素だけを載せる使い方）。追加の属性は要素に付く。
+func TestAlert_AttrsAndEmptyMessage(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, atoms.Alert(atoms.AlertProps{Kind: atoms.AlertWarning, Attrs: templ.Attributes{"data-warning-code": "w1"}}))
+	webtest.MustContain(t, html, `data-warning-code="w1"`)
+	webtest.MustNotContain(t, html, "<p>")
 }
 
 func TestButton(t *testing.T) {

@@ -190,6 +190,7 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | NFR-DSG-4 | 主操作・リンク・選択中タブはインク色（`--accent`）で、青などのアクセント色を使わない。`working` と `report_waiting` は無彩色で、状態はラベルで区別する。フォーカスは `--focus` の 2px（offset 2）、入力欄は `--focus` の 40% のリング |
 | NFR-DSG-5 | トーストは画面下中央・端から 24px・高さ 40・ピル・1 行の短文・3 秒で消え・同時に 1 つ。エラー（削除失敗など）はトーストにせず、インラインアラートで示す |
 | NFR-DSG-6 | モーションはガイドのトークン（出現 320ms ease-out、退出 240ms ease-in）。`prefers-reduced-motion: reduce` ではフェードを付けない（スピナーの回転は処理中表示のため維持する） |
+| NFR-DSG-7 | 状態は色だけでなくアイコン（Iconoir）と文言で伝える。インラインアラート（エラー・警告・お知らせ・成功）は Web の `atoms.Alert`、Android の `AppAlert` に統一する。`--mute` は補助テキスト・キャプションだけに使い、情報の文字（バッジの文字など）には使わない |
 
 承認済みの逸脱（ガイドの値と異なるが、プロダクト固有の理由で維持するもの）:
 
@@ -215,3 +216,4 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | 1.6 | 2026-11-05 | NFR-SEC-9 に、フォントは同梱の Symbols Nerd Font（PUA のみ）で、それ以外は OS のフォントと明記 | Issue #9（ペインタイトルの Nerd Font アイコンの表示） |
 | 1.7 | 2026-11-05 | §10「Android 版」を追加（NFR-AND-*）。最小 Android 10、cleartext のアプリ全体許可と URL 検証、Keystore、バックアップ除外、署名済み APK の配布 | Issue #15（Android 版の仕様書への反映） |
 | 1.8 | 2026-11-05 | NFR-SEC-9 のフォントを、ガイド指定の Sora・Noto Sans JP・JetBrains Mono の同梱（OS のフォントに頼らない）に改訂。§11「Ousiass デザインガイド準拠」を追加 | Issue #30（デザインガイド準拠。フォント同梱の承認済み） |
+| 1.9 | 2026-11-05 | §11 に NFR-DSG-7（状態のアイコン併記・インラインアラートの統一・`--mute` の用途）を追加 | Issue #33（デザインガイド C4・C6） |

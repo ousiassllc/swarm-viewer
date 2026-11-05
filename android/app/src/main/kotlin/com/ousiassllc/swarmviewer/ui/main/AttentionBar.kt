@@ -16,6 +16,8 @@ import androidx.compose.ui.unit.dp
 import com.ousiassllc.swarmviewer.domain.Attention
 import com.ousiassllc.swarmviewer.domain.Auth
 import com.ousiassllc.swarmviewer.domain.Warning
+import com.ousiassllc.swarmviewer.ui.theme.AlertKind
+import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppCard
 import com.ousiassllc.swarmviewer.ui.theme.MonoFontFamily
 import java.time.Instant
@@ -41,9 +43,7 @@ fun AttentionBar(
 
 @Composable
 private fun WarningBanner(message: String) {
-    AppCard(borderColor = DisplayTone.Warning.color(), modifier = Modifier.fillMaxWidth()) {
-        Text(message, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-    }
+    AppAlert(message, kind = AlertKind.Warning)
 }
 
 @Composable

@@ -117,7 +117,7 @@ func (b base) viewStatus(c *gin.Context, status int, title string, page func(lay
 // fail は固定文言のエラー応答。アクションルート（GET 以外）は常にフラグメント、
 // ページルートは HX-Request の有無でフラグメント / フルページを分ける。
 func (b base) fail(c *gin.Context, status int, message string) {
-	comp := atoms.Alert(message)
+	comp := atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: message})
 	if c.Request.Method == http.MethodGet && !isHX(c) {
 		comp = inLayout(b.shell(appTitle), comp)
 	}

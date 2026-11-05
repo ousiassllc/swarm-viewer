@@ -33,6 +33,7 @@ import com.ousiassllc.swarmviewer.R
 import com.ousiassllc.swarmviewer.domain.ALLOWED_SCREEN_POLL_SECONDS
 import com.ousiassllc.swarmviewer.ui.main.MutedText
 import com.ousiassllc.swarmviewer.ui.main.NoticeText
+import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 
 /**
@@ -67,7 +68,7 @@ fun SettingsScreen(
                     .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            state.message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            state.message?.let { AppAlert(it) }
             state.settings?.let { settings ->
                 SettingsSection("画面更新間隔（選択中セッション）") {
                     ALLOWED_SCREEN_POLL_SECONDS.forEach { seconds ->

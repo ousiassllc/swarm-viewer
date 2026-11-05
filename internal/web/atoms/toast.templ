@@ -23,10 +23,3 @@ templ Toast(p ToastProps) {
 		</div>
 	</div>
 }
-
-// Alert は汎用のエラー通知（インラインアラート）。応答全体の失敗（Recover・CSRF・404 など）に使う。
-templ Alert(message string) {
-	<div role="alert" class="rounded-lg border border-danger/60 bg-danger/10 px-4 py-3 text-sm text-danger">
-		{ message }
-	</div>
-}

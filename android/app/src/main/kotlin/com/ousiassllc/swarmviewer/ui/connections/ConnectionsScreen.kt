@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ousiassllc.swarmviewer.service.ConnectionItem
 import com.ousiassllc.swarmviewer.ui.NEEDS_REPAIR_LABEL
+import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppCard
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
@@ -49,7 +50,7 @@ fun ConnectionsScreen(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            state.message?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            state.message?.let { AppAlert(it) }
             val connections = state.connections
             when {
                 connections == null -> Text("読み込み中…")
@@ -93,7 +94,7 @@ private fun ConnectionCard(
             Text(item.name, style = MaterialTheme.typography.titleMedium)
             Text(item.host, style = MaterialTheme.typography.bodyMedium)
             if (item.selected) Text("選択中", color = MaterialTheme.colorScheme.primary)
-            if (item.needsRepair) Text(NEEDS_REPAIR_LABEL, color = MaterialTheme.colorScheme.error)
+            if (item.needsRepair) AppAlert(NEEDS_REPAIR_LABEL)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (!item.selected) AppOutlinedButton(onClick = onSelect) { Text("切り替える") }
                 if (item.needsRepair) AppButton(onClick = onRepair) { Text("再ペアリング") }
