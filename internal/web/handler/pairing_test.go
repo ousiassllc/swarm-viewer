@@ -91,7 +91,8 @@ func TestDraftPage(t *testing.T) {
 	webtest.MustContain(t, full, "<html", "devbox", "100.64.0.5", "0, 1", "有効期限: あと 5 分",
 		`hx-post="/pairing/drafts/`+id+`/confirm"`, `hx-post="/pairing/drafts/`+id+`/discard"`)
 	// token・URL 全体は出さない。
-	webtest.MustNotContain(t, full, servicetest.Token, "48120", "/report", "swarm-viewer://")
+	// 背面の貼り付け画面の書式のヒント（`swarm-viewer://pair?…`）は出るが、貼り付けた接続文字列そのもの（URL・token）は出さない。
+	webtest.MustNotContain(t, full, servicetest.Token, "48120", "/report", "swarm-viewer://pair?v=")
 
 	frag := wantStatus(t, a.get("/pairing/drafts/"+id, hx()), http.StatusOK)
 	webtest.MustNotContain(t, frag, "<html", servicetest.Token)

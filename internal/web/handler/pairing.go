@@ -109,12 +109,13 @@ func (h *Handler) draftProps(c *gin.Context, did, errMsg string) (pages.DraftPro
 		return pages.DraftProps{}, false
 	}
 	return pages.DraftProps{
-		DraftID:      did,
-		Name:         v.Name,
-		Host:         v.Host,
-		SessionsHint: v.SessionsHint,
-		ExpiresText:  format.Until(v.ExpiresAt, h.clock.Now()),
-		Error:        errMsg,
+		DraftID:        did,
+		Name:           v.Name,
+		Host:           v.Host,
+		SessionsHint:   v.SessionsHint,
+		ExpiresText:    format.Until(v.ExpiresAt, h.clock.Now()),
+		Error:          errMsg,
+		HasConnections: h.pairingProps(c, organisms.PairingFormProps{}).HasConnections,
 	}, true
 }
 
