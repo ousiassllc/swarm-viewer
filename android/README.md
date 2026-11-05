@@ -76,3 +76,13 @@ push 前は `./gradlew lint ktlintCheck test` がクリーンに通ることを�
 ## リリース署名
 
 署名設定・keystore・パスワードはこのディレクトリに置かない（`app/build.gradle.kts` の release に `signingConfig` はない）。`./gradlew assembleRelease` は署名なしの APK を作り、署名は release.yml の `build-android`（`.github/scripts/sign-android-apk.sh`）が `apksigner` で行う。版は `-PappVersionName=X.Y.Z -PappVersionCode=N` で渡す（タグから `.github/scripts/android-version.sh` が決める。渡さないときは `0.1.0` / `1`）。鍵の作り方・シークレット・検証手順は [環境構築 §11.3・§11.4](../docs/environment/setup.md)。
+
+### 署名証明書の指紋
+
+release 署名証明書の SHA-256 フィンガープリント（公開情報。[環境構築 §11.3](../docs/environment/setup.md) の「証明書の確認」）。Release の APK がこの値と一致することを、リリースのたびに確かめる（`apksigner verify --verbose --print-certs` の `Signer #1 certificate SHA-256 digest`。手順は §11.4）。
+
+| 項目 | 値 |
+|------|-----|
+| SHA-256 | `E7:EB:05:8D:88:29:51:85:22:05:FC:95:E1:68:73:D9:E7:B6:E1:96:6B:11:08:4C:9A:AE:75:2C:92:EE:16:2A` |
+| Alias | `swarm-viewer` |
+| Owner | `CN=Yuhta Takezawa, O=Ousiass LLC` |
