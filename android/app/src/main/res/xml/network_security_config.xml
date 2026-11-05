@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  アプリ全体で cleartext（http）を許可する。
+  接続先は tailnet 上の swarm-viewer（http://100.x.y.z:port）で、tailnet の IP は範囲指定できず
+  domain-config に書けないため、base-config で一括して許可する。
+  通信は WireGuard（tailnet）で暗号化される。接続先 URL の検証は domain 層（後続の子 Issue）が担う。
+  InsecureBaseConfiguration は上記の理由で意図した設定なので、lint の指摘を個別に除外する。
+-->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config
+        cleartextTrafficPermitted="true"
+        tools:ignore="InsecureBaseConfiguration" />
+</network-security-config>

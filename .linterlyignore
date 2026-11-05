@@ -4,3 +4,9 @@
 
 # 仕様書（Markdown）はソースコードではなく、章立てで長くなる（architecture・components は 300 行超）ため除外する。
 docs/
+
+# Android（android/）のビルド成果物・生成物。ローカルの作業ツリーには存在するため除外する（手書きの Kotlin・Gradle 設定は除外しない）。
+android/.gradle/
+android/.kotlin/
+android/**/build/
+android/local.properties

@@ -19,3 +19,8 @@ indent_style = tab
 
 [*.md]
 trim_trailing_whitespace = false
+
+# Kotlin（android/）。ktlint が読む。Kotlin の標準に合わせて 4 スペースにする。
+[*.{kt,kts}]
+indent_size = 4
+ktlint_function_naming_ignore_when_annotated_with = Composable
