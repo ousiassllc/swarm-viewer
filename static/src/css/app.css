@@ -69,6 +69,9 @@
 
     --scrim: color-mix(in srgb, var(--bone) 60%, transparent);
 
+    /* モーダルの影（ガイド）: ダークの面・背景では .06 だと見えないので .4 にする。 */
+    --shadow-modal: 0 1px 2px rgb(0 0 0 / 0.4);
+
     --success: #8fafa0;
     --warning: #c4b87a;
     --danger: #c49a9a;

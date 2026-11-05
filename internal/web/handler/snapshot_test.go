@@ -19,7 +19,10 @@ func snapshotApp(t *testing.T) *app {
 	a.env.Report.SetSessions("c1", "0", "1")
 	pane := servicetest.Pane("%1", "T1", domain.StateAsking)
 	pane.Title = "fix-the-build"
-	a.env.Report.SetReport("c1", "0", servicetest.ReportOf(pane))
+	// 利用上限の取得状態（取得できません）もアラートで出るので、取得済み（ok）にしてエラーのアラートが無い状態を作る。
+	report := servicetest.ReportOf(pane)
+	report.Usage = domain.Usage{Status: domain.UsageOK}
+	a.env.Report.SetReport("c1", "0", report)
 	return a
 }
 

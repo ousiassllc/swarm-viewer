@@ -10,6 +10,13 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/web/webtest"
 )
 
+// アラートの種類を見分けるアイコン（Iconoir の warning-triangle・warning-circle・info-circle の path の一部）。
+const (
+	warningIcon = "M20.0429 21H3.95705"
+	dangerIcon  = "M12 7V13"
+	infoIcon    = "M12 11.5V16.5"
+)
+
 func fp(v float64) *float64 { return &v }
 
 func usageWith(status string, five domain.Slot) domain.Usage {
@@ -62,19 +69,22 @@ func TestUsagePanel_StatusBranches(t *testing.T) {
 	u.Status = domain.UsageStale
 	html = webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now}))
 	webtest.MustContain(t, html, "opacity-50", "古いデータ", "最終取得 11/03 11:00", "<details", "timeout", "42%")
+	// 取得状態は状態色のアラート（アイコン＋文言。ガイド C4）。stale は注意。
+	webtest.MustContain(t, html, `role="alert"`, "data-alert", warningIcon)
+	webtest.MustNotContain(t, html, `<p class="text-sm text-ink">古いデータ`)
 
-	// unavailable・pending・disabled・未知: 数字を出さない。
-	for status, label := range map[string]string{
-		domain.UsageUnavailable: "取得できません",
-		domain.UsagePending:     "取得中",
-		domain.UsageDisabled:    "利用上限の取得は無効です",
-		"brand-new":             "取得できません",
-		"":                      "取得できません",
+	// unavailable・pending・disabled・未知: 数字を出さない。unavailable・未知はエラー、pending・disabled はお知らせ（role="status"）。
+	for _, tt := range []struct{ status, label, role, icon string }{
+		{domain.UsageUnavailable, "取得できません", `role="alert"`, dangerIcon},
+		{domain.UsagePending, "取得中", `role="status"`, infoIcon},
+		{domain.UsageDisabled, "利用上限の取得は無効です", `role="status"`, infoIcon},
+		{"brand-new", "取得できません", `role="alert"`, dangerIcon},
+		{"", "取得できません", `role="alert"`, dangerIcon},
 	} {
-		u.Status = status
+		u.Status = tt.status
 		html = webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: u, Now: now}))
-		webtest.MustContain(t, html, label)
-		webtest.MustNotContain(t, html, "42%", "<progress", "$20.00", "Claude", "最終取得")
+		webtest.MustContain(t, html, tt.label, "data-alert", tt.role, tt.icon)
+		webtest.MustNotContain(t, html, "42%", "<progress", "$20.00", "Claude", "最終取得", `<p class="text-sm text-ink">`+tt.label)
 	}
 
 	// reason は unavailable のときだけ折りたたみ（pending・disabled では出さない）。
@@ -93,7 +103,7 @@ func TestUsagePanel_BothSlotsUnavailableIsOneLine(t *testing.T) {
 
 	// 2 枠とも取れない（reason なし・古い swarm-console）: 「取得できません」1 行。「—」・枠ラベルは出ない。
 	html := render(domain.AgentAccount{Account: "account-1"})
-	webtest.MustContain(t, html, "Claude · account-1", "取得できません")
+	webtest.MustContain(t, html, "Claude · account-1", "取得できません", "data-alert", `role="alert"`, warningIcon)
 	webtest.MustNotContain(t, html, "—", "5 時間枠", "7 日枠", "ログイン切れ")
 	if n := strings.Count(html, "取得できません"); n != 1 {
 		t.Errorf("「取得できません」は 1 回のはず: %d 回\n%s", n, html)

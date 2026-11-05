@@ -20,6 +20,8 @@ import com.ousiassllc.swarmviewer.domain.SlotValues
 import com.ousiassllc.swarmviewer.domain.Usage
 import com.ousiassllc.swarmviewer.domain.UsageStatus
 import com.ousiassllc.swarmviewer.domain.usageTone
+import com.ousiassllc.swarmviewer.ui.theme.AlertKind
+import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppCard
 import com.ousiassllc.swarmviewer.ui.theme.MonoFontFamily
 import java.time.Instant
@@ -43,7 +45,7 @@ fun UsagePanel(
     AppCard(modifier = Modifier.fillMaxWidth().grayedOut(gray)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("利用上限", style = MaterialTheme.typography.titleMedium)
-            usageStatusLabel(status).takeIf { it.isNotEmpty() }?.let { NoticeText(it) }
+            usageStatusLabel(status).takeIf { it.isNotEmpty() }?.let { AppAlert(it, kind = usageStatusAlertKind(status)) }
             if (usageShowsNumbers(status)) {
                 usage.claude.forEach { AgentAccountBlock("Claude", it, now) }
                 usage.codex.forEach { AgentAccountBlock("Codex", it, now) }
@@ -57,6 +59,14 @@ fun UsagePanel(
     }
 }
 
+/** `ok` 以外の `usage.status` をアラートの種類にする（`stale` は注意、`pending`・`disabled` はお知らせ、`unavailable`・未知はエラー）。 */
+private fun usageStatusAlertKind(status: String): AlertKind =
+    when (status) {
+        UsageStatus.STALE -> AlertKind.Warning
+        UsageStatus.PENDING, UsageStatus.DISABLED -> AlertKind.Info
+        else -> AlertKind.Danger
+    }
+
 /** Claude / Codex のアカウント。2 枠とも取れないときは「取得できません」を 1 行で出し、`reason` があれば理由を添える。 */
 @Composable
 private fun AgentAccountBlock(
@@ -67,7 +77,7 @@ private fun AgentAccountBlock(
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(joinNonEmpty(" · ", agent, account.account), style = MaterialTheme.typography.bodyMedium)
         if (!account.fiveHour.available && !account.sevenDay.available) {
-            NoticeText(joinNonEmpty(" · ", "取得できません", usageReasonLabel(account.reason)))
+            AppAlert(joinNonEmpty(" · ", "取得できません", usageReasonLabel(account.reason)), kind = AlertKind.Warning)
         } else {
             SlotRow("5 時間枠", account.fiveHour, now)
             SlotRow("7 日枠", account.sevenDay, now)

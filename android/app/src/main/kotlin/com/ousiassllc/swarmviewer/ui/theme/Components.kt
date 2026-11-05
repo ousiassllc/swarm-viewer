@@ -123,7 +123,7 @@ fun AppDangerTextButton(
     )
 }
 
-/** 入力欄（ガイド）: フォーカス中の枠と caret はフォーカスリング色（[ExtraColors.focus]）。 */
+/** 入力欄（ガイド）: 地は surface（Web の `bg-surface` と同じ）。フォーカス中の枠と caret はフォーカスリング色（[ExtraColors.focus]）。 */
 @Composable
 fun AppTextField(
     value: String,
@@ -135,6 +135,7 @@ fun AppTextField(
     singleLine: Boolean = false,
 ) {
     val focus = MaterialTheme.extraColors.focus
+    val surface = MaterialTheme.colorScheme.surface
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -145,6 +146,8 @@ fun AppTextField(
         shape = MaterialTheme.shapes.medium,
         colors =
             OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = surface,
+                unfocusedContainerColor = surface,
                 focusedBorderColor = focus,
                 focusedLabelColor = focus,
                 cursorColor = focus,

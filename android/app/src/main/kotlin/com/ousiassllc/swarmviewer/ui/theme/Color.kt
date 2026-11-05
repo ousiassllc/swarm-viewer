@@ -52,7 +52,10 @@ internal val DarkExtraColors =
         focus = Color(0xFF60A5FA),
     )
 
-/** primary = accent、background = bone、surface = カード、outline = border、surfaceVariant = accent-soft、onSurfaceVariant = mute、error = danger。 */
+/**
+ * primary = accent、background = bone、surface = カード、outline = border、surfaceVariant = accent-soft、onSurfaceVariant = mute、error = danger。
+ * surfaceTint は透明にする（tonal elevation で surface が灰色に染まり、ダイアログ・メニューの面がトークンの surface から外れるのを防ぐ）。
+ */
 internal val LightColors: ColorScheme =
     lightColorScheme(
         primary = AccentLight,
@@ -73,7 +76,7 @@ internal val LightColors: ColorScheme =
         onSurface = InkLight,
         surfaceVariant = AccentSoftLight,
         onSurfaceVariant = Mute,
-        surfaceTint = AccentLight,
+        surfaceTint = Color.Transparent,
         inverseSurface = InkLight,
         inverseOnSurface = BoneLight,
         inversePrimary = BoneLight,
@@ -113,7 +116,7 @@ internal val DarkColors: ColorScheme =
         onSurface = InkDark,
         surfaceVariant = AccentSoftDark,
         onSurfaceVariant = Mute,
-        surfaceTint = AccentDark,
+        surfaceTint = Color.Transparent,
         inverseSurface = InkDark,
         inverseOnSurface = BoneDark,
         inversePrimary = BoneDark,

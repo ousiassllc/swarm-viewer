@@ -2,6 +2,7 @@ package organisms
 
 import (
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/format"
 	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
 	"time"
@@ -35,6 +36,18 @@ func showsNumbers(status string) bool {
 	return s == domain.UsageOK || s == domain.UsageStale
 }
 
+// usageStatusAlertKind は ok 以外の usage.status をアラートの種類にする（stale は注意、unavailable はエラー、pending・disabled はお知らせ）。
+func usageStatusAlertKind(status string) atoms.AlertKind {
+	switch domain.NormalizeUsageStatus(status) {
+	case domain.UsageStale:
+		return atoms.AlertWarning
+	case domain.UsagePending, domain.UsageDisabled:
+		return atoms.AlertInfo
+	default:
+		return atoms.AlertDanger
+	}
+}
+
 func cursorRowLabel(a domain.CursorAccount) string {
 	if l := format.CursorWindowLabel(a.Window); l != "" {
 		return l
@@ -52,7 +65,7 @@ templ UsagePanel(p UsagePanelProps) {
 	<section class={ usageSectionClass(p) } aria-labelledby="usage-heading" data-usage-status={ domain.NormalizeUsageStatus(p.Usage.Status) }>
 		<h2 id="usage-heading" class="text-sm font-semibold text-ink">利用上限</h2>
 		if label := format.UsageStatusLabel(p.Usage.Status); label != "" {
-			<p class="text-sm text-ink">{ label }</p>
+			@atoms.Alert(atoms.AlertProps{Kind: usageStatusAlertKind(p.Usage.Status), Message: label})
 		}
 		if showsNumbers(p.Usage.Status) {
 			@usageAccounts(p)
@@ -95,12 +108,7 @@ templ agentAccount(agent string, a domain.AgentAccount, now time.Time) {
 	<div class="flex flex-col gap-2">
 		<h3 class="text-sm text-ink">{ format.JoinNonEmpty(" · ", agent, a.Account) }</h3>
 		if bothSlotsUnavailable(a) {
-			<p class="text-sm text-ink">
-				<span>取得できません</span>
-				if reason := format.UsageReasonLabel(a.Reason); reason != "" {
-					<span>{ " · " + reason }</span>
-				}
-			</p>
+			@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertWarning, Message: format.JoinNonEmpty(" · ", "取得できません", format.UsageReasonLabel(a.Reason))})
 		} else {
 			@molecules.UsageRow(molecules.UsageRowProps{Label: "5 時間枠", Slot: a.FiveHour, Now: now})
 			@molecules.UsageRow(molecules.UsageRowProps{Label: "7 日枠", Slot: a.SevenDay, Now: now})

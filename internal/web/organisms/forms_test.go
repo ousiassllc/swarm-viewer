@@ -102,4 +102,7 @@ func TestSettingsForm_DebugOnNotifyOffAndPermissions(t *testing.T) {
 	webtest.MustNotContain(t, unknown, deniedText, "OS の通知")
 	denied := webtest.Render(t, organisms.SettingsForm(organisms.SettingsFormProps{Settings: domain.DefaultSettings(), Permission: organisms.NotifyPermissionDenied}))
 	webtest.MustContain(t, denied, deniedText)
+	// 通知の拒否は注意のアラート（アイコン＋文言＋状態色。ガイド C4）で、プレーンな <p> ではない。
+	webtest.MustContain(t, denied, `role="alert"`, "data-alert", warningIcon)
+	webtest.MustNotContain(t, denied, `<p class="text-sm text-ink">OS が通知を許可していません`)
 }

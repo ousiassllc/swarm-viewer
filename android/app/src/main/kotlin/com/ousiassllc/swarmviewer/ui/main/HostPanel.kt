@@ -52,7 +52,7 @@ private fun HostRow(row: HostRowModel) {
             }
             row.noBar -> {
                 Spacer(Modifier.weight(1f))
-                ValueText(row.detail)
+                ValueText(row.detail, MaterialTheme.colorScheme.onSurface)
             }
             else -> {
                 val tone = displayTone(percentTone(row.percent))
