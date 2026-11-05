@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/layout"
 	"github.com/ousiassllc/swarm-viewer/internal/web/organisms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
@@ -39,14 +40,19 @@ templ NoSessionsPage(shell layout.BaseProps, connectionName string) {
 // NoSessionsContent は「許可されたセッションがありません」のフラグメント。
 templ NoSessionsContent(connectionName string) {
 	@pageTitle("許可されたセッションがありません")
-	<p class="text-sm text-ink">
-		if connectionName != "" {
-			接続「{ connectionName }」:
-		}
-		ホスト側でトークンの許可セッションを確認してください。
-	</p>
-	<div class="flex items-center gap-4">
-		@navLink(paths.Connections, "接続管理")
-		@navLink(paths.Pairing, "接続を追加")
-	</div>
+	@atoms.EmptyState(atoms.EmptyStateProps{Message: noSessionsHint(connectionName)}) {
+		<div class="flex items-center gap-4">
+			@navLink(paths.Connections, "接続管理")
+			@navLink(paths.Pairing, "接続を追加")
+		</div>
+	}
+}
+
+// noSessionsHint は許可セッションが 0 件のときの案内文。接続名が分かればそれを添える。
+func noSessionsHint(connectionName string) string {
+	const hint = "ホスト側でトークンの許可セッションを確認してください。"
+	if connectionName == "" {
+		return hint
+	}
+	return "接続「" + connectionName + "」: " + hint
 }
