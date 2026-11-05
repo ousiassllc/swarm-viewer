@@ -62,16 +62,17 @@ fun PairingScreen(
                     .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // 確定の失敗は、確認モーダルの中に出す（背面のアラートはスクラムに隠れる）。
+            val inputError = state.draft == null && state.message != null
             PasteSection(
                 input = state.input,
                 busy = state.busy,
+                isError = inputError,
                 onInputChange = viewModel::onInputChange,
                 onSubmit = viewModel::submitInput,
                 onScan = onScan,
             )
-            val draft = state.draft
-            // 確定の失敗は、確認モーダルの中に出す（背面のアラートはスクラムに隠れる）。
-            if (draft == null) state.message?.let { AppAlert(it) }
+            if (inputError) state.message?.let { AppAlert(it) }
             AppNavTextButton("戻る", leave)
         }
     }
@@ -92,6 +93,7 @@ fun PairingScreen(
 private fun PasteSection(
     input: String,
     busy: Boolean,
+    isError: Boolean,
     onInputChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onScan: () -> Unit,
@@ -105,6 +107,7 @@ private fun PasteSection(
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
         singleLine = true,
+        isError = isError,
         modifier = Modifier.fillMaxWidth(),
     )
     AppButton(onClick = onSubmit, enabled = input.isNotBlank() && !busy, modifier = Modifier.fillMaxWidth()) { Text("接続") }

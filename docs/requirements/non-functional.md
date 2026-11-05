@@ -197,6 +197,7 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | NFR-DSG-11 | モーションの時間とトーストの寸法は CSS のトークン（`app.css` の `:root`: `--motion-fade-out`・`--toast-duration` 3s・`--toast-h` 40px・`--toast-offset`）が唯一の出どころで、`app.js` は数値を持たず `getComputedStyle` で読む（`cssDurationMs`。トーストの 3 秒と、応答の差し替えを退出フェードの終わりまで待つ時間）。`toast.templ` の高さも `h-(--toast-h)`。トークンだけを変えても CSS のフェードと JS の待ちがずれない。アクション付きトーストの 5 秒（`--toast-duration-action`）は、アクション付きのトーストを入れるときに足す |
 | NFR-DSG-12 | ボタンの左右 padding は 18（小は 12。Web は `px-[18px]`、Android は `AppButton`・`AppOutlinedButton`・`AppDangerButton` の `ButtonContentPadding`。上下は高さ 40 が決める）。チェックボックス→文言は 10（`--list-marker-gap`。Web は `atoms.CheckboxRowClass`）。空状態の padding は縦 48・横 24 で、画面幅で変えない（Web は `px-6 py-12`、Android は `EmptyStateHorizontalPadding`・`EmptyStateVerticalPadding`） |
 | NFR-DSG-13 | トーストの出現・退出の移動量は 8px（ガイド M5「下から 8px」）。`motion.css` の `fade-in`・`fade-out` は移動量を `--fade-rise`（既定 4px）で読み、`toast.templ` の本体が `[--fade-rise:8px]` を付ける（アラート・モーダルは既定の 4px） |
+| NFR-DSG-14 | 検証に失敗した入力欄は `--danger` の枠で示す（ガイド O7 の `.fld.bad`。文言は入力欄の下のインラインアラート）。Web はペアリングの textarea に `atoms.FieldInvalidClass`（枠 `--danger`・フォーカスのリング `--ring-danger` = `--danger` の 40%）を重ね、Android は `AppTextField(isError = …)` で枠・caret・ラベルを `ExtraColors.danger` にする。トーストの幅は `min(92vw, 420px)` で頭打ち（`toast.templ` の `max-w-[min(92vw,26.25rem)]`。接続名など利用者が決める長い文言でも端まで伸びない） |
 
 承認済みの逸脱（ガイドの値と異なるが、プロダクト固有の理由で維持するもの）:
 
@@ -247,3 +248,4 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | 3.9 | 2026-11-05 | NFR-DSG-7 に、接続管理の「表示中」の印を Web・Android ともバッジにそろえることを追記。Android のセッションタブの未選択は `onSurfaceVariant`（`--mute`）の文字（NFR-DSG-9 のとおり） | Issue #67（デザインガイド O8） |
 | 4.0 | 2026-11-05 | NFR-DSG-12（ボタンの左右 padding 18・チェックボックスの行の gap 10・空状態の padding 縦 48 横 24）を追加 | Issue #72（デザインガイド S2・S4） |
 | 4.1 | 2026-11-05 | NFR-DSG-13（トーストの移動量 8px）を追加 | Issue #74（デザインガイド M5） |
+| 4.2 | 2026-11-05 | NFR-DSG-14（入力欄のエラー枠・トーストの最大幅 420px）を追加 | Issue #73（デザインガイド O3・O7） |

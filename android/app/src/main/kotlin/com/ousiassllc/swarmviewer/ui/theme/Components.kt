@@ -219,7 +219,10 @@ fun AppNavTextButton(
     TextButton(onClick = onClick, modifier = modifier) { Text(label, style = MaterialTheme.typography.bodyMedium) }
 }
 
-/** 入力欄（ガイド）: 地は surface（Web の `bg-surface` と同じ）。フォーカス中の枠と caret はフォーカスリング色（[ExtraColors.focus]）。 */
+/**
+ * 入力欄（ガイド）: 地は surface（Web の `bg-surface` と同じ）。フォーカス中の枠と caret はフォーカスリング色（[ExtraColors.focus]）。
+ * [isError] のときは枠・caret・ラベルを `--danger`（[ExtraColors.danger]。Web の `FieldInvalidClass`。ガイド O7 の `.fld.bad`）にする。文言は呼び出し側が入力欄の下に出す。
+ */
 @Composable
 fun AppTextField(
     value: String,
@@ -229,8 +232,11 @@ fun AppTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     singleLine: Boolean = false,
+    isError: Boolean = false,
 ) {
-    val focus = MaterialTheme.extraColors.focus
+    val extra = MaterialTheme.extraColors
+    val focus = extra.focus
+    val danger = extra.danger
     val surface = MaterialTheme.colorScheme.surface
     OutlinedTextField(
         value = value,
@@ -239,6 +245,7 @@ fun AppTextField(
         visualTransformation = visualTransformation,
         keyboardOptions = keyboardOptions,
         singleLine = singleLine,
+        isError = isError,
         shape = MaterialTheme.shapes.medium,
         colors =
             OutlinedTextFieldDefaults.colors(
@@ -247,6 +254,9 @@ fun AppTextField(
                 focusedBorderColor = focus,
                 focusedLabelColor = focus,
                 cursorColor = focus,
+                errorBorderColor = danger,
+                errorCursorColor = danger,
+                errorLabelColor = danger,
             ),
         modifier = modifier,
     )

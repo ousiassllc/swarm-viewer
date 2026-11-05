@@ -99,6 +99,11 @@ func inputType(t string) string {
 // 横幅・padding・フォントは呼び出し側が足す。
 const FieldClass = "min-h-10 rounded-md text-base border border-border bg-surface text-ink placeholder:text-mute focus-visible:border-focus focus-visible:outline-transparent focus-visible:ring-2 focus-visible:ring-(color:--ring) disabled:cursor-not-allowed disabled:opacity-50"
 
+// FieldInvalidClass は検証に失敗した入力欄の枠（ガイド O7・tokens-preview の .fld.bad）: --danger の枠、フォーカス中のリングは --danger の 40%（--ring-danger）。
+// FieldClass の border・focus の枠色と同じ特異度なので、! で確実に上書きする。リングの色は --ring を要素上で差し替えて変える。
+// 文言は入力欄の下の Alert が持つ。
+const FieldInvalidClass = "border-danger! focus-visible:border-danger! [--ring:var(--ring-danger)]"
+
 // SelectClass は select 用のクラス。FieldClass に、OS 既定の矢印を消して mute のシェブロンを足したもの（ガイド §4 フォーム）。
 // シェブロンは CSP（default-src 'self'）で data: URI が使えないので、ガイドの見本どおり linear-gradient 2 本（5px 四方）で描く。
 // 色は var(--mute) でライト・ダークのトークンに追従する。シェブロンの位置ぶん右に 36px（pr-9）空ける。

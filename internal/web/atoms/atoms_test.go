@@ -60,6 +60,9 @@ func TestToast(t *testing.T) {
 	// ガイドの見本は高さ 40（--toast-h）・左右 18px（S2）。
 	webtest.MustContain(t, html, "h-(--toast-h)", "px-[18px]", "rounded-full")
 	webtest.MustNotContain(t, html, "h-10")
+	// 幅の上限はガイドの見本の min(92vw, 420px)。接続名など利用者が決める長い文言でも端まで伸びない（O3）。
+	webtest.MustContain(t, html, "max-w-[min(92vw,26.25rem)]")
+	webtest.MustNotContain(t, html, "calc(100vw-3rem)")
 	webtest.MustNotContain(t, html, "px-6")
 }
 

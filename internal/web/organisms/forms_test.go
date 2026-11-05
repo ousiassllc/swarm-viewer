@@ -64,11 +64,13 @@ func TestPairingForm(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, organisms.PairingForm(organisms.PairingFormProps{}))
 	webtest.MustContain(t, html, `hx-post="/pairing"`, `hx-target-422="#pairing-form"`, `name="pairing"`, "<textarea", `type="submit"`)
-	webtest.MustNotContain(t, html, `role="alert"`)
+	webtest.MustNotContain(t, html, `role="alert"`, "border-danger!", "--ring-danger")
 
 	// 検証失敗時も、貼り付けられた値は戻さない（textarea は空のまま）。
 	html = webtest.Render(t, organisms.PairingForm(organisms.PairingFormProps{Error: "接続文字列の形式が正しくありません"}))
 	webtest.MustContain(t, html, `role="alert"`, "接続文字列の形式が正しくありません", "></textarea>")
+	// 検証失敗のとき入力欄の枠は --danger、フォーカスのリングは --ring-danger（ガイド O7 の .fld.bad）。
+	webtest.MustContain(t, html, "border-danger!", "focus-visible:border-danger!", "[--ring:var(--ring-danger)]")
 	// ラベル→入力 8px・入力→エラー 4px・項目間 16px（ガイド S2）。
 	webtest.MustContain(t, html, `class="flex flex-col gap-4"`, `<div class="flex flex-col gap-2"><label for="pairing-input"`, `<div class="flex flex-col gap-1"><textarea`)
 	// 接続文字列の欄は本文と同じ 16px の等幅（ガイド T3・T5）。
