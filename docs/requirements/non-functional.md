@@ -185,9 +185,9 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | ID | 要件 |
 |----|------|
 | NFR-DSG-1 | 色はガイドのトークン（`--ink` `--bone` `--mute` `--surface` `--border` `--accent` `--accent-soft` `--focus` と状態色 `--success` `--warning` `--danger` `--info`）だけを使う。Web は `static/src/css/app.css` に定義し、Tailwind の既定パレットは無効にする。Android は `ui/theme/` の ColorScheme と状態色で持つ。独自の色・ハードコードの色を足さない |
-| NFR-DSG-2 | ライト / ダークはシステムの設定に追従する（Web は `prefers-color-scheme`、Android はシステムテーマ）。手動の切替 UI は持たない |
+| NFR-DSG-2 | ライト / ダークはシステムの設定に追従する（Web は `prefers-color-scheme`、Android はシステムテーマ）。デスクトップのウィンドウ背景（WebView の描画前・リサイズ中に見える面）も OS のテーマの `--bone`（ライト `#F5F5F4`・ダーク `#050505`）にし、テーマ変更に追従する（値は `internal/app/theme` に 1 か所。Android は `windowBackground`）。手動の切替 UI は持たない |
 | NFR-DSG-3 | フォントは NFR-SEC-9 のとおり同梱する。SemiBold は見出しとボタンだけに使い、Medium・Bold を使わない。本文は 14px 以上（説明・警告・エラーの文章を 12px にしない）。入力欄・select・textarea の文字は 16px（`atoms.FieldClass` の `text-base`）。12px はバッジ・日時・ペイン番号などのキャプションだけ |
-| NFR-DSG-4 | 主操作・リンク・選択中タブはインク色（`--accent`）で、青などのアクセント色を使わない。`working` と `report_waiting` は無彩色で、状態はラベルで区別する。フォーカスは `--focus` の 2px（offset 2）、入力欄は `--focus` の 40% のリング |
+| NFR-DSG-4 | 主操作・リンク・選択中タブはインク色（`--accent`）で、青などのアクセント色を使わない。`working` と `report_waiting` は無彩色で、状態はラベルで区別する。フォーカスは `--focus` の 2px（offset 2）、入力欄とチェックボックスは `--focus` の 40% のリング（`--ring`。入力欄 2px・チェックボックス 3px） |
 | NFR-DSG-5 | トーストは画面下中央・端から 24px・高さ 40・ピル・1 行の短文・3 秒で消え・同時に 1 つ。エラー（削除失敗など）はトーストにせず、インラインアラートで示す |
 | NFR-DSG-6 | モーションはガイドのトークン（出現 320ms ease-out、退出 240ms ease-in）。`prefers-reduced-motion: reduce` ではフェードを付けない（スピナーの回転は処理中表示のため維持する）。トースト・インラインアラートは出現でフェードイン、トーストは退出でフェードアウトする。ボタンの押下は小さなリップル（280ms ease-out）。Android は Compose の既定のアニメーション（ボタンのリップルを含む）に任せ、独自のモーションは持たない |
 | NFR-DSG-7 | 状態は色だけでなくアイコン（Iconoir）と文言で伝える。インラインアラート（エラー・警告・お知らせ・成功）は Web の `atoms.Alert`、Android の `AppAlert` に統一する。形はガイドの見本どおり、surface 地・1px の border・左 3px の状態色・角丸 `--r-md`・文字は `--ink`（状態色はアイコンと左の帯だけ）。`--mute` は補助テキスト・キャプションだけに使い、情報の文字（バッジの文字など）には使わない |
@@ -226,3 +226,4 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | 2.3 | 2026-11-05 | §11 の承認済みの逸脱に「1 文で足りるインラインアラートは見出しなし」を追加 | Issue #42（デザインガイド O8） |
 | 2.4 | 2026-11-05 | NFR-DSG-7 にインラインアラートの形（surface 地・左 3px の状態色・文字は ink）を明記し、承認済みの逸脱から「警告帯のコントラスト」を外した | Issue #46（デザインガイド O8） |
 | 2.5 | 2026-11-05 | NFR-DSG-8 の Android の確認を `AppDialog`（枠・影つき）に改訂 | Issue #50（デザインガイド S3） |
+| 2.6 | 2026-11-05 | NFR-DSG-2 にデスクトップのウィンドウ背景色、NFR-DSG-4 にチェックボックスのフォーカスリングを追記 | Issue #52（デザインガイド C3・C5） |

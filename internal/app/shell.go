@@ -82,6 +82,10 @@ func NewShell(o Options) *Shell {
 		},
 	})
 	s.Window = newWindow(s.app, o.Logger)
+	s.app.RegisterService(application.NewService(&backgroundSync{app: s.app, win: s.Window}))
+	s.app.Event.OnApplicationEvent(events.Common.ThemeChanged, func(*application.ApplicationEvent) {
+		s.Window.applyTheme(s.app.Env.IsDarkMode())
+	})
 	newTray(s.app, s.Window, o.Icon, s.Quit)
 	registerProtocol(s.app, o.Links)
 	s.app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
