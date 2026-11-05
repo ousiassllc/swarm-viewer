@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -26,8 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -43,7 +40,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -217,49 +213,6 @@ fun AppNavTextButton(
     modifier: Modifier = Modifier,
 ) {
     TextButton(onClick = onClick, modifier = modifier) { Text(label, style = MaterialTheme.typography.bodyMedium) }
-}
-
-/**
- * 入力欄（ガイド）: 地は surface（Web の `bg-surface` と同じ）。フォーカス中の枠と caret はフォーカスリング色（[ExtraColors.focus]）。
- * [isError] のときは枠・caret・ラベルを `--danger`（[ExtraColors.danger]。Web の `FieldInvalidClass`。ガイド O7 の `.fld.bad`）にする。文言は呼び出し側が入力欄の下に出す。
- */
-@Composable
-fun AppTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    modifier: Modifier = Modifier,
-    visualTransformation: VisualTransformation = VisualTransformation.None,
-    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    singleLine: Boolean = false,
-    isError: Boolean = false,
-) {
-    val extra = MaterialTheme.extraColors
-    val focus = extra.focus
-    val danger = extra.danger
-    val surface = MaterialTheme.colorScheme.surface
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        visualTransformation = visualTransformation,
-        keyboardOptions = keyboardOptions,
-        singleLine = singleLine,
-        isError = isError,
-        shape = MaterialTheme.shapes.medium,
-        colors =
-            OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = surface,
-                unfocusedContainerColor = surface,
-                focusedBorderColor = focus,
-                focusedLabelColor = focus,
-                cursorColor = focus,
-                errorBorderColor = danger,
-                errorCursorColor = danger,
-                errorLabelColor = danger,
-            ),
-        modifier = modifier,
-    )
 }
 
 private const val DASH_LENGTH_DP = 6f

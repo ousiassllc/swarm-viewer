@@ -29,9 +29,9 @@ templ PairingPage(shell layout.BaseProps, p PairingProps) {
 templ PairingContent(p PairingProps) {
 	@pageTitle("接続を追加")
 	<p class="text-sm text-ink"><code class="font-mono">swarm-console pair</code> の出力を貼り付けてください。</p>
-	<details class="text-sm text-ink">
+	<details class="acc text-sm text-ink">
 		<summary>注意</summary>
-		発行した接続文字列は再利用しないでください。
+		<p class="acc-body text-mute">発行した接続文字列は再利用しないでください。</p>
 	</details>
 	<div id={ organisms.PairingFormID }>
 		@organisms.PairingForm(p.Form)

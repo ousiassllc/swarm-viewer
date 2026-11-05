@@ -75,9 +75,9 @@ templ UsagePanel(p UsagePanelProps) {
 			}
 		}
 		if p.Usage.Reason != "" && (domain.NormalizeUsageStatus(p.Usage.Status) == domain.UsageStale || domain.NormalizeUsageStatus(p.Usage.Status) == domain.UsageUnavailable) {
-			<details class="text-sm text-ink">
+			<details class="acc text-sm text-ink">
 				<summary>詳細</summary>
-				<code class="font-mono">{ p.Usage.Reason }</code>
+				<div class="acc-body"><code class="font-mono">{ p.Usage.Reason }</code></div>
 			</details>
 		}
 	</section>
