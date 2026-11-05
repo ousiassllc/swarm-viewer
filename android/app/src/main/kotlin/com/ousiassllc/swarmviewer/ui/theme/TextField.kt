@@ -21,15 +21,19 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /** 入力欄の高さ（ガイド O8・§4 フォーム: 高さ 40。tokens-preview の `.fld{height:40px}`・Web の `min-h-10`）。M3 の既定は 56dp。 */
 private val FieldMinHeight = 40.dp
 
-/** 入力欄の内側の余白（左右 12dp・上下 8dp。本文 16sp の行高 24dp と合わせて 40dp になる）。 */
+/** 入力欄の内側の余白（左右 12dp・上下 8dp。文字の行高 [FieldLineHeight] と合わせて 40dp になる）。 */
 private val FieldContentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
 
 /** ラベルと入力欄の間隔（`--gap-label` 6）。 */
 private val FieldLabelGap = 6.dp
+
+/** 入力欄の文字の行高。`bodyLarge` の行高（16sp × 1.8 = 28.8sp）だと 8 + 28.8 + 8 = 44.8dp になるので、24sp に抑えて 40dp にする。 */
+private val FieldLineHeight = 24.sp
 
 /**
  * 入力欄（ガイド O8・§4 フォーム）: ラベルは入力の上（`.lbl`。M3 の枠内に浮くラベルは使わない）、入力は高さ 40dp・内側 12dp・角丸 8dp（r-md）・1dp の border・surface の地
@@ -71,7 +75,7 @@ fun AppTextField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth().heightIn(min = FieldMinHeight).semantics { contentDescription = label },
-            textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+            textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface, lineHeight = FieldLineHeight),
             keyboardOptions = keyboardOptions,
             singleLine = singleLine,
             visualTransformation = visualTransformation,

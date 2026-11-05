@@ -63,16 +63,15 @@ fun PairingScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // 確定の失敗は、確認モーダルの中に出す（背面のアラートはスクラムに隠れる）。
-            val inputError = state.draft == null && state.message != null
+            val inputError = state.message.takeIf { state.draft == null }
             PasteSection(
                 input = state.input,
                 busy = state.busy,
-                isError = inputError,
+                errorMessage = inputError,
                 onInputChange = viewModel::onInputChange,
                 onSubmit = viewModel::submitInput,
                 onScan = onScan,
             )
-            if (inputError) state.message?.let { AppAlert(it) }
             AppNavTextButton("戻る", leave)
         }
     }
@@ -93,23 +92,27 @@ fun PairingScreen(
 private fun PasteSection(
     input: String,
     busy: Boolean,
-    isError: Boolean,
+    errorMessage: String?,
     onInputChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onScan: () -> Unit,
 ) {
     Text("swarm-console の接続文字列（swarm-viewer://pair?…）を貼り付けるか、QR を読み取ってください。")
-    AppTextField(
-        value = input,
-        onValueChange = onInputChange,
-        label = "接続文字列",
-        // token を含むため伏せ字にし、キーボードの学習・候補に残さない。
-        visualTransformation = PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
-        singleLine = true,
-        isError = isError,
-        modifier = Modifier.fillMaxWidth(),
-    )
+    // 検証エラーの文言は入力欄の直下（間隔 4 = `--gap-help`。ガイド §4 フォーム・O7 の `.fld.bad`）に置き、ボタンはその下に出す。
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        AppTextField(
+            value = input,
+            onValueChange = onInputChange,
+            label = "接続文字列",
+            // token を含むため伏せ字にし、キーボードの学習・候補に残さない。
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+            singleLine = true,
+            isError = errorMessage != null,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        errorMessage?.let { AppAlert(it) }
+    }
     AppButton(onClick = onSubmit, enabled = input.isNotBlank() && !busy, modifier = Modifier.fillMaxWidth()) { Text("接続") }
     AppOutlinedButton(onClick = onScan, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("QR を読み取る") }
 }
@@ -127,17 +130,20 @@ private fun ConfirmDialog(
         onDismissRequest = { if (!busy) onCancel() },
         title = { Text("この接続先に接続します") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("表示名: ${draft.name}")
-                // host は桁と区切りを読む値なので JetBrains Mono にする（T5。Web の確認モーダルと同じ）。
-                Text(
-                    buildAnnotatedString {
-                        append("接続先: ")
-                        withStyle(SpanStyle(fontFamily = MonoFontFamily)) { append(draft.host) }
-                    },
-                )
-                if (draft.sessionsHint.isNotEmpty()) Text("ホストが申告した許可セッション: ${draft.sessionsHint.joinToString(", ")}")
-                if (draft.replacesExisting) Text("同じ接続先が保存済みです。token を差し替えます。")
+            // 文の行の間は 8（`--list-gap`。Web の `<dl>` の `gap-y-2`）、枠付きのアラートは文の外側で 16 空ける（Web の `ModalBodyClass` の `gap-4`）。
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("表示名: ${draft.name}")
+                    // host は桁と区切りを読む値なので JetBrains Mono にする（T5。Web の確認モーダルと同じ）。
+                    Text(
+                        buildAnnotatedString {
+                            append("接続先: ")
+                            withStyle(SpanStyle(fontFamily = MonoFontFamily)) { append(draft.host) }
+                        },
+                    )
+                    if (draft.sessionsHint.isNotEmpty()) Text("ホストが申告した許可セッション: ${draft.sessionsHint.joinToString(", ")}")
+                    if (draft.replacesExisting) Text("同じ接続先が保存済みです。token を差し替えます。")
+                }
                 message?.let { AppAlert(it) }
             }
         },
