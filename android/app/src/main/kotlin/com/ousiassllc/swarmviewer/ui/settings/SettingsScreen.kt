@@ -38,6 +38,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 import com.ousiassllc.swarmviewer.ui.theme.AppRadio
 import com.ousiassllc.swarmviewer.ui.theme.ListRowMinHeight
 import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
+import com.ousiassllc.swarmviewer.ui.theme.RadioLabelStart
 
 /**
  * 設定画面（A3。機能要件 §12.4）。画面更新間隔（5 / 10 / 30 / 60 秒）の選択、通知の項目（[NotificationSettings]）、
@@ -119,7 +120,7 @@ internal fun RadioRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AppRadio(selected = selected)
-        Text(label, modifier = Modifier.padding(start = 12.dp))
+        Text(label, modifier = Modifier.padding(start = RadioLabelStart))
     }
 }
 
