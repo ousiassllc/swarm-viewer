@@ -126,6 +126,9 @@ jobs:
       # release.yml の plan ジョブが使う plan-release.sh の表駆動テスト（ネットワーク不要）。
       - name: plan-release.sh のテスト
         run: bash .github/scripts/plan-release_test.sh
+      # release.yml の build-windows ジョブが使う install-nsis.sh の取得（再試行・sha256 検証）のテスト（ネットワーク不要）。
+      - name: install-nsis.sh のテスト
+        run: bash .github/scripts/install-nsis_test.sh
 
   build:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository

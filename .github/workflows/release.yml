@@ -40,8 +40,9 @@ env:
   RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
   TASK_VERSION: 3.x
   BUN_VERSION: 1.3.14
-  # Windows の NSIS インストーラ用。windows-latest（Windows Server 2025）には入っていないので、無ければ choco で入れる
-  NSIS_VERSION: 3.11.0
+  # Windows の NSIS インストーラ用（3.11 系で固定）。windows-latest にイメージ同梱の makensis があっても 3.11 でなければ使わず、
+  # 公式配布の zip（sha256 検証つき。再試行あり）を入れる。Chocolatey は使わない（一時障害の 503 でリリースが止まったため。Issue #6）
+  NSIS_VERSION: "3.11"
 
 jobs:
   plan:
@@ -140,12 +141,8 @@ jobs:
           [ -n "$wails_version" ] || { echo "::error::cannot read the wails version from go.mod"; exit 1; }
           GOBIN="$RUNNER_TEMP/bin" go install "github.com/wailsapp/wails/v3/cmd/wails3@${wails_version}"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-      - name: Install NSIS if makensis is missing
-        run: |
-          if ! command -v makensis >/dev/null 2>&1 && [ ! -x "/c/Program Files (x86)/NSIS/makensis.exe" ]; then
-            choco install nsis --version="$NSIS_VERSION" --yes --no-progress
-          fi
-          echo 'C:\Program Files (x86)\NSIS' >> "$GITHUB_PATH"
+      - name: Install NSIS (pinned, sha256-verified official zip)
+        run: bash .github/scripts/install-nsis.sh
       - name: Set the version from the tag
         run: bash .github/scripts/set-version.sh "$TAG"
       - name: Build the NSIS installer
