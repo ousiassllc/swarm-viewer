@@ -118,3 +118,12 @@ func TestAttentionBar_NoDividerWithSingleGroup(t *testing.T) {
 	webtest.MustContain(t, twoAgents, "divide-slate-700/60")
 	webtest.MustNotContain(t, twoAgents, "divide-y divide-slate-700 ")
 }
+
+func TestAttentionBar_AuthKindWithPaneStaysInAgentGroup(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, organisms.AttentionBar(organisms.AttentionBarProps{
+		Attention: []domain.Attention{{Kind: "auth_expired", Pane: "T1", Detail: "claude"}},
+	}))
+	webtest.MustContain(t, html, `data-attention-group="agents"`, `data-attention-agent="claude"`)
+	webtest.MustNotContain(t, html, `data-attention-group="panes"`)
+}
