@@ -55,7 +55,10 @@ func TestPaneCard_Fields(t *testing.T) {
 	html := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane}))
 	webtest.MustContain(t, html, "T3", "codex", "My Title", "/srv/work", "42m", "compiling…", "17m", "org/repo", "one", "three", "+2")
 	// 本文は先頭 3 件のみ。全文は title（ツールチップ）にだけある。
-	webtest.MustNotContain(t, html, "<li class=\"truncate\">four", "<li class=\"truncate\">five")
+	webtest.MustNotContain(t, html, "<span class=\"truncate\">four", "<span class=\"truncate\">five")
+	// テキストリスト（ガイド §4）: 既定の黒丸（list-disc）でなく、5px の --mute の点・項目間 8・記号→文字 10。
+	webtest.MustContain(t, html, "<span class=\"truncate\">one", "gap-(--list-gap)", "gap-(--list-marker-gap)", "before:size-(--list-marker-size)", "before:bg-mute", "before:rounded-full")
+	webtest.MustNotContain(t, html, "list-disc", "list-inside")
 }
 
 func TestPaneCard_OptionalFieldsHidden(t *testing.T) {

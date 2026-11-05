@@ -1,12 +1,16 @@
 package com.ousiassllc.swarmviewer.ui.main
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.ousiassllc.swarmviewer.domain.Attention
@@ -117,16 +122,29 @@ private fun NoteBlock(
     val summary = noteSummary(pane.note)
     if (summary.isEmpty) return
     val items = if (expanded) pane.note?.items.orEmpty() else summary.items
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    // 項目間 8dp（ガイド §4 リスト `--list-gap`）。ペインカードの他の要素の間隔（4dp）より広い。
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (summary.repo.isNotEmpty()) MutedText(summary.repo)
-        items.forEach {
-            Text(
-                "・$it",
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = if (expanded) Int.MAX_VALUE else 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        items.forEach { NoteItem(it, maxLines = if (expanded) Int.MAX_VALUE else 1) }
         if (!expanded && summary.more > 0) MutedText("+${summary.more}")
+    }
+}
+
+/** メモの 1 項目。記号は 5dp の点（`--list-marker-size`・muted）で、記号→文字は 10dp（`--list-marker-gap`）。点は 1 行目の中央に置く。 */
+@Composable
+private fun NoteItem(
+    text: String,
+    maxLines: Int,
+) {
+    val style = MaterialTheme.typography.bodyMedium
+    val lineHeight = with(LocalDensity.current) { style.lineHeight.toDp() }
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(
+            Modifier
+                .padding(top = (lineHeight - 5.dp) / 2)
+                .size(5.dp)
+                .background(MaterialTheme.colorScheme.onSurfaceVariant, CircleShape),
+        )
+        Text(text, style = style, maxLines = maxLines, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
     }
 }

@@ -26,14 +26,20 @@
   const prefersReducedMotion = () =>
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // トーストは 3 秒で消す（ガイド O3）。#toasts は OOB で差し替わる（同時に 1 つ）ので、
+  // 時間は CSS のトークンが唯一の出どころで、JS は数値を持たず読む（ガイド M1）。minify で ms が s になるので単位を見る。
+  const cssDurationMs = (name) => {
+    const root = getComputedStyle(document.documentElement);
+    const value = root.getPropertyValue(name);
+    return Number.parseFloat(value) * (value.includes("ms") ? 1 : 1000);
+  };
+
+  // トーストは --toast-duration（3 秒）で消す（ガイド O3）。#toasts は OOB で差し替わる（同時に 1 つ）ので、
   // 差し替えのたびにタイマーを張り直す。中身が空の差し替え（初期状態）では何もしない。
   // htmx:oobAfterSwap の detail.target は差し替え前の（DOM から外れた）要素なので、id の判定にだけ使い、
   // 中身は DOM から引き直した新しい要素で見る。
-  // 出現のフェードインは CSS（.fade-in）、退出は .is-leaving のフェードアウト（240ms）が終わる animationend で消す（ガイド M5）。
+  // 出現のフェードインは CSS（.fade-in）、退出は .is-leaving のフェードアウト（--motion-fade-out）が終わる animationend で消す（ガイド M5）。
   // reduced-motion ではアニメーションが走らず animationend が来ないので、すぐ消す。
   const TOAST_ID = "toasts";
-  const TOAST_MS = 3000;
   let toastTimer;
 
   const dismissToast = () => {
@@ -67,7 +73,7 @@
     if (document.getElementById(TOAST_ID)?.childElementCount === 0) {
       return;
     }
-    toastTimer = setTimeout(dismissToast, TOAST_MS);
+    toastTimer = setTimeout(dismissToast, cssDurationMs("--toast-duration"));
   });
 
   // アラート（[data-alert]）は出現でフェードインする（CSS の .fade-in。ガイド M5）。
@@ -93,13 +99,12 @@
   document.addEventListener("htmx:oobAfterSwap", settleRepeatedAlerts);
   document.addEventListener("htmx:afterSettle", recordShownAlerts);
 
-  // 差し替えで消えるアラート（[data-alert]）と応答に無いモーダルは、フェードアウト（.is-leaving。240ms・ease-in。ガイド M5・O1）を終えてから
-  // 差し替える。応答の中身は差し替わるまで引き留められないので、差し替えの swap:240ms を足して待つ。
+  // 差し替えで消えるアラート（[data-alert]）と応答に無いモーダルは、フェードアウト（.is-leaving。--motion-fade-out・ease-in。ガイド M5・O1）を終えてから
+  // 差し替える。応答の中身は差し替わるまで引き留められないので、差し替えの swap:<--motion-fade-out> を足して待つ（CSS の退出と同じトークンを読む）。
   // 消えるのは「応答に同じ文言が無い」アラート（同じ文言はポーリングの再描画。上の is-settled）で、差し替え先は
   // 主ターゲット（response-targets の 422 の差し替え先を含む）と OOB の id が指す要素の中だけを見る。
   // response-targets が htmx:beforeSwap で差し替え先と shouldSwap を決めた後に見るため、DOM のリスナーではなく拡張（hx-ext の 2 番目）にする。
   // reduced-motion ではフェードを付けず待たない。
-  const LEAVE_MS = 240;
   const within = (root, selector) => [
     ...(root.matches(selector) ? [root] : []),
     ...root.querySelectorAll(selector),
@@ -157,7 +162,7 @@
           el.classList.add("is-leaving");
         }
         const style = swapStyleOf(detail).replace(/\s*swap:\S+/, "");
-        detail.swapOverride = `${style} swap:${LEAVE_MS}ms`;
+        detail.swapOverride = `${style} swap:${cssDurationMs("--motion-fade-out")}ms`;
       }
       return true;
     },
@@ -190,7 +195,7 @@
   // - 外側（スクラム）クリックと Esc は「閉じる」要求。data-dismiss があればそのボタンを押し（ペアリング確認では「破棄」）、
   //   無ければ何も送らず閉じる。
   // - 閉じるときは .is-leaving のフェードアウトが終わる animationend で close() する（reduced-motion は即時）。
-  // - data-modal-result のボタンは、その値を returnValue にして閉じる。
+  // - data-modal-result のボタンはその値を returnValue にして閉じる。data-modal-close（ヘッダーの ×）は外側クリック・Esc と同じ要求。
   // - markup に open だけが付いた dialog（ペアリング確認）は、読み込み・差し替えのたびにモーダルへ引き上げる。
   const closeModal = (dialog, result = "") => {
     if (!dialog.open || dialog.classList.contains("is-leaving")) {
@@ -240,6 +245,11 @@
   // ダイアログ自体が click の target になるのは、中身の外（::backdrop）か自分の余白を押したとき。座標で外側だけを見分ける。
   document.addEventListener("click", (event) => {
     const result = event.target.closest?.("[data-modal-result]");
+    const closer = event.target.closest?.("[data-modal-close]");
+    if (closer) {
+      dismissModal(closer.closest("dialog"));
+      return;
+    }
     if (result) {
       closeModal(result.closest("dialog"), result.dataset.modalResult);
       return;

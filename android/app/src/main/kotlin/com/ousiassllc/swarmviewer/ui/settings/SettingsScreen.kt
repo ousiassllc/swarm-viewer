@@ -35,6 +35,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 import com.ousiassllc.swarmviewer.ui.theme.AppRadio
+import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
 
 /**
  * 設定画面（A3。機能要件 §12.4）。画面更新間隔（5 / 10 / 30 / 60 秒）の選択、通知の項目（[NotificationSettings]）、
@@ -65,7 +66,7 @@ fun SettingsScreen(
                     .fillMaxSize()
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
+                    .padding(LocalGutter.current),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             state.message?.let { AppAlert(it) }

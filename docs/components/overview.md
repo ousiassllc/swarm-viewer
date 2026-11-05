@@ -399,10 +399,11 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 | atoms | `Spinner` | `ID` | `hx-indicator` 用。ガイドどおり 20px・線 2px・回転 0.9s の 1 種だけ（サイズの指定はない） |
 | atoms | `Toast` | `Message` | OOB 用。1 行の短文（エラー詳細には使わず、`Alert` を使う） |
 | atoms | `Alert` | `Kind`（`info`・`success`・`warning`・`danger`）・`Title`・`Message`・`Attrs`・子要素 | インラインアラート（アイコン＋見出し＋本文）。`Title` は任意（SemiBold・14px）で、取得失敗バナーは失敗の種別を見出し、「前回取得 … / 次回再試行 …」を本文にする。1 文で足りるエラーは `Message` だけで出す（NFR-DSG-7）。応答全体の失敗・フォームのエラー・警告バナー・取得失敗バナーはすべてこれに載せる。状態は色だけでなくアイコンと文言でも伝える（ガイド C4）。`danger`・`warning` は `role="alert"`、`info`・`success` は `role="status"` |
-| atoms | `Icon` | `Name`・`Class` | Iconoir（MIT）の線画をインライン `<svg>`（`aria-hidden`・`currentColor`）で出す。現在は `warning-circle`・`warning-triangle`・`info-circle`・`check-circle`・`check` |
+| atoms | `Icon` | `Name`・`Class` | Iconoir（MIT）の線画をインライン `<svg>`（`aria-hidden`・`currentColor`。HTML 埋め込みなので `xmlns` は付けない）で出す。現在は `warning-circle`・`warning-triangle`・`info-circle`・`check-circle`・`check`・`xmark` |
 | atoms | `Checkbox` | `Name`・`Value`・`Checked` | 18px・`--r-sm`・外枠 `--mute`。オンの印は Iconoir の `check`（インライン SVG。16px = `--icon-sm` を箱の中央に置く） |
 | atoms | `EmptyState` | `Message`・子要素 | 空状態（破線の枠・`--r-lg`・padding 48 / モバイル 24・32px のアイコン＋文言＋子要素の主ボタン）。ローディングは `Spinner` を使う |
 | atoms | `ConfirmDialog` | なし | 確認・破壊的操作の中央モーダル。レイアウトに 1 つだけ置き、`app.js` が `htmx:confirm`（`hx-confirm`）で開く。見出し・ラベルは要素の `data-confirm-title`・`data-confirm-label` |
+| atoms | `ModalHeader` | `ID`・`Title`・`Attrs` | モーダルのヘッダー（ガイドの見本の `header`）。見出し（h2）と閉じる × のアイコンボタン（`data-modal-close`・32px・Iconoir の `xmark`）を左右に置き、下に 1px の `--border`。本文・フッターのクラスは定数 `ModalBodyClass`・`ModalFooterClass`（フッターは右寄せ・ボタン間 8px・上に 1px の `--border`）。`ModalClass` は余白なし・幅は最大 420px で、`ConfirmDialog` とペアリング確認が使う |
 | atoms | `Button` / `Input` | 通常の属性 | `Input`・select・textarea は `FieldClass`（高さ 40・文字 16px）。select は `SelectClass`（`FieldClass` に OS の矢印を消して `--mute` のシェブロンを足したもの）。`Button` は `cursor-pointer`、無効（処理中の `hx-disabled-elt` を含む）は `cursor-not-allowed` |
 | molecules | `PaneCard` | `Pane`・`Stale`・`Highlight`・`ReportWaiting` | 状態ラベル・activity・note 要約。`ReportWaiting` は state バッジの隣に「報告待ち」を出す。操作ボタンは**持たない** |
 | molecules | `UsageRow` | `Label`・`Slot` | `unit` で percent / usd を出し分け。`available: false` は「—」 |
@@ -523,3 +524,4 @@ func main() {
 | 2.1 | 2026-11-05 | atoms に `ConfirmDialog`・定数 `ModalClass` を追加。`PairingDraftPage` を全画面から確認モーダルに変更（`DraftProps.HasConnections` を追加） | Issue #37（デザインガイド O1・O2） |
 | 2.2 | 2026-11-05 | `Alert` に任意の `Title`（見出し）を追加し、取得失敗バナーで使う。`Spinner` の `Size` を廃止して 20px の 1 種にした | Issue #42（デザインガイド O8） |
 | 2.3 | 2026-11-05 | `ModalClass` の出現を `.fade-in`（320ms）から専用の `.modal-in`（280ms）に変更。`Alert` のアイコンと文の間を 12px（`gap-3`）に。`Base` の `hx-ext` に `leave-fade` を追加 | Issue #54・#55（デザインガイド S2・M5） |
+| 2.4 | 2026-11-05 | atoms に `ModalHeader`・定数 `ModalBodyClass`・`ModalFooterClass` を追加し、`ModalClass` を余白なし・幅 420px に変更。`Icon` に `xmark` を追加し `xmlns` を外した。`Toast` の高さを `h-(--toast-h)` に | Issue #62・#63（デザインガイド M1・O2） |

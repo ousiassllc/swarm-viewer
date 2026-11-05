@@ -110,7 +110,8 @@ func TestAppCSS_FontFaceIsSelfHosted(t *testing.T) {
 }
 
 // アコーディオン（<details>）は summary を SemiBold にし、ブラウザ既定の三角を消して CSS のシェブロンを付ける（ガイド §7）。
-// シェブロンは CSP（default-src 'self'）で data: URI の画像を使えないので、枠線の回転で描く。
+// シェブロンは見本（tokens-preview の .acc）どおり右端（::after）・閉じて下向き（45deg）・開いて上向き（-135deg）。
+// CSP（default-src 'self'）で data: URI の画像を使えないので、枠線の回転で描く。
 func TestAppCSS_Accordion(t *testing.T) {
 	t.Parallel()
 
@@ -119,16 +120,40 @@ func TestAppCSS_Accordion(t *testing.T) {
 		t.Fatalf("css/app.css を読めない（先に task generate を実行する）: %v", err)
 	}
 	css := string(data)
-	for _, want := range []string{"details>summary{", "font-weight:600", "list-style:none", "details>summary::-webkit-details-marker{display:none}", "details>summary:before{", "details[open]>summary:before{transform:rotate(45deg)}"} {
+	for _, want := range []string{"details>summary{", "justify-content:space-between", "font-weight:600", "list-style:none", "details>summary::-webkit-details-marker{display:none}", "details>summary:after{",
+		"transition:transform var(--motion-base) var(--ease-out)", "transform:rotate(45deg)", "details[open]>summary:after{margin-top:.25rem;transform:rotate(-135deg)}"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("app.css に %q が無い", want)
 		}
+	}
+	if strings.Contains(css, "summary:before") {
+		t.Error("シェブロンは右端の ::after で、::before は使わない")
 	}
 	// 開閉マークの線はアイコンのストローク（≈1.5）で、色は --mute（ガイド I2）。
 	for _, want := range []string{"border-right:1.5px solid var(--mute)", "border-bottom:1.5px solid var(--mute)"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("開閉マークの線に %q が無い", want)
 		}
+	}
+}
+
+// 角丸の --r-full（9999px）は他の --r-* と同じく :root のトークンで、@theme（--radius-full）経由で Tailwind の rounded-full になる。
+// リップルは数値を直書きせず --r-full を使う（ガイド S1）。
+func TestAppCSS_RadiusFullIsToken(t *testing.T) {
+	t.Parallel()
+
+	data, err := fs.ReadFile(static.FS(), "css/app.css")
+	if err != nil {
+		t.Fatalf("css/app.css を読めない（先に task generate を実行する）: %v", err)
+	}
+	css := string(data)
+	for _, want := range []string{"--r-full:9999px", "--radius-full:var(--r-full)", ".ripple{border-radius:var(--r-full)"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("app.css に %q が無い", want)
+		}
+	}
+	if strings.Contains(css, "border-radius:9999px") {
+		t.Error("app.css に角丸 9999px の直書きがある（--r-full を使う）")
 	}
 }
 
@@ -185,6 +210,38 @@ func TestAppCSS_MotionUsesTokensAndRespectsReducedMotion(t *testing.T) {
 	}
 }
 
+// 退出フェードとトーストの時間は CSS のトークン（--motion-fade-out・--toast-duration）が唯一の出どころで、
+// app.js は getComputedStyle で読む。数値の直書き（TOAST_MS・LEAVE_MS）を持たない（M1）。
+func TestAppJS_ReadsDurationsFromCSSTokens(t *testing.T) {
+	t.Parallel()
+
+	css, err := fs.ReadFile(static.FS(), "css/app.css")
+	if err != nil {
+		t.Fatalf("css/app.css を読めない（先に task generate を実行する）: %v", err)
+	}
+	// Tailwind の minify は 40px・3s をそのまま、240ms を .24s に直すので、どちらの書き方でも通るのは --motion-fade-out のほうだけ。
+	for _, want := range []string{"--toast-h:40px", "--toast-duration:3s", "--motion-fade-out:.24s"} {
+		if !strings.Contains(string(css), want) {
+			t.Errorf("app.css に %q が無い", want)
+		}
+	}
+
+	js, err := fs.ReadFile(static.FS(), "js/app.js")
+	if err != nil {
+		t.Fatalf("js/app.js を読めない（先に task generate を実行する）: %v", err)
+	}
+	for _, want := range []string{"getComputedStyle", `cssDurationMs("--toast-duration")`, `cssDurationMs("--motion-fade-out")`} {
+		if !strings.Contains(string(js), want) {
+			t.Errorf("app.js に %q が無い", want)
+		}
+	}
+	for _, banned := range []string{"TOAST_MS", "LEAVE_MS", "3000", "240"} {
+		if strings.Contains(string(js), banned) {
+			t.Errorf("app.js に時間の直書き %q がある（CSS のトークンを読む）", banned)
+		}
+	}
+}
+
 // app.js はトーストの退出を animationend で消し（reduced-motion は即時）、ボタン押下でリップルを足す。
 // リップルの位置は CSSOM（element.style）で決め、マークアップの style 属性は使わない（CSP style-src 'self'）。
 func TestAppJS_ToastLeavingAndRipple(t *testing.T) {
@@ -216,7 +273,7 @@ func TestModal_AppJSAndCSS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("js/app.js を読めない（先に task generate を実行する）: %v", err)
 	}
-	for _, want := range []string{`"htmx:confirm"`, "showModal()", "issueRequest", "data-dismiss", "dataset.dismiss", `"cancel"`, "getBoundingClientRect", "data-modal-result", "textContent"} {
+	for _, want := range []string{`"htmx:confirm"`, "showModal()", "issueRequest", "data-dismiss", "dataset.dismiss", `"cancel"`, "getBoundingClientRect", "data-modal-result", "data-modal-close", "textContent"} {
 		if !strings.Contains(string(js), want) {
 			t.Errorf("app.js に %q が無い", want)
 		}
