@@ -38,7 +38,7 @@ fun PaneSection(
     wide: Boolean,
 ) {
     if (panes.isEmpty()) {
-        MutedText("ペインがありません")
+        NoticeText("ペインがありません")
         return
     }
     val rows = if (wide) gridRows(layout, panes) else null

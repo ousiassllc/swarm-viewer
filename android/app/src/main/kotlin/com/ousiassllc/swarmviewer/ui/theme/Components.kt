@@ -3,14 +3,19 @@ package com.ousiassllc.swarmviewer.ui.theme
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -52,4 +57,34 @@ fun AppOutlinedButton(
     content: @Composable RowScope.() -> Unit,
 ) {
     OutlinedButton(onClick = onClick, modifier = modifier, enabled = enabled, shape = MaterialTheme.shapes.medium, content = content)
+}
+
+/** 入力欄（ガイド）: フォーカス中の枠と caret はフォーカスリング色（[ExtraColors.focus]）。 */
+@Composable
+fun AppTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    singleLine: Boolean = false,
+) {
+    val focus = MaterialTheme.extraColors.focus
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        visualTransformation = visualTransformation,
+        keyboardOptions = keyboardOptions,
+        singleLine = singleLine,
+        shape = MaterialTheme.shapes.medium,
+        colors =
+            OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = focus,
+                focusedLabelColor = focus,
+                cursorColor = focus,
+            ),
+        modifier = modifier,
+    )
 }

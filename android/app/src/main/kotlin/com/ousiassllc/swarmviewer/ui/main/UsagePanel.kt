@@ -43,7 +43,7 @@ fun UsagePanel(
     AppCard(modifier = Modifier.fillMaxWidth().grayedOut(gray)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("利用上限", style = MaterialTheme.typography.titleMedium)
-            usageStatusLabel(status).takeIf { it.isNotEmpty() }?.let { MutedText(it) }
+            usageStatusLabel(status).takeIf { it.isNotEmpty() }?.let { NoticeText(it) }
             if (usageShowsNumbers(status)) {
                 usage.claude.forEach { AgentAccountBlock("Claude", it, now) }
                 usage.codex.forEach { AgentAccountBlock("Codex", it, now) }
@@ -67,7 +67,7 @@ private fun AgentAccountBlock(
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(joinNonEmpty(" · ", agent, account.account), style = MaterialTheme.typography.bodyMedium)
         if (!account.fiveHour.available && !account.sevenDay.available) {
-            MutedText(joinNonEmpty(" · ", "取得できません", usageReasonLabel(account.reason)))
+            NoticeText(joinNonEmpty(" · ", "取得できません", usageReasonLabel(account.reason)))
         } else {
             SlotRow("5 時間枠", account.fiveHour, now)
             SlotRow("7 日枠", account.sevenDay, now)

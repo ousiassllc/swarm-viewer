@@ -11,7 +11,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -27,6 +26,7 @@ import com.ousiassllc.swarmviewer.service.PairingDraft
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppCard
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
+import com.ousiassllc.swarmviewer.ui.theme.AppTextField
 
 /**
  * ペアリング画面。貼り付け欄（伏せ字。token を含むため画面に出さない）と「QR を読み取る」から入り、
@@ -84,10 +84,10 @@ private fun PasteSection(
     onScan: () -> Unit,
 ) {
     Text("swarm-console の接続文字列（swarm-viewer://pair?…）を貼り付けるか、QR を読み取ってください。")
-    OutlinedTextField(
+    AppTextField(
         value = input,
         onValueChange = onInputChange,
-        label = { Text("接続文字列") },
+        label = "接続文字列",
         // token を含むため伏せ字にし、キーボードの学習・候補に残さない。
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),

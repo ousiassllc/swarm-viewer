@@ -78,7 +78,7 @@ fun MainScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             when {
-                state.connections == null -> MutedText("読み込み中…", modifier = Modifier.padding(16.dp))
+                state.connections == null -> NoticeText("読み込み中…", modifier = Modifier.padding(16.dp))
                 state.noConnections -> EmptyConnections(onManageConnections)
                 else -> {
                     SessionTabs(state.sessions, state.session, viewModel::selectSession)
@@ -167,8 +167,8 @@ private fun MainContent(
                 AttentionBar(report.attention, report.warnings, report.auth, state.stale)
                 PaneSection(report.panes, report.layout, report.attention, state.stale, wide)
             }
-            state.session == null && state.sessionsLoaded && state.failure == null -> MutedText("許可されたセッションがありません")
-            state.refreshing || state.failure == null -> MutedText("取得中…")
+            state.session == null && state.sessionsLoaded && state.failure == null -> NoticeText("許可されたセッションがありません")
+            state.refreshing || state.failure == null -> NoticeText("取得中…")
             else -> Unit
         }
     }

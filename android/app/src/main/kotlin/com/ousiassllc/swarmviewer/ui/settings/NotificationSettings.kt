@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.ousiassllc.swarmviewer.domain.ALLOWED_NOTIFY_POLL_MINUTES
 import com.ousiassllc.swarmviewer.domain.Settings
 import com.ousiassllc.swarmviewer.notify.NotificationPermission
+import com.ousiassllc.swarmviewer.ui.main.NoticeText
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 
 /** 通知確認間隔の下に常に出す注記（機能要件 §12.4、FR-AND-7）。 */
@@ -69,7 +70,7 @@ fun NotificationSettings(
         ALLOWED_NOTIFY_POLL_MINUTES.forEach { minutes ->
             RadioRow("$minutes 分", settings.notifyPollMinutes == minutes) { viewModel.setNotifyPollMinutes(minutes) }
         }
-        Text(DOZE_NOTE, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        NoticeText(DOZE_NOTE)
     }
 }
 

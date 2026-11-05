@@ -59,3 +59,12 @@ fun MutedText(
 ) {
     Text(text, style = MaterialTheme.typography.bodyMedium, color = color, modifier = modifier)
 }
+
+/** 文章の案内（ink）。muted は light テーマで AA に届かないので、キャプション・ラベル以外の文は必ずこちらを使う。 */
+@Composable
+fun NoticeText(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, modifier = modifier)
+}
