@@ -167,6 +167,8 @@ private fun SessionTabs(
             Tab(
                 selected = id == selected,
                 onClick = { onSelect(id) },
+                selectedContentColor = MaterialTheme.colorScheme.onSurface,
+                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 text = { Text(id, style = MaterialTheme.typography.bodyMedium, maxLines = 1) },
             )
         }

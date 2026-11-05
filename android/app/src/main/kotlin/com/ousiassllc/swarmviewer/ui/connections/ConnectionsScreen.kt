@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ousiassllc.swarmviewer.service.ConnectionItem
 import com.ousiassllc.swarmviewer.ui.NEEDS_REPAIR_LABEL
+import com.ousiassllc.swarmviewer.ui.main.Badge
+import com.ousiassllc.swarmviewer.ui.main.DisplayTone
 import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppCard
@@ -97,7 +99,7 @@ private fun ConnectionCard(
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(item.name, style = MaterialTheme.typography.titleMedium)
             Text(item.host, style = MaterialTheme.typography.bodyMedium, fontFamily = MonoFontFamily)
-            if (item.selected) Text("選択中", color = MaterialTheme.colorScheme.primary)
+            if (item.selected) Badge("表示中", DisplayTone.Accent, marker = true)
             if (item.needsRepair) AppAlert(NEEDS_REPAIR_LABEL)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (!item.selected) AppOutlinedButton(onClick = onSelect) { Text("切り替える") }
