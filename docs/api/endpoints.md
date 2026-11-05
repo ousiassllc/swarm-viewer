@@ -174,6 +174,32 @@ swarm-viewer://pair?v=1&url=http%3A%2F%2F100.64.0.5%3A48120%2Freport&token=<toke
 | 重複・サイズ超過 | 「接続文字列の形式が正しくありません」 |
 | 疎通確認に失敗 | §1.5 の分類に従った固定文言。**保存しない** |
 
+### 2.3 Android 版（QR・intent-filter）
+
+接続文字列の形式・検証・失敗時の表示（§2.1・§2.2）は Android 版でも変えない。入口だけが増える（[機能要件 §12.3](../requirements/functional.md)）。
+
+| 手段 | 内容 |
+|------|------|
+| 貼り付け | §2.1 の接続文字列をそのまま貼り付ける |
+| QR | **QR の中身は §2.1 の接続文字列そのまま**（`swarm-viewer://pair?v=1&url=…&token=…`。形式・パラメータ・サイズ上限 4,096 バイトは変えない）。読み取った文字列は貼り付けと同じパーサ・同じ検証に入れる。QR を生成する側（`swarm-console pair` の出力か、別の手段か）はこのアプリの範囲外 |
+| ディープリンク | `AndroidManifest.xml` の intent-filter で `swarm-viewer` スキームを受ける（下記） |
+
+intent-filter（`MainActivity`。外部に公開するのはこの 1 つだけ。[NFR-AND-SEC-7](../requirements/non-functional.md)）:
+
+```xml
+<intent-filter>
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data android:scheme="swarm-viewer" android:host="pair" />
+</intent-filter>
+```
+
+- 受け取った Intent の `data`（URI 全体）を §2.1 の文字列として `parsePairing` に渡す。scheme・host（`pair`）以外の組み合わせはフィルタで受けない。ほかのアプリや QR 読み取りアプリ・ブラウザからも送れるため、信頼できない入力として扱う
+- 解析に成功しても、確認画面で利用者が確定するまで保存しない。確認画面には表示名・接続先のホスト部・ホストが申告した許可セッションだけを出し、**token は出さない**（デスクトップ版 §4.2 の確認画面と同じ）。失敗したときは §2.2 の固定文言を出し、受け取った文字列（token を含みうる）は画面・ログ・履歴に残さない
+- 処理が済んだら Intent の `data` を消す（再生成・履歴からの再処理で token が残らないようにする）。アプリが起動済みなら既存の画面を前面に出して処理する（`launchMode` は `singleTask` とし、`onNewIntent` で受ける）
+- 通知のタップは別の（アプリ内の）Intent で、接続 ID・セッション ID だけを載せる。接続文字列・token を載せない
+
 ## 3. swarm-console への要望（`pair` コマンド）
 
 swarm-console 本体の機能追加は本リポの範囲外。viewer が前提とするインターフェースを次に定める（swarm-console 側の Issue に起票する元になる）。

@@ -15,7 +15,7 @@ swarm-viewer の Android 版（Kotlin + Jetpack Compose）。親 Issue は [#7](
 - **JDK 17**（`JAVA_HOME` を設定する）
 - **Android SDK**（`ANDROID_HOME` を設定するか、`android/local.properties` に `sdk.dir=<パス>` を書く。`local.properties` はコミットしない）
   - `platforms;android-35` と `build-tools;35.0.0` 以降
-- 導入手順は [`docs/environment/setup.md`](../docs/environment/setup.md) の環境構築に従う（Android 向けの記述は Issue #15 の仕様書更新で追加される）
+- 導入手順は [`docs/environment/setup.md`](../docs/environment/setup.md) §11 の Android 版に従う。設計は [`docs/android/overview.md`](../docs/android/overview.md)
 
 Gradle 本体はラッパー（`./gradlew`）が取得するため、別途インストールしない。
 

@@ -16,10 +16,11 @@ swarm-viewer の開発環境・CI/CD・lint・format・Git Hooks を定める。
 | Git Hooks | Lefthook |
 | CI | GitHub Actions（セルフホステッドランナー: Linux） |
 | Swagger / OpenAPI | 対象外（§10） |
-| 対応 OS（開発・配布） | Windows 11 / 最新 2 世代の macOS。CI のランナーは Linux のみ（§5.4 の制約と、Windows / macOS 向けの `go vet` による穴埋めを参照） |
+| 対応 OS（開発・配布） | Windows 11 / 最新 2 世代の macOS。CI のランナーは Linux のみ（§5.4 の制約と、Windows / macOS 向けの `go vet` による穴埋めを参照）。Android 版は §11 |
 
 - 生成物（Templ の `*_templ.go`、Tailwind の `static/dist/css/app.css`、`static/dist/js/*.js`）は**コミットしない**。clone 後・変更後は `task generate` で生成する（§3.2・§3.3）
 - 生成物をコミットしない方針は、[アーキテクチャ設計 §9](../architecture/overview.md) の持ち越し事項（`_templ.go` をコミットするか）の確定である
+- Android 版（同じリポジトリの `android/`。Kotlin + Jetpack Compose）の開発環境・CI・署名鍵・リリースは [§11](#11-android-版) に定める。§1〜§10 は、断りがない限りデスクトップ版（Go）の定義
 
 ## 2. ディレクトリ構造
 
@@ -38,7 +39,9 @@ swarm-viewer/
 ├── Taskfile.yml               # タスクランナー（§3.2）
 ├── package.json               # bun の依存（devDependencies のみ）
 ├── bun.lock                   # bun のロックファイル（コミットする）
-└── .gitignore                 # 生成物（*_templ.go・static/dist/ など）を除外
+├── .gitignore                 # 生成物（*_templ.go・static/dist/ など）を除外
+├── android/                   # Android 版（Gradle プロジェクト。§11）
+└── testdata/vectors/          # デスクトップ（Go）と Android（Kotlin）が共有するテストベクタ（§11.5）
 ```
 
 - `package.json` は **devDependencies のみ**（実行時の JS 依存はない。`static/dist/js/` に配置するのは htmx と自前の `app.js`。フォントの woff2 は変換済みのものを `static/src/fonts/` にコミットし、ビルドでは変換しない）
@@ -307,6 +310,85 @@ Lit を導入して `/api/v1/...` を Huma に登録する時点で、次を追�
 - UI: Stoplight Elements（静的 HTML を `/swagger` で配信。`SWAGGER_ENABLED` で有効/無効を切り替え、開発では `true`、本番では `false`）
 - CI: 生成した OpenAPI の差分検知
 
+## 11. Android 版
+
+Android 版（`android/`）の開発環境・CI・署名鍵・リリース。設計は[Android 版の設計](../android/overview.md)・[アーキテクチャ設計 §12](../architecture/overview.md)、要件は[非機能要件 §10](../requirements/non-functional.md)を参照する。
+
+### 11.1 開発環境
+
+| ツール | 版 | 導入 |
+|--------|----|------|
+| JDK | **17** | 任意のディストリビューション（Temurin など）。`JAVA_HOME` を設定する。Gradle は `kotlin { jvmToolchain(17) }` で 17 を使う |
+| Android SDK | `platforms;android-35`、`build-tools;35.0.0` 以降 | Android Studio、または [cmdline-tools](https://developer.android.com/tools) の `sdkmanager`。`ANDROID_HOME` を設定するか、`android/local.properties` に `sdk.dir=<パス>` を書く（`local.properties` はコミットしない） |
+| Gradle | `android/gradle/wrapper/gradle-wrapper.properties` で固定 | ラッパー（`./gradlew`）が取得する。別途インストールしない |
+| 実機 | Android 10（API 29）以降。まず Galaxy Fold7 | 開発者向けオプションの USB デバッグ。実機でしか確認できない項目は[アーキテクチャ設計 §11](../architecture/overview.md) #8〜#15 |
+
+- Android の開発に Go・bun・Wails は要らない（デスクトップ版の `task` とは独立）。テストベクタ（§11.5）を変えるときだけ、Go のテスト（`go test ./internal/domain/...`）も実行する
+- `android/` で実行するコマンド:
+
+| コマンド | 内容 |
+|----------|------|
+| `./gradlew lint ktlintCheck` | Android Lint（警告もエラー扱い）と ktlint（設定はルートの `.editorconfig`） |
+| `./gradlew ktlintFormat` | ktlint の指摘を自動修正する |
+| `./gradlew test` | JVM 上のユニットテスト（テストベクタを読む domain のテストを含む） |
+| `./gradlew assembleDebug` | debug APK（debug 署名。**配布しない**） |
+
+- push 前は `./gradlew lint ktlintCheck test` がクリーンに通ることを確認する。詳細は `android/README.md`
+- Kotlin の手書きソースにも linterly（§8）の行数上限（1 ファイル 300 行・1 ディレクトリ 2,000 行）が掛かる。Gradle のビルド成果物・生成物（`android/.gradle/`・`android/**/build/` など）だけを除外している
+
+### 11.2 CI（`android/**`）
+
+| 項目 | 内容 |
+|------|------|
+| ワークフロー | Android 用に別のワークフロー（`android-ci.yml`）を置く。トリガーはパス単位: `android/**`、`testdata/vectors/**`、このワークフロー自身のファイル。デスクトップ側の `ci.yml` は `testdata/vectors/**`（Go のテストが読む）の変更でも動き、`android/**` だけの変更では動かさない（具体的な `paths` / `paths-ignore` は Issue #22 で確定する） |
+| ランナー | 既存と同じ Linux セルフホステッドランナー（`runs-on: [self-hosted, linux, x64]`）。**ランナーのホストに JDK 17 と Android SDK（`platforms;android-35`・`build-tools;35.0.0` 以降）を事前に導入しておく**（ジョブ内で `apt` / `sudo` / `sdkmanager` でのインストールはしない。§5.1 と同じ方針）。`JAVA_HOME`・`ANDROID_HOME` はランナーの環境で設定する |
+| 実行の制限 | §5.1 と同じ。`pull_request` は同一リポジトリのブランチのときだけジョブを実行する（セルフホステッドランナーで信頼できないコードを実行しない） |
+| ジョブ | `lint`（`./gradlew lint ktlintCheck`）→ `test`（`./gradlew test`）→ `build`（`./gradlew assembleDebug`。コンパイルの確認だけで、成果物は配布しない）。lint・test・build は別のコマンドで 1 つずつ実行する |
+| 権限 | `permissions: contents: read` のみ。署名鍵などのシークレットは使わない |
+| キャッシュ | `actions/setup-java` などで Gradle のキャッシュを保存するステップは使わない（セルフホステッドで post ステップが止まった経緯。§5.2）。Gradle のキャッシュ（`GRADLE_USER_HOME`）はランナーのローカルに残る |
+
+### 11.3 署名鍵
+
+署名済みの APK を GitHub Releases で配布する（サイドロード。[NFR-AND-DST-1〜3](../requirements/non-functional.md)）。
+
+| 項目 | 内容 |
+|------|------|
+| 鍵 | release 署名鍵を 1 つだけ作る（`keytool -genkeypair`、PKCS12、RSA 4096 bit 以上、有効期間 10,000 日以上）。毎回同じ鍵で署名する。署名が変わるとインストール済みのアプリを上書きアップデートできず、アンインストール（アプリのデータが消え、再ペアリングが必要）が要る |
+| 作成する場所 | 開発者本人のローカル。リポジトリ・CI のログ・チャットに keystore とパスワードを出さない。`*.jks`・`*.keystore`・`*.apk`・`*.aab` は `.gitignore` 済み |
+| CI シークレット | `ANDROID_KEYSTORE_BASE64`（keystore を `base64` した文字列）、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`。**これらを使うのは release ジョブだけ**（lint・test・build のジョブと、PR・フォークの CI にはシークレットを渡さない）。release ジョブは keystore を `$RUNNER_TEMP` に復元して署名し、成否にかかわらず（`if: always()`）削除する。ログに値を出さない |
+| バックアップ | 鍵を失うと上書きアップデートできないため、keystore とパスワードを、**リポジトリ・GitHub とは別の 2 か所以上**に保管する（例: パスワードマネージャーの添付と、オフラインの暗号化メディア）。keystore とパスワードは別々の場所にも置く。バックアップ先の実際の場所はリポジトリに書かない（開発者本人が管理する）。鍵の作成後、バックアップの復元（keystore を開いて `keytool -list` できること）を一度確かめる |
+| 証明書の確認 | 署名証明書の SHA-256 フィンガープリント（`keytool -list -v` / `apksigner verify --print-certs`）を、鍵の作成時に `android/README.md` へ記録する。Release の APK がこの値と一致することを、リリースのたびに確かめる |
+| debug 署名 | `assembleDebug` の APK は debug 署名で、**配布しない**。CI の成果物・Release に debug 署名の APK を載せない。`assembleRelease` は署名設定を持たない（署名は CI の release ジョブが `apksigner` で行う） |
+
+### 11.4 リリース
+
+Android 版も、デスクトップ版と同じ release.yml（§5.5）のタグ方式（`vX.Y.Z`。`workflow_run` による自動のパッチ版、または手で打ったタグ）で 1 つの Release に載せる。実装は Issue #22。
+
+| 項目 | 内容 |
+|------|------|
+| 成果物 | `swarm-viewer_vX.Y.Z_android.apk`（署名済み、`versionName` = `X.Y.Z`）。`SHA256SUMS` に含める（デスクトップ版の 2 ファイルと同じファイル） |
+| 版 | タグが唯一の元。ビルド時にタグの `X.Y.Z` を `versionName`、`X × 1,000,000 + Y × 1,000 + Z` を `versionCode` として Gradle に渡す（[NFR-AND-DST-4](../requirements/non-functional.md)） |
+| ジョブ | `build-android`（既存の Linux セルフホステッドランナー。`contents: read` のみ・シークレットなし）が署名なしの release APK を作る → `release` ジョブが `apksigner` で署名し、`apksigner verify` で検証してから、`SHA256SUMS` に含めて `gh release create` する。`contents: write` とシークレットを持つのは `release` ジョブだけ（§5.5 の権限の方針と同じ） |
+| 署名の道具 | `apksigner`（Android SDK の build-tools）を使う。`release` ジョブが動くランナーで `apksigner` を使えること（SDK の導入）は Issue #22 で確認して確定する |
+| 前提 | Android のジョブが失敗したときに、デスクトップ版の Release だけが出る・Android だけが出ることがないように、すべてのビルドジョブが成功したときだけ `release` ジョブを動かす（§5.5 の構成と同じ） |
+
+Release の APK の実機確認（手動確認項目）:
+
+1. Release の `SHA256SUMS` と `sha256sum -c SHA256SUMS` が一致する
+2. `apksigner verify --print-certs` の証明書の SHA-256 が、記録した値（§11.3）と一致し、debug 署名でない
+3. Galaxy Fold7 に APK をインストールする（初回は「提供元不明のアプリ」の許可が要る）
+4. 前の版が入った状態で、新しい APK を上書きインストールでき、接続・設定が残っている（同じ署名鍵）
+5. `swarm-viewer://` のリンクでアプリが開く。そのほか[アーキテクチャ設計 §11](../architecture/overview.md) #8〜#15
+
+### 11.5 テストベクタ
+
+| 項目 | 内容 |
+|------|------|
+| 場所 | `testdata/vectors/*.json` と `testdata/vectors/README.md`（形式の説明） |
+| 読むテスト | Go: `internal/domain/*_test.go`（`go test` の対象パッケージ。CI の `test` ジョブ）。Kotlin: `android/app/src/test/kotlin/com/ousiassllc/swarmviewer/domain/`（`./gradlew test`） |
+| 変更の規則 | ベクタを変えたら、Go と Kotlin の両方のテストが通ることを確かめる。仕様の変更は、ドキュメント・ベクタ・Go・Kotlin を 1 つの PR で揃える（[アーキテクチャ設計 §12.4](../architecture/overview.md)） |
+| CI | ベクタの変更は Go の CI と Android の CI の両方を動かす（§11.2） |
+
 ## 改訂履歴
 
 | 版 | 日付 | 変更内容 | 変更理由 |
@@ -317,3 +399,4 @@ Lit を導入して `/api/v1/...` を Huma に登録する時点で、次を追�
 | 1.3 | 2026-11-04 | §5.5「リリース」を追加（release.yml のトリガー・版の決め方・ジョブ構成・ランナー・権限・成果物・`SHA256SUMS`）。§5.2 の `test` に `plan-release_test.sh` を追加。§5.3 を release.yml による配布に、§5.4 を Release の成果物での実機確認に更新 | Issue #3（Windows / macOS の配布物を CI で作り Releases へ載せる） |
 | 1.4 | 2026-11-05 | `task generate` に、フォント（`static/src/fonts/` → `static/dist/fonts/`）のコピーを追加 | Issue #9 |
 | 1.5 | 2026-11-05 | §5.5 の NSIS の導入を `choco install` から、公式配布 zip（3.11 固定・sha256 検証・再試行）を取得する `install-nsis.sh` に変更。§5.2 の `test` に `install-nsis_test.sh` を追加 | Issue #6（Chocolatey の一時障害でリリースが止まる） |
+| 1.6 | 2026-11-05 | §11「Android 版」を追加（JDK 17・Android SDK の導入、`android/**` の CI、署名鍵の扱い、Android のリリース手順、テストベクタ）。§1・§2 に Android を追記 | Issue #15（Android 版の仕様書への反映） |
