@@ -120,7 +120,7 @@ templ AttentionBar(p AttentionBarProps) {
 	if len(p.Attention) > 0 || len(p.Warnings) > 0 {
 		<section class="flex flex-col gap-2" aria-label="要対応">
 			if len(p.Warnings) > 0 {
-				<div class="flex flex-col gap-1">
+				<div class="flex flex-col gap-2">
 					for _, w := range p.Warnings {
 						@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertWarning, Message: w.Message, Attrs: templ.Attributes{"data-warning-code": w.Code}})
 					}

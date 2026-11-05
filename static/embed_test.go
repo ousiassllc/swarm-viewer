@@ -132,6 +132,26 @@ func TestAppCSS_Accordion(t *testing.T) {
 	}
 }
 
+// 角丸の --r-full（9999px）は他の --r-* と同じく :root のトークンで、@theme（--radius-full）経由で Tailwind の rounded-full になる。
+// リップルは数値を直書きせず --r-full を使う（ガイド S1）。
+func TestAppCSS_RadiusFullIsToken(t *testing.T) {
+	t.Parallel()
+
+	data, err := fs.ReadFile(static.FS(), "css/app.css")
+	if err != nil {
+		t.Fatalf("css/app.css を読めない（先に task generate を実行する）: %v", err)
+	}
+	css := string(data)
+	for _, want := range []string{"--r-full:9999px", "--radius-full:var(--r-full)", ".ripple{border-radius:var(--r-full)"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("app.css に %q が無い", want)
+		}
+	}
+	if strings.Contains(css, "border-radius:9999px") {
+		t.Error("app.css に角丸 9999px の直書きがある（--r-full を使う）")
+	}
+}
+
 // app.js は CSP（unsafe-eval なし）の下で動く必要があるため eval 系を含まない。
 func TestAppJS_NoEval(t *testing.T) {
 	t.Parallel()

@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.initializer
@@ -25,7 +27,9 @@ import com.ousiassllc.swarmviewer.ui.navigation.AppNavigation
 import com.ousiassllc.swarmviewer.ui.navigation.NavigationViewModel
 import com.ousiassllc.swarmviewer.ui.pairing.PairingViewModel
 import com.ousiassllc.swarmviewer.ui.settings.SettingsViewModel
+import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
 import com.ousiassllc.swarmviewer.ui.theme.SwarmViewerTheme
+import com.ousiassllc.swarmviewer.ui.theme.gutterFor
 import kotlinx.coroutines.launch
 
 /** ディープリンク（`swarm-viewer://pair?...`）の scheme（マニフェストの intent-filter と同じ）。 */
@@ -62,14 +66,18 @@ class MainActivity : ComponentActivity() {
             SwarmViewerTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     // 幅の区分（Compact / Medium / Expanded）で表示を切り替える。折りたたみ⇔展開で変わる。
-                    AppNavigation(
-                        navigation = navigation,
-                        main = main,
-                        settings = settings,
-                        connections = connections,
-                        pairing = pairing,
-                        widthClass = calculateWindowSizeClass(this).widthSizeClass,
-                    )
+                    val widthClass = calculateWindowSizeClass(this).widthSizeClass
+                    // 画面のガターも同じ区分で切り替える（Compact 16dp・Medium 以上 24dp。ガイド S5）。
+                    CompositionLocalProvider(LocalGutter provides gutterFor(widthClass != WindowWidthSizeClass.Compact)) {
+                        AppNavigation(
+                            navigation = navigation,
+                            main = main,
+                            settings = settings,
+                            connections = connections,
+                            pairing = pairing,
+                            widthClass = widthClass,
+                        )
+                    }
                 }
             }
         }

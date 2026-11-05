@@ -30,6 +30,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AppDialog
 import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
 import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
+import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
 
 /**
  * 接続管理（S1）。保存済み接続の一覧（表示名と URL の host のみ。token は出さない）、切替、削除（確認つき）、
@@ -50,7 +51,7 @@ fun ConnectionsScreen(
         topBar = { TopAppBar(title = { Text("接続") }, navigationIcon = { AppNavTextButton("戻る", onBack) }) },
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(LocalGutter.current),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             state.message?.let { AppAlert(it) }

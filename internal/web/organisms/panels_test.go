@@ -298,6 +298,16 @@ func TestAttentionBar_WarningsOnlyAndAttentionOnly(t *testing.T) {
 	webtest.MustNotContain(t, html, `role="alert"`)
 }
 
+// 複数の警告（枠つきの独立した部品）は部品間の最小 8px（gap-2）で並べる。4px では枠が接して 1 つの塊に見える（ガイド S2）。
+func TestAttentionBar_WarningsAreSeparatedBy8px(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, organisms.AttentionBar(organisms.AttentionBarProps{Warnings: []domain.Warning{
+		{Code: "a", Message: "m1"}, {Code: "b", Message: "m2"},
+	}}))
+	webtest.MustContain(t, html, `<div class="flex flex-col gap-2">`, `data-warning-code="a"`, `data-warning-code="b"`)
+	webtest.MustNotContain(t, html, `<div class="flex flex-col gap-1"><div role="alert"`)
+}
+
 func TestSessionTabs(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, organisms.SessionTabs(organisms.SessionTabsProps{

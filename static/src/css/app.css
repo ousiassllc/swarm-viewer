@@ -40,6 +40,12 @@
   --r-md: 8px;
   --r-lg: 12px;
   --r-xl: 16px;
+  --r-full: 9999px; /* ピル・アバター・円（バッジ・進捗バー・スピナー・トースト・リップル） */
+
+  /* テキストリスト（ガイド §4）: 項目間 8・記号→文字 10・記号は 5px の点（--mute）。 */
+  --list-gap: 8px;
+  --list-marker-gap: 10px;
+  --list-marker-size: 5px;
 
   --motion-fast: 120ms;
   --motion-base: 180ms;
@@ -81,7 +87,7 @@
 
 /*
  * Tailwind 側のテーマ。--color-* を空にして既定のパレット（slate・sky など）を使えなくし、ガイドのトークンだけを残す。
- * サイズはガイドのスケール（本文 16px 基準・行間付き）、角丸は --r-sm 4 / --r-md 8 / --r-lg 12 / --r-xl 16、
+ * サイズはガイドのスケール（本文 16px 基準・行間付き）、角丸は --r-sm 4 / --r-md 8 / --r-lg 12 / --r-xl 16 / --r-full 9999、
  * 影はモーダルだけ（--shadow-modal）。Tailwind を更新したら node_modules/tailwindcss/theme.css と見比べる。
  */
 @theme inline {
@@ -123,6 +129,7 @@
   --radius-md: var(--r-md);
   --radius-lg: var(--r-lg);
   --radius-xl: var(--r-xl);
+  --radius-full: var(--r-full);
 
   /* スピナーの回転はガイドの 0.9s（tokens-preview の .spin）。keyframes は Tailwind の spin。 */
   --animate-spin: spin 0.9s linear infinite;

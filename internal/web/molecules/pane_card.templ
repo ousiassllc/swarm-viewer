@@ -87,9 +87,11 @@ templ paneNote(n *domain.Note) {
 				<p class="truncate font-mono text-mute">{ repo }</p>
 			}
 			if len(items) > 0 {
-				<ul class="list-inside list-disc">
+				<ul class="flex flex-col gap-(--list-gap)">
 					for _, item := range items {
-						<li class="truncate">{ item }</li>
+						<li class="flex items-center gap-(--list-marker-gap) before:size-(--list-marker-size) before:shrink-0 before:rounded-full before:bg-mute">
+							<span class="truncate">{ item }</span>
+						</li>
 					}
 				</ul>
 			}

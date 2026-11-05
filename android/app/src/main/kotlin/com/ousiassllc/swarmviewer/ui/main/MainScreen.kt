@@ -45,6 +45,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
 import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppPullToRefreshIndicator
+import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
 import java.time.Instant
 
 /**
@@ -84,7 +85,7 @@ fun MainScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             when {
-                state.connections == null -> NoticeText("読み込み中…", modifier = Modifier.padding(16.dp))
+                state.connections == null -> NoticeText("読み込み中…", modifier = Modifier.padding(LocalGutter.current))
                 state.noConnections -> EmptyConnections(onManageConnections)
                 else -> {
                     SessionTabs(state.sessions, state.session, viewModel::selectSession)
@@ -109,7 +110,7 @@ fun MainScreen(
 private fun EmptyConnections(onManageConnections: () -> Unit) {
     AppEmptyState(
         "接続がありません。接続文字列を貼り付けるか、QR を読み取って追加してください。",
-        modifier = Modifier.padding(16.dp),
+        modifier = Modifier.padding(LocalGutter.current),
     ) {
         AppButton(onClick = onManageConnections) { Text("接続を追加") }
     }
@@ -184,7 +185,8 @@ private fun MainContent(
     val primaryScroll = rememberScrollState()
     val secondaryScroll = rememberScrollState()
     val gap = Arrangement.spacedBy(12.dp)
-    val padding = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+    val gutter = LocalGutter.current
+    val padding = Modifier.padding(horizontal = gutter, vertical = 8.dp)
 
     val status: @Composable () -> Unit = { StatusLine(state, onRepair) }
     val panes: @Composable () -> Unit = {
@@ -206,7 +208,7 @@ private fun MainContent(
     }
 
     if (wide) {
-        Row(modifier = Modifier.fillMaxSize().then(padding), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(modifier = Modifier.fillMaxSize().then(padding), horizontalArrangement = Arrangement.spacedBy(gutter)) {
             Column(modifier = Modifier.weight(2f).verticalScroll(primaryScroll), verticalArrangement = gap) {
                 status()
                 panes()
@@ -229,7 +231,7 @@ private fun StatusLine(
     onRepair: () -> Unit,
 ) {
     val snapshot: Snapshot? = state.snapshot
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (state.needsRepair) {
             AppAlert(NEEDS_REPAIR_LABEL) {
                 AppButton(onClick = onRepair) { Text("再ペアリング") }

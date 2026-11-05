@@ -27,6 +27,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AppDialog
 import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
 import com.ousiassllc.swarmviewer.ui.theme.AppTextField
+import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
 
 /**
  * ペアリング画面。貼り付け欄（伏せ字。token を含むため画面に出さない）と「QR を読み取る」から入り、
@@ -53,7 +54,7 @@ fun PairingScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp)
+                    .padding(LocalGutter.current)
                     .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {

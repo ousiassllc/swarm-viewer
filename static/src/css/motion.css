@@ -125,7 +125,7 @@
 
   .ripple {
     position: absolute;
-    border-radius: 9999px;
+    border-radius: var(--r-full);
     background-color: currentcolor;
     pointer-events: none;
     animation: ripple var(--motion-slow) var(--ease-out) forwards;
