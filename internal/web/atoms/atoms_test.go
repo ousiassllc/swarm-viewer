@@ -56,10 +56,13 @@ func TestSpinner(t *testing.T) {
 func TestToast(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, atoms.Toast(atoms.ToastProps{Message: "保存しました"}))
-	webtest.MustContain(t, html, `id="toasts"`, `hx-swap-oob="true"`, `role="status"`, "保存しました", "fade-in")
+	webtest.MustContain(t, html, `id="toasts"`, `hx-swap-oob="true"`, `role="status"`, "保存しました", "fade-in", "[--fade-rise:8px]")
 	// ガイドの見本は高さ 40（--toast-h）・左右 18px（S2）。
 	webtest.MustContain(t, html, "h-(--toast-h)", "px-[18px]", "rounded-full")
 	webtest.MustNotContain(t, html, "h-10")
+	// 幅の上限はガイドの見本の min(92vw, 420px)。接続名など利用者が決める長い文言でも端まで伸びない（O3）。
+	webtest.MustContain(t, html, "max-w-[min(92vw,26.25rem)]")
+	webtest.MustNotContain(t, html, "calc(100vw-3rem)")
 	webtest.MustNotContain(t, html, "px-6")
 }
 
@@ -124,12 +127,12 @@ func TestCheckbox(t *testing.T) {
 	webtest.MustNotContain(t, webtest.Render(t, atoms.Checkbox(atoms.CheckboxProps{Name: "n", Value: "on"})), " checked ")
 }
 
-// EmptyState は破線の枠・--r-lg・padding 48 / 24・48px の accent-soft の円に載せた 24px のアイコン・文言・子要素（主ボタンなど）を持つ（ガイド S4）。
+// EmptyState は破線の枠・--r-lg・padding 縦 48・横 24（画面幅で変えない）・48px の accent-soft の円に載せた 24px のアイコン・文言・子要素（主ボタンなど）を持つ（ガイド S4）。
 func TestEmptyState(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, atoms.EmptyState(atoms.EmptyStateProps{Message: "<b>なし</b>"}))
-	webtest.MustContain(t, html, "border-dashed", "rounded-lg", "p-6", "md:p-12", "h-12 w-12", "rounded-full", "bg-accent-soft", "h-6 w-6", `aria-hidden="true"`, "&lt;b&gt;")
-	webtest.MustNotContain(t, html, "<b>")
+	webtest.MustContain(t, html, "border-dashed", "rounded-lg", "px-6", "py-12", "h-12 w-12", "rounded-full", "bg-accent-soft", "h-6 w-6", `aria-hidden="true"`, "&lt;b&gt;")
+	webtest.MustNotContain(t, html, "<b>", "md:p-12", "p-6")
 }
 
 // ボタンの押下のリップルは円をボタン内に収める（relative overflow-clip。M4。smoke テストが "hidden" を禁じるので overflow-hidden は使わない）。

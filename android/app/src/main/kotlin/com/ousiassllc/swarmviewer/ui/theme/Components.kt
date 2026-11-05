@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -129,6 +130,9 @@ private const val DISABLED_ALPHA = 0.4f
 /** 危険ボタンの枠の不透明度（`.dan` の `color-mix(in srgb, var(--danger) 45%, transparent)`）。 */
 private const val DANGER_BORDER_ALPHA = 0.45f
 
+/** ボタンの左右 padding 18dp（ガイド S2。tokens-preview の `.btn{padding:0 18px}`・Web の `px-[18px]`）。上下は高さ 40dp が決めるので 0。 */
+private val ButtonContentPadding = PaddingValues(horizontal = 18.dp)
+
 /** 主ボタン（ガイド）: accent（ink 自身）の面・角丸 8dp（r-md）。文字は SemiBold（labelLarge）。無効のときは面も文字も不透明度 .4（O7）。 */
 @Composable
 fun AppButton(
@@ -143,6 +147,7 @@ fun AppButton(
         modifier = modifier,
         enabled = enabled,
         shape = MaterialTheme.shapes.medium,
+        contentPadding = ButtonContentPadding,
         colors =
             ButtonDefaults.buttonColors(
                 disabledContainerColor = scheme.primary.copy(alpha = DISABLED_ALPHA),
@@ -166,6 +171,7 @@ fun AppOutlinedButton(
         modifier = modifier,
         enabled = enabled,
         shape = MaterialTheme.shapes.medium,
+        contentPadding = ButtonContentPadding,
         colors = ButtonDefaults.outlinedButtonColors(disabledContentColor = scheme.primary.copy(alpha = DISABLED_ALPHA)),
         border = BorderStroke(1.dp, if (enabled) scheme.outline else scheme.outline.copy(alpha = DISABLED_ALPHA)),
         content = content,
@@ -189,6 +195,7 @@ fun AppDangerButton(
         modifier = modifier,
         enabled = enabled,
         shape = MaterialTheme.shapes.medium,
+        contentPadding = ButtonContentPadding,
         colors =
             ButtonDefaults.outlinedButtonColors(
                 contentColor = danger,
@@ -212,7 +219,10 @@ fun AppNavTextButton(
     TextButton(onClick = onClick, modifier = modifier) { Text(label, style = MaterialTheme.typography.bodyMedium) }
 }
 
-/** 入力欄（ガイド）: 地は surface（Web の `bg-surface` と同じ）。フォーカス中の枠と caret はフォーカスリング色（[ExtraColors.focus]）。 */
+/**
+ * 入力欄（ガイド）: 地は surface（Web の `bg-surface` と同じ）。フォーカス中の枠と caret はフォーカスリング色（[ExtraColors.focus]）。
+ * [isError] のときは枠・caret・ラベルを `--danger`（[ExtraColors.danger]。Web の `FieldInvalidClass`。ガイド O7 の `.fld.bad`）にする。文言は呼び出し側が入力欄の下に出す。
+ */
 @Composable
 fun AppTextField(
     value: String,
@@ -222,8 +232,11 @@ fun AppTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     singleLine: Boolean = false,
+    isError: Boolean = false,
 ) {
-    val focus = MaterialTheme.extraColors.focus
+    val extra = MaterialTheme.extraColors
+    val focus = extra.focus
+    val danger = extra.danger
     val surface = MaterialTheme.colorScheme.surface
     OutlinedTextField(
         value = value,
@@ -232,6 +245,7 @@ fun AppTextField(
         visualTransformation = visualTransformation,
         keyboardOptions = keyboardOptions,
         singleLine = singleLine,
+        isError = isError,
         shape = MaterialTheme.shapes.medium,
         colors =
             OutlinedTextFieldDefaults.colors(
@@ -240,18 +254,22 @@ fun AppTextField(
                 focusedBorderColor = focus,
                 focusedLabelColor = focus,
                 cursorColor = focus,
+                errorBorderColor = danger,
+                errorCursorColor = danger,
+                errorLabelColor = danger,
             ),
         modifier = modifier,
     )
 }
 
 private const val DASH_LENGTH_DP = 6f
-private val EmptyStatePadding = 24.dp
+private val EmptyStateHorizontalPadding = 24.dp
+private val EmptyStateVerticalPadding = 48.dp
 private val EmptyStateCircleSize = 48.dp
 private val EmptyStateIconSize = 24.dp
 
 /**
- * 空状態（ガイド S4・§4）: 1dp の破線の枠・角丸 12dp（r-lg）・余白 24dp・48dp の accent-soft の円に載せた 24dp のアイコン＋文言。次の操作（主ボタンなど）は [content] に書く。
+ * 空状態（ガイド S4・§4）: 1dp の破線の枠・角丸 12dp（r-lg）・余白は縦 48dp・横 24dp・48dp の accent-soft の円に載せた 24dp のアイコン＋文言。次の操作（主ボタンなど）は [content] に書く。
  * ローディングは空状態ではないので、これではなく進捗表示を使う。[message] は信頼できない入力でもテキストとして描画する。
  */
 @Composable
@@ -276,7 +294,7 @@ fun AppEmptyState(
                         cornerRadius = CornerRadius(radius),
                         style = Stroke(width = width, pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash, dash))),
                     )
-                }.padding(EmptyStatePadding),
+                }.padding(horizontal = EmptyStateHorizontalPadding, vertical = EmptyStateVerticalPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {

@@ -6,10 +6,10 @@ type EmptyStateProps struct {
 	Message string
 }
 
-// EmptyState は空状態の部品（ガイド §4: 破線 border・--r-lg・padding 48 / モバイル 24・48px の --accent-soft の円に 24px のアイコン＋文言＋主ボタン）。
+// EmptyState は空状態の部品（ガイド S4・§4: 破線 border・--r-lg・padding 縦 48・横 24（画面幅で変えない）・48px の --accent-soft の円に 24px のアイコン＋文言＋主ボタン）。
 // 次の操作（主ボタンなど）は子要素に書く。ローディングは空状態ではないので Spinner を使う。
 templ EmptyState(p EmptyStateProps) {
-	<div class="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border p-6 text-center text-sm text-ink md:p-12">
+	<div class="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border px-6 py-12 text-center text-sm text-ink">
 		<span class="grid h-12 w-12 place-content-center rounded-full bg-accent-soft text-mute">
 			@Icon(IconInfoCircle, "h-6 w-6")
 		</span>

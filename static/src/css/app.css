@@ -34,6 +34,8 @@
 
   /* フォーム入力のフォーカスリング: --focus の 40%（ガイド C3）。--focus はダークで切り替わるので、ここは :root のままでよい。 */
   --ring: color-mix(in srgb, var(--focus) 40%, transparent);
+  /* 検証に失敗した入力欄のフォーカスリング: --danger の 40%（ガイド O7 の .fld.bad:focus）。--danger はダークで切り替わるが、:root で解決されるのでここのままでよい。 */
+  --ring-danger: color-mix(in srgb, var(--danger) 40%, transparent);
 
   /* 角丸（ガイド S1）。Tailwind の --radius-* は下の @theme でこれを参照する。 */
   --r-sm: 4px;
