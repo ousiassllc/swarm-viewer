@@ -29,7 +29,8 @@ func TestConnectionsList(t *testing.T) {
 
 	full := wantStatus(t, a.get("/connections"), http.StatusOK)
 	webtest.MustContain(t, full, "<html", `id="connection-list"`, "devbox", "buildbox", "100.64.0.5", "表示中",
-		`hx-delete="/connections/c1"`, `hx-confirm=`, `hx-get="/connections/c2"`)
+		`hx-delete="/connections/c1"`, `hx-confirm=`, `hx-get="/connections/c1"`)
+	webtest.MustNotContain(t, full, `hx-get="/connections/c2"`)
 	// URL 全体（path・ポート）は出さない。host のみ。
 	webtest.MustNotContain(t, full, "/report", "48120", servicetest.Token)
 

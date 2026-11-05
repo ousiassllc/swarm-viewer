@@ -219,7 +219,7 @@ func TestUsageReasonLabel(t *testing.T) {
 		in   *string
 		want string
 	}{
-		"without_usage": {str("without_usage"), "使用量を取れませんでした（ログイン切れの可能性）"},
+		"without_usage": {str("without_usage"), "ログイン切れの可能性"},
 		"no_email":      {str("no_email"), "アカウントを特定できません（ログイン切れの可能性）"},
 		"知らない値":         {str("brand-new"), ""},
 		"空文字":           {str(""), ""},

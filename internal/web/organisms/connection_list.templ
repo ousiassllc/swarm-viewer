@@ -37,11 +37,12 @@ templ ConnectionList(p ConnectionListProps) {
 						</div>
 						if c.ID == p.CurrentID {
 							@atoms.Badge(atoms.BadgeProps{Text: "表示中", Tone: format.ToneAccent})
+						} else {
+							@atoms.Button(atoms.ButtonProps{Label: "切替", Attrs: templ.Attributes{
+								"hx-get":    paths.Connection(c.ID),
+								"hx-target": "#main",
+							}})
 						}
-						@atoms.Button(atoms.ButtonProps{Label: "切替", Attrs: templ.Attributes{
-							"hx-get":    paths.Connection(c.ID),
-							"hx-target": "#main",
-						}})
 						@atoms.Button(atoms.ButtonProps{Label: "削除", Variant: atoms.ButtonDanger, Attrs: templ.Attributes{
 							"hx-delete":       paths.Connection(c.ID),
 							"hx-confirm":      deleteConfirm(c.Name),

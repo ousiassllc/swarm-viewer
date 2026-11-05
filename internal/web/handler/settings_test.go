@@ -23,8 +23,8 @@ func settingsForm(notify, screen, notifyMin, debug string) reqOpt {
 func TestSettingsPage(t *testing.T) {
 	a := newApp(t)
 	full := wantStatus(t, a.get("/settings"), http.StatusOK)
-	webtest.MustContain(t, full, "<html", `id="settings-form"`, `hx-put="/settings"`, `hx-target-422="#settings-form"`,
-		"OS の通知は許可されています")
+	webtest.MustContain(t, full, "<html", `id="settings-form"`, `hx-put="/settings"`, `hx-target-422="#settings-form"`)
+	webtest.MustNotContain(t, full, "OS の通知は許可されています", "OS が通知を許可していません")
 	frag := wantStatus(t, a.get("/settings", hx()), http.StatusOK)
 	webtest.MustNotContain(t, frag, "<html")
 }

@@ -152,7 +152,7 @@ stateDiagram-v2
 - Cursor: `account` ごとに `window`（`monthly` / `weekly` / `null`）と `models` を表示する
 - 各枠は `available` を必ず確認する。`available: false` は「—」表示（バー・数値なし）
 - Claude / Codex で `five_hour`・`seven_day` の 2 枠とも `available: false` のアカウントは、「—」を 2 行出さず「取得できません」を 1 行で出す。`reason`（枠を取れなかった理由）があれば理由を添える。片方だけ `available: false` のアカウントは、上の規則どおり 2 行のまま（取れない枠は「—」）。Cursor は枠が 1 つなので「—」のまま
-- `reason` の表示: `without_usage` →「使用量を取れませんでした（ログイン切れの可能性）」、`no_email` →「アカウントを特定できません（ログイン切れの可能性）」。`null`・欠落（`reason` を返さない古い swarm-console）・知らない値は理由なし（「取得できません」だけ）。原因は swarm-console からは確かには分からないため「可能性」と書く。`auth.agents` とは結び付けない
+- `reason` の表示: `without_usage` →「ログイン切れの可能性」、`no_email` →「アカウントを特定できません（ログイン切れの可能性）」。`null`・欠落（`reason` を返さない古い swarm-console）・知らない値は理由なし（「取得できません」だけ）。原因は swarm-console からは確かには分からないため「可能性」と書く。`auth.agents` とは結び付けない
 - `unit` が `percent` の枠はプログレスバー＋数値（`used` %）で表示する。`unit` が `usd` の枠は金額（`$` 付き）のみで、バー・しきい値色は付けない
 - リセット時刻 `resets_at` はローカル時刻で表示し、相対表示（「あと 3 時間」）を併記する。`null` なら非表示
 

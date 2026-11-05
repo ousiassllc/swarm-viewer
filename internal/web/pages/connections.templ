@@ -41,7 +41,7 @@ templ NoSessionsContent(connectionName string) {
 	@pageTitle("許可されたセッションがありません")
 	<p class="text-sm text-slate-400">
 		if connectionName != "" {
-			接続「{ connectionName }」には、このトークンで見られるセッションがありません。
+			接続「{ connectionName }」:
 		}
 		ホスト側でトークンの許可セッションを確認してください。
 	</p>

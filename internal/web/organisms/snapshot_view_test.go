@@ -164,7 +164,7 @@ func TestSnapshotView_InitialWithoutErrorShowsPreviousNotice(t *testing.T) {
 	p.Fresh = false
 	p.Initial = true
 	html := webtest.Render(t, organisms.SnapshotStatus(p))
-	webtest.MustContain(t, html, `id="snapshot-status"`, "前回取得した状態を表示しています", "前回取得 11:58")
+	webtest.MustContain(t, html, `id="snapshot-status"`, "前回の状態を表示中", "前回取得 11:58")
 	webtest.MustNotContain(t, html, "hx-swap-oob")
 	p.Snapshot = domain.Snapshot{}
 	webtest.MustContain(t, webtest.Render(t, organisms.SnapshotStatus(p)), "読み込み中…")
