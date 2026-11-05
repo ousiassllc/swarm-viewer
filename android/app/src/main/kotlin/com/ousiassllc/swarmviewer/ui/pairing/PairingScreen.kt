@@ -127,17 +127,20 @@ private fun ConfirmDialog(
         onDismissRequest = { if (!busy) onCancel() },
         title = { Text("この接続先に接続します") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("表示名: ${draft.name}")
-                // host は桁と区切りを読む値なので JetBrains Mono にする（T5。Web の確認モーダルと同じ）。
-                Text(
-                    buildAnnotatedString {
-                        append("接続先: ")
-                        withStyle(SpanStyle(fontFamily = MonoFontFamily)) { append(draft.host) }
-                    },
-                )
-                if (draft.sessionsHint.isNotEmpty()) Text("ホストが申告した許可セッション: ${draft.sessionsHint.joinToString(", ")}")
-                if (draft.replacesExisting) Text("同じ接続先が保存済みです。token を差し替えます。")
+            // 文の行の間は 8（`--list-gap`。Web の `<dl>` の `gap-y-2`）、枠付きのアラートは文の外側で 16 空ける（Web の `ModalBodyClass` の `gap-4`）。
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("表示名: ${draft.name}")
+                    // host は桁と区切りを読む値なので JetBrains Mono にする（T5。Web の確認モーダルと同じ）。
+                    Text(
+                        buildAnnotatedString {
+                            append("接続先: ")
+                            withStyle(SpanStyle(fontFamily = MonoFontFamily)) { append(draft.host) }
+                        },
+                    )
+                    if (draft.sessionsHint.isNotEmpty()) Text("ホストが申告した許可セッション: ${draft.sessionsHint.joinToString(", ")}")
+                    if (draft.replacesExisting) Text("同じ接続先が保存済みです。token を差し替えます。")
+                }
                 message?.let { AppAlert(it) }
             }
         },
