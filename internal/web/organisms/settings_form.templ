@@ -81,7 +81,7 @@ templ SettingsForm(p SettingsFormProps) {
 		if p.Error != "" {
 			@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: p.Error})
 		}
-		<div class="flex items-center gap-3">
+		<div class="flex items-center gap-2">
 			@atoms.Button(atoms.ButtonProps{Label: "保存", Type: "submit", Variant: atoms.ButtonPrimary})
 			@atoms.Spinner(atoms.SpinnerProps{ID: "settings-spinner", Size: atoms.SpinnerSmall})
 		</div>

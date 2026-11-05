@@ -106,6 +106,9 @@ func TestConfirmDialog(t *testing.T) {
 	webtest.MustContain(t, html, `<dialog id="confirm-dialog"`, "data-modal", "rounded-xl", "shadow-modal", "m-auto",
 		"data-confirm-title", "data-confirm-message", "data-confirm-action", "bg-danger", `data-modal-result="cancel"`, "キャンセル")
 	webtest.MustNotContain(t, html, "<script", "onclick", "hx-on", " open")
+	// ボタン列は 8px（ガイド S2）。
+	webtest.MustContain(t, html, `class="flex items-center justify-end gap-2"`)
+	webtest.MustNotContain(t, html, "gap-3")
 }
 
 func TestButton(t *testing.T) {

@@ -78,7 +78,7 @@ templ PairingDraftContent(p DraftProps) {
 	<dialog open data-modal data-dismiss={ "#" + DraftDiscardID } aria-labelledby="draft-title" class={ atoms.ModalClass }>
 		<div class="flex flex-col gap-4">
 			<h2 id="draft-title" class="text-lg font-semibold text-ink">この接続を追加しますか？</h2>
-			<dl class="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-2 rounded-lg border border-border bg-surface p-4 text-sm">
+			<dl class="grid grid-cols-[8rem_1fr] gap-x-3 gap-y-2 rounded-md bg-bone p-4 text-sm">
 				<dt class="text-mute">表示名</dt>
 				<dd class="truncate text-ink" title={ p.Name }>{ p.Name }</dd>
 				<dt class="text-mute">接続先ホスト</dt>
@@ -98,7 +98,7 @@ templ PairingDraftContent(p DraftProps) {
 			if p.Error != "" {
 				@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: p.Error})
 			}
-			<div class="flex items-center justify-end gap-3">
+			<div class="flex items-center justify-end gap-2">
 				@atoms.Spinner(atoms.SpinnerProps{ID: "draft-spinner", Size: atoms.SpinnerSmall})
 				@atoms.Button(atoms.ButtonProps{Label: "破棄", Attrs: templ.Attributes{
 					"id":              DraftDiscardID,
