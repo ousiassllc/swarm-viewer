@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#1E293B</color>
+    <!-- ランチャーアイコンの背景。ガイドの ink（#050505）。前景の 3 本線は bone（#F5F5F4）。 -->
+    <color name="ic_launcher_background">#050505</color>
 </resources>
