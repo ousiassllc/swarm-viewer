@@ -96,9 +96,11 @@ private fun ConnectionCard(
     onDelete: () -> Unit,
 ) {
     AppCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(item.name, style = MaterialTheme.typography.bodyLarge)
-            Text(item.host, style = MaterialTheme.typography.bodyMedium, fontFamily = MonoFontFamily)
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(item.name, style = MaterialTheme.typography.bodyLarge)
+                Text(item.host, style = MaterialTheme.typography.bodyMedium, fontFamily = MonoFontFamily)
+            }
             if (item.selected) Badge("表示中", DisplayTone.Accent, marker = true)
             if (item.needsRepair) AppAlert(NEEDS_REPAIR_LABEL)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
