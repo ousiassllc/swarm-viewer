@@ -74,6 +74,23 @@ func TestAlert_AttrsAndEmptyMessage(t *testing.T) {
 	webtest.MustNotContain(t, html, "<p>")
 }
 
+// Checkbox はガイドの形（18px・--r-sm・外枠 --mute）で、オンの印は Iconoir の check（インライン SVG）。
+func TestCheckbox(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, atoms.Checkbox(atoms.CheckboxProps{Name: "debug_log", Value: "on", Checked: true}))
+	webtest.MustContain(t, html, `type="checkbox"`, `name="debug_log"`, `value="on"`, " checked ", "h-[18px] w-[18px]", "rounded-sm", "border-mute", "appearance-none", "peer-checked:block", "M5 13.3636L8.03559")
+	webtest.MustNotContain(t, html, "accent-accent")
+	webtest.MustNotContain(t, webtest.Render(t, atoms.Checkbox(atoms.CheckboxProps{Name: "n", Value: "on"})), " checked ")
+}
+
+// EmptyState は破線の枠・--r-lg・padding 48 / 24・32px のアイコン・文言・子要素（主ボタンなど）を持つ（ガイド S4）。
+func TestEmptyState(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, atoms.EmptyState(atoms.EmptyStateProps{Message: "<b>なし</b>"}))
+	webtest.MustContain(t, html, "border-dashed", "rounded-lg", "p-6", "md:p-12", "h-8 w-8", `aria-hidden="true"`, "&lt;b&gt;")
+	webtest.MustNotContain(t, html, "<b>")
+}
+
 func TestButton(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, atoms.Button(atoms.ButtonProps{Label: "削除", Variant: atoms.ButtonDanger, Attrs: templ.Attributes{"hx-delete": "/connections/x", "hx-confirm": `"確認" <ok>`}}))

@@ -1,6 +1,7 @@
 package organisms_test
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -37,6 +38,13 @@ func TestConnectionList_Empty(t *testing.T) {
 	html := webtest.Render(t, organisms.ConnectionList(organisms.ConnectionListProps{}))
 	webtest.MustContain(t, html, `id="connection-list"`, "保存済みの接続はありません")
 	webtest.MustNotContain(t, html, "hx-delete")
+	// 空状態は破線の枠＋アイコン＋文言＋主ボタン「接続を追加」（ガイド S4）。
+	webtest.MustContain(t, html, "border-dashed", "<svg", `hx-get="/pairing"`, "接続を追加", "bg-accent")
+}
+
+// checkedCount はチェック済みの input の数（class の `checked:` 修飾子は数えない）。
+func checkedCount(html string) int {
+	return len(regexp.MustCompile(`\schecked[\s>/]`).FindAllString(html, -1))
 }
 
 func TestPairingForm(t *testing.T) {
@@ -48,6 +56,8 @@ func TestPairingForm(t *testing.T) {
 	// 検証失敗時も、貼り付けられた値は戻さない（textarea は空のまま）。
 	html = webtest.Render(t, organisms.PairingForm(organisms.PairingFormProps{Error: "接続文字列の形式が正しくありません"}))
 	webtest.MustContain(t, html, `role="alert"`, "接続文字列の形式が正しくありません", "></textarea>")
+	// ラベル→入力 8px・入力→エラー 4px・項目間 16px（ガイド S2）。
+	webtest.MustContain(t, html, `class="flex flex-col gap-4"`, `<div class="flex flex-col gap-2"><label for="pairing-input"`, `<div class="flex flex-col gap-1"><textarea`)
 }
 
 func TestSettingsForm(t *testing.T) {
@@ -61,9 +71,12 @@ func TestSettingsForm(t *testing.T) {
 		`<option value="5" selected>5 分</option>`, `<option value="10">10 分</option>`, `<option value="30">30 分</option>`, `<option value="60">60 分</option>`,
 		"OS が通知を許可していません",
 	)
-	if strings.Count(html, "checked") != 1 {
-		t.Errorf("通知だけがオン（デバッグログはオフ）: %d", strings.Count(html, "checked"))
+	if n := checkedCount(html); n != 1 {
+		t.Errorf("通知だけがオン（デバッグログはオフ）: %d", n)
 	}
+	// ラベル→入力は 8px（ガイド S2）。チェックボックスは 18px・--r-sm・外枠 --mute（ガイド S1・§4）。
+	webtest.MustContain(t, html, `<div class="flex flex-col gap-2"><label for="screen-poll"`, "rounded-sm border border-mute", "appearance-none")
+	webtest.MustNotContain(t, html, "accent-accent")
 	webtest.MustNotContain(t, html, `<option value="15"`, "7 秒")
 }
 
@@ -71,8 +84,8 @@ func TestSettingsForm_DebugOnNotifyOffAndPermissions(t *testing.T) {
 	t.Parallel()
 	s := domain.Settings{NotificationsEnabled: false, ScreenPollSeconds: 10, NotifyPollMinutes: 10, DebugLog: true}
 	html := webtest.Render(t, organisms.SettingsForm(organisms.SettingsFormProps{Settings: s, Permission: organisms.NotifyPermissionGranted, Error: "設定を保存できません"}))
-	if strings.Count(html, "checked") != 1 {
-		t.Errorf("デバッグログだけがオン: %d", strings.Count(html, "checked"))
+	if n := checkedCount(html); n != 1 {
+		t.Errorf("デバッグログだけがオン: %d", n)
 	}
 	webtest.MustContain(t, html, "設定を保存できません", `role="alert"`)
 	// Granted・Unknown は許可状態の <p> を出さない（Denied のときだけ案内を出す）。

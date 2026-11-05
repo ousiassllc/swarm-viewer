@@ -35,6 +35,7 @@ func TestBase_HeadAndBody(t *testing.T) {
 		`href="/static/css/app.css"`,
 		`src="/static/js/htmx.min.js"`, `src="/static/js/response-targets.min.js"`, `src="/static/js/app.js"`,
 		`hx-ext="response-targets"`, `<main id="main"`, `id="child"`, `id="toasts"`,
+		"p-4 md:p-6", // ガターはモバイル 16・デスクトップ 24（ガイド S5）
 	)
 }
 

@@ -51,14 +51,14 @@ templ SettingsForm(p SettingsFormProps) {
 	>
 		<div class="flex flex-col gap-1">
 			<label class="flex items-center gap-2 text-sm text-ink">
-				<input type="checkbox" class="h-[18px] w-[18px] accent-accent" name={ FieldNotificationsEnabled } value="on" checked?={ p.Settings.NotificationsEnabled }/>
+				@atoms.Checkbox(atoms.CheckboxProps{Name: FieldNotificationsEnabled, Value: "on", Checked: p.Settings.NotificationsEnabled})
 				通知
 			</label>
 			if p.Permission == NotifyPermissionDenied {
 				<p class="text-sm text-ink">OS が通知を許可していません。OS の設定で許可してください</p>
 			}
 		</div>
-		<div class="flex flex-col gap-1">
+		<div class="flex flex-col gap-2">
 			<label for="screen-poll" class="text-sm text-ink">画面更新間隔（選択中のセッション）</label>
 			<select id="screen-poll" name={ FieldScreenPollSeconds } class={ atoms.FieldClass, "w-40 px-3 text-sm" }>
 				for _, n := range domain.AllowedScreenPollSeconds() {
@@ -66,7 +66,7 @@ templ SettingsForm(p SettingsFormProps) {
 				}
 			</select>
 		</div>
-		<div class="flex flex-col gap-1">
+		<div class="flex flex-col gap-2">
 			<label for="notify-poll" class="text-sm text-ink">通知用ポーリング間隔（全セッション）</label>
 			<select id="notify-poll" name={ FieldNotifyPollMinutes } class={ atoms.FieldClass, "w-40 px-3 text-sm" }>
 				for _, n := range domain.AllowedNotifyPollMinutes() {
@@ -75,7 +75,7 @@ templ SettingsForm(p SettingsFormProps) {
 			</select>
 		</div>
 		<label class="flex items-center gap-2 text-sm text-ink">
-			<input type="checkbox" class="h-[18px] w-[18px] accent-accent" name={ FieldDebugLog } value="on" checked?={ p.Settings.DebugLog }/>
+			@atoms.Checkbox(atoms.CheckboxProps{Name: FieldDebugLog, Value: "on", Checked: p.Settings.DebugLog})
 			デバッグログ
 		</label>
 		if p.Error != "" {

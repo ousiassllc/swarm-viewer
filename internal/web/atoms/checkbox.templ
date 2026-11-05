@@ -1,0 +1,26 @@
+package atoms
+
+// CheckboxProps は Checkbox の入力。
+type CheckboxProps struct {
+	// Name・Value は input の属性（オフのときはフォームに送られない）。
+	Name  string
+	Value string
+	// Checked は初期状態でオンか。
+	Checked bool
+}
+
+// Checkbox は共通のチェックボックス（ガイド §4: 18px・--r-sm・外枠 --mute）。
+// ネイティブの input（appearance-none）を形の土台にして、オンの印は Iconoir の check（インライン SVG）を peer-checked で出す。
+// ラベルは呼び出し側の <label> で包む。フォーカスは app.css の :focus-visible（--focus の 2px）が当たる。
+templ Checkbox(p CheckboxProps) {
+	<span class="relative inline-flex h-[18px] w-[18px] shrink-0">
+		<input
+			type="checkbox"
+			name={ p.Name }
+			value={ p.Value }
+			checked?={ p.Checked }
+			class="peer h-full w-full cursor-pointer appearance-none rounded-sm border border-mute bg-surface checked:border-accent checked:bg-accent"
+		/>
+		@Icon(IconCheck, "pointer-events-none absolute inset-0 hidden h-full w-full text-bone peer-checked:block")
+	</span>
+}

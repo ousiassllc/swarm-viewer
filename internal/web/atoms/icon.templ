@@ -9,6 +9,7 @@ const (
 	IconWarningTriangle IconName = "warning-triangle"
 	IconInfoCircle      IconName = "info-circle"
 	IconCheckCircle     IconName = "check-circle"
+	IconCheck           IconName = "check"
 )
 
 // Icon ライン SVG のアイコン。インライン <svg>（外部ファイルを読まないので CSP に合う）で、装飾なので aria-hidden にする。
@@ -42,6 +43,8 @@ templ Icon(name IconName, class string) {
 			case IconCheckCircle:
 				<path d="M7 12.5L10 15.5L17 8.5"></path>
 				<path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"></path>
+			case IconCheck:
+				<path d="M5 13.3636L8.03559 16.3204C8.42388 16.6986 9.04279 16.6986 9.43108 16.3204L19 7"></path>
 		}
 	</svg>
 }

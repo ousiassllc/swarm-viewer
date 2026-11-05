@@ -25,21 +25,25 @@ templ PairingForm(p PairingFormProps) {
 		hx-target="#main"
 		hx-target-422={ "#" + PairingFormID }
 		hx-disabled-elt="find button"
-		class="flex flex-col gap-3"
+		class="flex flex-col gap-4"
 	>
-		<label for="pairing-input" class="text-sm text-ink">接続文字列（swarm-viewer://pair?…）</label>
-		<textarea
-			id="pairing-input"
-			name={ FieldPairing }
-			rows="4"
-			required
-			autocomplete="off"
-			spellcheck="false"
-			class={ atoms.FieldClass, "w-full px-3 py-2 font-mono text-sm" }
-		></textarea>
-		if p.Error != "" {
-			@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: p.Error})
-		}
+		<div class="flex flex-col gap-2">
+			<label for="pairing-input" class="text-sm text-ink">接続文字列（swarm-viewer://pair?…）</label>
+			<div class="flex flex-col gap-1">
+				<textarea
+					id="pairing-input"
+					name={ FieldPairing }
+					rows="4"
+					required
+					autocomplete="off"
+					spellcheck="false"
+					class={ atoms.FieldClass, "w-full px-3 py-2 font-mono text-sm" }
+				></textarea>
+				if p.Error != "" {
+					@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: p.Error})
+				}
+			</div>
+		</div>
 		<div>
 			@atoms.Button(atoms.ButtonProps{Label: "接続", Type: "submit", Variant: atoms.ButtonPrimary})
 		</div>
