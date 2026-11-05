@@ -6,6 +6,13 @@ plugins {
     alias(libs.plugins.ktlint)
 }
 
+// 版はタグが唯一の元。リリースでは .github/scripts/android-version.sh が決めた値を
+// -PappVersionName=X.Y.Z -PappVersionCode=N で渡す。渡さない通常のビルド（CI の assembleDebug など）は次の既定値を使う。
+// release ビルドには signingConfig を置かない（署名鍵をリポジトリ・Gradle に持ち込まない）。署名は release.yml の build-android が
+// apksigner で行う（docs/environment/setup.md §11.3・§11.4）。
+val appVersionName = providers.gradleProperty("appVersionName").getOrElse("0.1.0")
+val appVersionCode = providers.gradleProperty("appVersionCode").map(String::toInt).getOrElse(1)
+
 android {
     namespace = "com.ousiassllc.swarmviewer"
     compileSdk = 35
@@ -14,8 +21,8 @@ android {
         applicationId = "com.ousiassllc.swarmviewer"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
     }
 
     buildFeatures {

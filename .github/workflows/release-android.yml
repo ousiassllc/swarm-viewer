@@ -1,0 +1,100 @@
+# Android の署名済み APK を作る（release.yml の build-android ジョブが呼ぶ。docs/environment/setup.md §11.4）。
+# 単独では動かない（workflow_call だけ）。release.yml が 300 行の上限（linterly）に収まるよう、別のファイルに分けている。
+#
+# ランナーは既存の Linux セルフホステッドランナー（JDK 17・Android SDK を事前に導入済みの前提。ci.yml と同じ。GitHub ホストランナーでは
+# Android をビルドしない）。呼ぶのは release.yml の verify を通った main の履歴のコミットだけなので、セルフホステッドでも信頼できないコードは動かない。
+# 署名鍵のシークレットを参照するのは、gate（登録の有無の真偽値だけ）と署名の step だけ。呼び出し側の release ジョブ（書き込みトークン）には渡さない。
+# ANDROID_KEYSTORE_BASE64 が未登録のときは、ビルドも署名もせずに成功で終わり（Release には APK を載せない）、デスクトップ版のリリースを止めない。
+# 理由：シークレットとランナーの準備は運用作業で、未了のままデスクトップ版を止めないため。debug 署名の APK は、どの場合も載せない
+# （sign-android-apk.sh が debug 証明書を拒否する）。keystore があるのに他のシークレットが空・不正なときは設定ミスなので失敗させる。
+name: Release (Android)
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: リリースのタグ vX.Y.Z（版の唯一の元）
+        required: true
+        type: string
+      sha:
+        description: リリースするコミット
+        required: true
+        type: string
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: false
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_KEY_ALIAS:
+        required: false
+      ANDROID_KEY_PASSWORD:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      TAG: ${{ inputs.tag }}
+    steps:
+      - id: gate
+        env:
+          # シークレットの値は入らない（登録の有無の true / false だけ）
+          HAS_SIGNING_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "signed=${HAS_SIGNING_KEY}" >> "$GITHUB_OUTPUT"
+          if [ "$HAS_SIGNING_KEY" != true ]; then
+            echo "::warning::ANDROID_KEYSTORE_BASE64 is not registered: skipping the Android build (docs/environment/setup.md §11.3)"
+          fi
+      - if: steps.gate.outputs.signed == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.sha }}
+          clean: true # 前のビルドの成果物（android/**/build/）を残さない
+          persist-credentials: false
+      - if: steps.gate.outputs.signed == 'true'
+        name: Check the JDK and the Android SDK on the runner
+        run: bash .github/scripts/check-android-env.sh
+        env:
+          CHECK_SIGNING_TOOLS: "true"
+      - if: steps.gate.outputs.signed == 'true'
+        id: version
+        name: Decide versionName and versionCode from the tag
+        run: bash .github/scripts/android-version.sh "$TAG"
+      - if: steps.gate.outputs.signed == 'true'
+        name: Build the unsigned release APK
+        # リリースの成果物に、他のワークフローが残した Gradle のビルドキャッシュを混ぜない。release に signingConfig は無い（署名は次の step）
+        run: >-
+          ./gradlew --no-build-cache assembleRelease
+          -PappVersionName="${{ steps.version.outputs.version_name }}"
+          -PappVersionCode="${{ steps.version.outputs.version_code }}"
+        working-directory: android
+      - if: steps.gate.outputs.signed == 'true'
+        name: Sign and verify the APK
+        # シークレットを参照するのは、この step だけ（gate は登録の有無の真偽値だけ）。値は apksigner に env: で渡し、ログに出さない
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          UNSIGNED_APK: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          OUT_DIR: dist
+        run: bash .github/scripts/sign-android-apk.sh
+      # 署名のスクリプトは自分で keystore を消す（trap）。落とされた場合に備えて、成否にかかわらず一時ディレクトリも消す
+      - if: always() && steps.gate.outputs.signed == 'true'
+        name: Remove the temporary signing files
+        run: rm -rf "${RUNNER_TEMP}"/android-sign.*
+      # 署名済みの APK がある（gate を通って署名・検証に成功した）ときだけ artifact を作る。release ジョブは artifact の有無で APK を載せるか決める
+      - if: steps.gate.outputs.signed == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-android
+          path: dist/
+          if-no-files-found: error

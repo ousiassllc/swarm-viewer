@@ -1,22 +1,23 @@
-# リリース（docs/environment/setup.md §5.5）。Windows の NSIS インストーラと macOS のユニバーサル .app（zip）を
+# リリース（docs/environment/setup.md §5.5・§11.4）。Windows の NSIS インストーラ・macOS のユニバーサル .app（zip）・Android の署名済み APK を
 # SHA256SUMS と一緒に GitHub Releases へ載せる。構成は ousiassllc/swarm-console の release.yml に合わせる。
 #
 # 2 つのきっかけ：
 #   workflow_run  main への push の CI（ci.yml）が成功：main の先頭に次のパッチ版（最新の vX.Y.Z のパッチ+1。無ければ v0.1.0）を付ける
 #   tag push      手で打った vX.Y.Z：マイナー・メジャーを上げる（プレリリース形は不可）
-# ジョブは 5 つ。ビルドが書き込みトークンを持たず、検査を通らないものを載せないための分け方：
+# ジョブは 6 つ。ビルドが書き込みトークンを持たず、検査を通らないものを載せないための分け方：
 #   plan           リリースするか・タグは何か（main の先頭だけ。古いコミットに新しい版を付けない）
 #   verify         コミットが main の履歴にあり、ci.yml が成功している（lint / test はここでは再実行しない）
 #   build-windows  windows-latest で NSIS インストーラ（contents: read だけ）
 #   build-macos    macos-latest でユニバーサル .app の zip（contents: read だけ）
+#   build-android  セルフホステッド（Linux）で署名済み APK（contents: read だけ。署名鍵のシークレットはここだけが参照する）
 #   release        SHA256SUMS を作って gh release create（タグもここで作る）。contents: write を持つのはこのジョブだけ
 # PR・フォークの CI では動かない（workflow_run は main の CI だけが対象）。使う action は GitHub 公式（actions/*）と、
 # ci.yml で既に使っている oven-sh/setup-bun・go-task/setup-task だけ。
-# ci.yml はセルフホステッドだが、このワークフローは GitHub ホストランナー（ubuntu / windows / macos）を使う
-# （private リポジトリでは Actions の分数を消費する。macOS は分数の倍率が大きい）。
-# workflow_run のワークフローは既定ブランチ（main）のファイルだけが動く：このファイルと ci.yml が main に入るまで自動のリリースは始まらない。
+# ci.yml はセルフホステッドだが、Windows / macOS のビルドは GitHub ホストランナー（private リポジトリでは Actions の分数を消費する。macOS は倍率が大きい）。
+# Android（build-android → release-android.yml）だけは、JDK 17・Android SDK を導入済みの既存のセルフホステッドランナー（ci.yml と同じ）で動かす。
+# workflow_run のワークフローは既定ブランチ（main）のファイルだけが動く：このファイル・release-android.yml・ci.yml が main に入るまで自動のリリースは始まらない。
 # 版の唯一の元はタグ：ビルド前に build/config.yml の info.version をタグから書き換える（.github/scripts/set-version.sh）。
-# 署名・公証はしない（unsigned）。
+# 署名・公証はしない（unsigned。Windows / macOS）。Android の APK だけは release 署名鍵で署名する（下の build-android）。
 name: Release
 
 on:
@@ -240,8 +241,21 @@ jobs:
           path: dist/
           if-no-files-found: error
 
+  # Android の署名済み APK は release-android.yml が作る（release.yml が linterly の 300 行の上限に収まるよう分けた）。署名鍵のシークレットはこのジョブだけが渡す
+  build-android:
+    needs: [plan, verify]
+    uses: ./.github/workflows/release-android.yml
+    with:
+      tag: ${{ needs.plan.outputs.tag }}
+      sha: ${{ github.event.workflow_run.head_sha || github.sha }}
+    secrets:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
   release:
-    needs: [plan, build-windows, build-macos]
+    needs: [plan, build-windows, build-macos, build-android]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -262,10 +276,18 @@ jobs:
           cd dist
           installer="swarm-viewer_${TAG}_windows_amd64_installer.exe"
           zip="swarm-viewer_${TAG}_darwin_universal.zip"
-          sha256sum "$installer" "$zip" > SHA256SUMS
-          cat SHA256SUMS
-
+          apk="swarm-viewer_${TAG}_android_universal.apk"
+          files=("$installer" "$zip")
           notes="> **注意**: この成果物はコード署名・公証をしていません（unsigned）。macOS では Gatekeeper の警告が出ます。回避手順は [README の「署名されていないアプリの開き方」](https://github.com/${GH_REPO}/blob/${TAG}/README.md#署名されていないアプリの開き方) を参照してください。ダウンロードしたら SHA256SUMS で確かめてください。"
+          # 署名済みの APK は、build-android が署名・検証して artifact にしたときだけ載せる（署名鍵が未登録なら artifact が無い）
+          if [ -f "$apk" ]; then
+            files+=("$apk")
+            notes="${notes}"$'\n'"> Android の APK（${apk}）だけは release 署名鍵で署名済みです。インストール・更新の手順は [docs/environment/setup.md §11.4](https://github.com/${GH_REPO}/blob/${TAG}/docs/environment/setup.md) を参照してください。"
+          else
+            echo "::warning::no signed Android APK (the Android signing secrets are not registered): this release has no Android APK"
+          fi
+          sha256sum "${files[@]}" > SHA256SUMS
+          cat SHA256SUMS
 
           # 手で打ったタグは既にあるので、無ければ失敗させる（--verify-tag）。自動のときは --target で、リリースするコミットにタグを作る
           if [ "$EVENT_NAME" = push ]; then
@@ -274,4 +296,4 @@ jobs:
             tag_args=(--target "$RELEASE_SHA")
           fi
           gh release create "$TAG" --title "$TAG" --notes "$notes" --generate-notes "${tag_args[@]}" \
-            "$installer" "$zip" SHA256SUMS
+            "${files[@]}" SHA256SUMS
