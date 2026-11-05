@@ -1,6 +1,9 @@
 package com.ousiassllc.swarmviewer.ui.main
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -9,10 +12,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 
 private const val BADGE_BACKGROUND_ALPHA = 0.15f
+private const val BADGE_BORDER_ALPHA = 0.4f
+private const val PILL_PERCENT = 50
 private const val STALE_ALPHA = 0.5f
+private val BAR_HEIGHT = 6.dp
 
 /** 取得に失敗して直前の内容を残しているとき、見た目を薄くする（グレーアウト）。 */
 fun Modifier.grayedOut(stale: Boolean): Modifier = if (stale) alpha(STALE_ALPHA) else this
@@ -30,7 +37,12 @@ fun Badge(
 ) {
     val color = tone.color()
     val textColor = if (tone == DisplayTone.Muted) MaterialTheme.colorScheme.onSurface else color
-    Surface(color = color.copy(alpha = BADGE_BACKGROUND_ALPHA), shape = MaterialTheme.shapes.small, modifier = modifier) {
+    Surface(
+        color = color.copy(alpha = BADGE_BACKGROUND_ALPHA),
+        shape = RoundedCornerShape(percent = PILL_PERCENT),
+        border = BorderStroke(1.dp, color.copy(alpha = BADGE_BORDER_ALPHA)),
+        modifier = modifier,
+    ) {
         Text(
             text,
             color = textColor,
@@ -51,7 +63,8 @@ fun ToneBar(
         progress = { barFraction(percent) },
         color = tone.color(),
         trackColor = MaterialTheme.colorScheme.surfaceVariant,
-        modifier = modifier,
+        strokeCap = StrokeCap.Round,
+        modifier = modifier.height(BAR_HEIGHT),
     )
 }
 
