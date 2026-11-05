@@ -60,7 +60,7 @@ templ MainContent(p MainProps) {
 		}
 		<div class="ml-auto flex items-center gap-2">
 			@atoms.Spinner(atoms.SpinnerProps{ID: "main-spinner"})
-			@atoms.Button(atoms.ButtonProps{Label: "更新", Attrs: templ.Attributes{
+			@atoms.Button(atoms.ButtonProps{Label: "更新", Size: atoms.ButtonSmall, Attrs: templ.Attributes{
 				"hx-get":       paths.Session(p.Connection.ID, p.Selected),
 				"hx-target":    "#main",
 				"hx-indicator": "#main-spinner",

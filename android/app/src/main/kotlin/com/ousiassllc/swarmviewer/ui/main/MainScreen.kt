@@ -42,8 +42,8 @@ import com.ousiassllc.swarmviewer.ui.NEEDS_REPAIR_LABEL
 import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
-import java.time.Instant
 import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
+import java.time.Instant
 
 /**
  * メイン画面（A2。機能要件 §12.2）。接続名（複数あるときは切替）と設定、セッションのタブ、要対応・警告、ペイン、利用上限、ホスト負荷。

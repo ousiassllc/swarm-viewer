@@ -23,17 +23,33 @@ type AlertProps struct {
 	Attrs templ.Attributes
 }
 
+// alertClass はガイドの見本（tokens-preview の .al）の形: surface 地・1px の border・左 3px の状態色・--r-md・文字は ink。状態色はアイコンと左の帯だけに使う。
 func alertClass(k AlertKind) string {
-	const base = "fade-in flex items-start gap-2 rounded-lg border px-4 py-3 text-sm "
+	const base = "fade-in flex items-start gap-2 rounded-md border border-border border-l-[3px] bg-surface px-4 py-3 text-sm text-ink "
 	switch k {
 	case AlertInfo:
-		return base + "border-info/60 bg-info/10 text-info"
+		return base + "border-l-info"
 	case AlertSuccess:
-		return base + "border-success/60 bg-success/10 text-success"
+		return base + "border-l-success"
 	case AlertWarning:
-		return base + "border-warning/60 bg-warning/10 text-warning"
+		return base + "border-l-warning"
 	default:
-		return base + "border-danger/60 bg-danger/10 text-danger"
+		return base + "border-l-danger"
+	}
+}
+
+// alertIconClass はアイコンの大きさと状態色。
+func alertIconClass(k AlertKind) string {
+	const base = "mt-0.5 h-5 w-5 "
+	switch k {
+	case AlertInfo:
+		return base + "text-info"
+	case AlertSuccess:
+		return base + "text-success"
+	case AlertWarning:
+		return base + "text-warning"
+	default:
+		return base + "text-danger"
 	}
 }
 
@@ -62,7 +78,7 @@ func alertRole(k AlertKind) string {
 // 応答全体の失敗（Recover・CSRF・404 など）、フォームのエラー、取得失敗・警告のバナーはすべてこれに載せる。
 templ Alert(p AlertProps) {
 	<div role={ alertRole(p.Kind) } data-alert class={ alertClass(p.Kind) } { p.Attrs... }>
-		@Icon(alertIcon(p.Kind), "mt-0.5 h-5 w-5")
+		@Icon(alertIcon(p.Kind), alertIconClass(p.Kind))
 		<div class="flex min-w-0 flex-1 flex-col gap-1">
 			if p.Title != "" {
 				<p class="font-semibold">{ p.Title }</p>

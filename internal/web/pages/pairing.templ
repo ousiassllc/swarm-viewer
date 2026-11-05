@@ -100,13 +100,13 @@ templ PairingDraftContent(p DraftProps) {
 			}
 			<div class="flex items-center justify-end gap-2">
 				@atoms.Spinner(atoms.SpinnerProps{ID: "draft-spinner"})
-				@atoms.Button(atoms.ButtonProps{Label: "破棄", Attrs: templ.Attributes{
+				@atoms.Button(atoms.ButtonProps{Label: "破棄", Size: atoms.ButtonSmall, Attrs: templ.Attributes{
 					"id":              DraftDiscardID,
 					"hx-post":         paths.DraftDiscard(p.DraftID),
 					"hx-target":       "#main",
 					"hx-disabled-elt": "this",
 				}})
-				@atoms.Button(atoms.ButtonProps{Label: "接続を保存", Variant: atoms.ButtonPrimary, Attrs: templ.Attributes{
+				@atoms.Button(atoms.ButtonProps{Label: "接続を保存", Variant: atoms.ButtonPrimary, Size: atoms.ButtonSmall, Attrs: templ.Attributes{
 					"hx-post":         paths.DraftConfirm(p.DraftID),
 					"hx-target":       "#main",
 					"hx-indicator":    "#draft-spinner",
