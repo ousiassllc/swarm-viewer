@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -27,6 +26,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppCard
 import com.ousiassllc.swarmviewer.ui.theme.AppDangerTextButton
+import com.ousiassllc.swarmviewer.ui.theme.AppDialog
 import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
 import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
@@ -75,7 +75,7 @@ fun ConnectionsScreen(
     }
 
     state.pendingDelete?.let { target ->
-        AlertDialog(
+        AppDialog(
             onDismissRequest = viewModel::dismissDelete,
             title = { Text("接続を削除") },
             text = { Text("「${target.name}」を削除します。保存した token・前回取得した表示・通知済みの記録もすべて消えます。") },

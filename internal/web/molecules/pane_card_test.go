@@ -112,3 +112,12 @@ func TestPaneCard_ReportWaitingBadge(t *testing.T) {
 	webtest.MustContain(t, html, "指示待ち")
 	webtest.MustNotContain(t, html, "報告待ち")
 }
+
+// ペインのメモは入れ子パネル（--bone・1px の border・--r-md）で、余白は 12 / 8（ガイド S2・§4）。
+func TestPaneCard_NoteIsNestedPanel(t *testing.T) {
+	t.Parallel()
+	pane := domain.Pane{Pos: "B2", ID: "%12", State: domain.StateIdle, Note: &domain.Note{Repo: "repo", Items: []string{"a"}}}
+	html := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: pane}))
+	webtest.MustContain(t, html, "rounded-md border border-border bg-bone px-3 py-2")
+	webtest.MustNotContain(t, html, "px-2 py-1")
+}

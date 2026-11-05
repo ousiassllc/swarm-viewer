@@ -102,8 +102,8 @@ func TestPairingDraft_IsModalOverPairingForm(t *testing.T) {
 		`<dialog open`, "data-modal", `data-dismiss="#draft-discard"`, `aria-labelledby="draft-title"`, "rounded-xl", "shadow-modal",
 		`id="draft-discard"`, "この接続を追加しますか？",
 	)
-	// ボタン列は 8px（ガイド S2）。モーダル内の入れ子パネルは --bone・--r-md で、surface のカードにしない（ガイド §4・S1）。
-	webtest.MustContain(t, html, `class="flex items-center justify-end gap-2"`, "rounded-md bg-bone p-4")
+	// ボタン列は 8px（ガイド S2）。モーダル内の入れ子パネルは --bone・1px の border・--r-md で、surface のカードにしない（ガイド §4・S1・S3）。
+	webtest.MustContain(t, html, `class="flex items-center justify-end gap-2"`, "rounded-md border border-border bg-bone p-4")
 	webtest.MustNotContain(t, html, "gap-3", "rounded-lg border border-border bg-surface")
 	webtest.MustNotContain(t, html, "<h1 class=\"text-lg font-semibold text-ink\">この接続を追加しますか？")
 	webtest.MustNotContain(t, webtest.Render(t, pages.PairingDraftContent(pages.DraftProps{DraftID: "d"})), "保存済みの接続")
