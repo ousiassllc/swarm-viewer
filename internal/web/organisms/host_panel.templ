@@ -41,8 +41,8 @@ func diskRow(d domain.Disk) molecules.HostRowProps {
 
 // HostPanel はホスト負荷（CPU・メモリ・スワップ・ディスク）。しきい値色は利用上限と同じ規則（80 / 95）。
 templ HostPanel(p HostPanelProps) {
-	<section class="flex flex-col gap-2 rounded-lg border border-slate-700 bg-slate-900 p-3" aria-labelledby="host-heading">
-		<h2 id="host-heading" class="text-sm font-semibold text-slate-200">ホスト</h2>
+	<section class="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4" aria-labelledby="host-heading">
+		<h2 id="host-heading" class="text-sm font-semibold text-ink">ホスト</h2>
 		@molecules.HostRow(molecules.HostRowProps{Label: "CPU", Percent: p.Host.CPU.UsedPercent, Available: p.Host.CPU.Available})
 		@molecules.HostRow(memRow(p.Host.Mem))
 		@molecules.HostRow(swapRow(p.Host.Swap))

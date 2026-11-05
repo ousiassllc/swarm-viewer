@@ -12,7 +12,7 @@ type BadgeProps struct {
 
 // Badge はエージェント種別・状態・要対応を示す小さなラベル。色だけに頼らず Text を必ず表示する。
 templ Badge(p BadgeProps) {
-	<span class={ "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset", format.BadgeClass(p.Tone) }>
+	<span class={ "inline-flex items-center rounded-full px-2 text-xs ring-1 ring-inset", format.BadgeClass(p.Tone) }>
 		{ p.Text }
 	</span>
 }

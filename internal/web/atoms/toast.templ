@@ -1,52 +1,32 @@
 package atoms
 
-import "github.com/ousiassllc/swarm-viewer/internal/web/format"
-
-// ToastKind はトーストの種類。
-type ToastKind string
-
-// ToastKind の値。
-const (
-	ToastSuccess ToastKind = "success"
-	ToastError   ToastKind = "error"
-	ToastInfo    ToastKind = "info"
-)
-
 // ToastProps は Toast の入力。
 type ToastProps struct {
-	// Kind は種類。未知の値は info。
-	Kind ToastKind
-	// Message は表示する文言。
+	// Message は表示する 1 行の短文。エラーの詳細・検証エラー・確認には使わない（Alert や入力欄の下の文言を使う）。
 	Message string
 }
 
-func toastTone(k ToastKind) format.Tone {
-	switch k {
-	case ToastSuccess:
-		return format.ToneSuccess
-	case ToastError:
-		return format.ToneError
-	default:
-		return format.ToneAccent
-	}
-}
-
 // ToastContainerID はトーストの表示先（レイアウトの空コンテナ）の id。
+// 3 秒で消す処理は static/src/js/app.js（CSP によりインラインスクリプトは使えない）。
 const ToastContainerID = "toasts"
 
+// ToastContainerClass はトーストの表示先のクラス。画面下中央・端から 24px・z-toast。
+// 同時に出るのは 1 つ（OOB の差し替えで前のトーストが置き換わる）。
+const ToastContainerClass = "pointer-events-none fixed bottom-[var(--toast-offset)] left-1/2 z-[var(--z-toast)] -translate-x-1/2"
+
 // Toast はトースト 1 件を OOB（hx-swap-oob）で返す。レイアウトの #toasts を置き換える。
+// 見た目はガイドどおり、高さ 40・ピル・ink 地に bone 字・1 行。
 templ Toast(p ToastProps) {
-	<div id={ ToastContainerID } hx-swap-oob="true" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2" aria-live="polite">
-		<div role="status" class={ "rounded-md border bg-slate-900 px-4 py-2 text-sm shadow-lg", format.BorderClass(toastTone(p.Kind)) }>
+	<div id={ ToastContainerID } hx-swap-oob="true" class={ ToastContainerClass } aria-live="polite">
+		<div role="status" class="inline-flex h-10 max-w-[calc(100vw-3rem)] items-center truncate rounded-full bg-ink px-6 text-sm text-bone">
 			{ p.Message }
 		</div>
 	</div>
 }
 
-// Alert は汎用のエラー通知（OOB ではない）。Recover・CSRF の応答など、
-// 対象を限定せずレイアウトの #toasts へ入れるフラグメントに使う。
+// Alert は汎用のエラー通知（インラインアラート）。応答全体の失敗（Recover・CSRF・404 など）に使う。
 templ Alert(message string) {
-	<div role="alert" class="rounded-md border border-red-500/60 bg-slate-900 px-4 py-2 text-sm text-red-300 shadow-lg">
+	<div role="alert" class="rounded-lg border border-danger/60 bg-danger/10 px-4 py-3 text-sm text-danger">
 		{ message }
 	</div>
 }

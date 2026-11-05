@@ -102,9 +102,9 @@ templ SnapshotRegion(p SnapshotViewProps) {
 		}
 	>
 		if p.isLoading() {
-			<p role="status" class="text-sm text-slate-400">{ emptyMessage(p) }</p>
+			<p role="status" class="text-sm text-mute">{ emptyMessage(p) }</p>
 		} else if p.isEmpty() {
-			<p class="text-sm text-slate-400">{ emptyMessage(p) }</p>
+			<p class="text-sm text-mute">{ emptyMessage(p) }</p>
 		} else {
 			@AttentionBar(AttentionBarProps{Attention: p.Snapshot.Report.Attention, Warnings: p.Snapshot.Report.Warnings, Auth: p.Snapshot.Report.Auth})
 			@PaneGrid(PaneGridProps{Layout: p.Snapshot.Report.Layout, Panes: p.Snapshot.Report.Panes, Attention: p.Snapshot.Report.Attention, Stale: !p.Fresh})
@@ -136,20 +136,20 @@ templ SnapshotStatus(p SnapshotViewProps) {
 }
 
 templ repairLink() {
-	<a href={ templ.SafeURL(paths.Pairing) } hx-get={ paths.Pairing } hx-target="#main" class="text-sky-400 underline">再ペアリング</a>
+	<a href={ templ.SafeURL(paths.Pairing) } hx-get={ paths.Pairing } hx-target="#main" class="text-ink underline decoration-mute underline-offset-2">再ペアリング</a>
 }
 
 // SnapshotBanner は取得失敗・前回値表示のバナー本体。Fresh のとき、および初回の読み込み中（isLoading）は何も描画しない。
 // 失敗種別の固定文言（swarm-console の message は出さない）に「最終更新 HH:MM」「次回再試行 N 秒後」を併記する。
 templ SnapshotBanner(p SnapshotViewProps) {
 	if !p.Fresh && !p.isLoading() {
-		<div role="alert" class="rounded-md border border-red-500/60 bg-red-500/10 px-3 py-2 text-sm text-red-200" data-error-kind={ errKind(p.Err) }>
+		<div role="alert" class="rounded-md border border-danger/60 bg-danger/10 px-4 py-3 text-sm text-danger" data-error-kind={ errKind(p.Err) }>
 			<p>{ statusMessage(p) }</p>
-			<p class="text-xs text-red-300/80">
+			<p class="text-sm text-danger">
 				{ format.JoinNonEmpty(" / ", lastFetched(p), nextRetry(p)) }
 			</p>
 			if p.Err != nil && p.Err.Code != "" {
-				<details class="text-xs text-red-300/80">
+				<details class="text-sm text-danger">
 					<summary class="cursor-pointer">詳細</summary>
 					<code class="font-mono">{ p.Err.Code }</code>
 				</details>

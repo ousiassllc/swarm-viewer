@@ -21,11 +21,11 @@ type SpinnerProps struct {
 func spinnerSizeClass(s SpinnerSize) string {
 	switch s {
 	case SpinnerSmall:
-		return "h-3 w-3"
+		return "h-4 w-4"
 	case SpinnerLarge:
 		return "h-6 w-6"
 	default:
-		return "h-4 w-4"
+		return "h-5 w-5"
 	}
 }
 
@@ -35,7 +35,7 @@ templ Spinner(p SpinnerProps) {
 		if p.ID != "" {
 			id={ p.ID }
 		}
-		class={ "htmx-indicator inline-block animate-spin rounded-full border-2 border-slate-500 border-t-transparent", spinnerSizeClass(p.Size) }
+		class={ "htmx-indicator inline-block animate-spin rounded-full border-2 border-accent-soft border-t-accent", spinnerSizeClass(p.Size) }
 		role="status"
 		aria-label="読み込み中"
 	></span>

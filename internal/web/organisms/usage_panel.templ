@@ -24,9 +24,9 @@ func usageGray(p UsagePanelProps) bool {
 
 func usageSectionClass(p UsagePanelProps) string {
 	if usageGray(p) {
-		return "flex flex-col gap-3 rounded-lg border border-slate-700 bg-slate-900 p-3 opacity-50 grayscale"
+		return "flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 opacity-50 grayscale"
 	}
-	return "flex flex-col gap-3 rounded-lg border border-slate-700 bg-slate-900 p-3"
+	return "flex flex-col gap-3 rounded-lg border border-border bg-surface p-4"
 }
 
 // showsNumbers は数字を出す status（ok・stale）か。unavailable・pending・disabled は出さない（機能要件 §5.1）。
@@ -50,18 +50,18 @@ func cursorRowLabel(a domain.CursorAccount) string {
 //   - disabled: 「利用上限の取得は無効です」（数字なし）
 templ UsagePanel(p UsagePanelProps) {
 	<section class={ usageSectionClass(p) } aria-labelledby="usage-heading" data-usage-status={ domain.NormalizeUsageStatus(p.Usage.Status) }>
-		<h2 id="usage-heading" class="text-sm font-semibold text-slate-200">利用上限</h2>
+		<h2 id="usage-heading" class="text-sm font-semibold text-ink">利用上限</h2>
 		if label := format.UsageStatusLabel(p.Usage.Status); label != "" {
-			<p class="text-xs text-slate-300">{ label }</p>
+			<p class="text-xs text-ink">{ label }</p>
 		}
 		if showsNumbers(p.Usage.Status) {
 			@usageAccounts(p)
 			if p.Usage.FetchedAt != nil {
-				<p class="text-xs text-slate-500">{ "最終取得 " + format.DateTime(*p.Usage.FetchedAt) }</p>
+				<p class="text-xs text-mute">{ "最終取得 " + format.DateTime(*p.Usage.FetchedAt) }</p>
 			}
 		}
 		if p.Usage.Reason != "" && (domain.NormalizeUsageStatus(p.Usage.Status) == domain.UsageStale || domain.NormalizeUsageStatus(p.Usage.Status) == domain.UsageUnavailable) {
-			<details class="text-xs text-slate-500">
+			<details class="text-xs text-mute">
 				<summary class="cursor-pointer">詳細</summary>
 				<code class="font-mono">{ p.Usage.Reason }</code>
 			</details>
@@ -78,7 +78,7 @@ templ usageAccounts(p UsagePanelProps) {
 	}
 	for _, a := range p.Usage.Cursor {
 		<div class="flex flex-col gap-1">
-			<h3 class="text-xs font-medium text-slate-300">{ format.JoinNonEmpty(" · ", "Cursor", a.Account) }</h3>
+			<h3 class="text-xs text-ink">{ format.JoinNonEmpty(" · ", "Cursor", a.Account) }</h3>
 			@molecules.UsageRow(molecules.UsageRowProps{Label: cursorRowLabel(a), Slot: a.Models, Now: p.Now})
 		</div>
 	}
@@ -93,12 +93,12 @@ func bothSlotsUnavailable(a domain.AgentAccount) bool {
 // reason があれば理由を添える（機能要件 §5.2）。片方だけ取れないときは 2 行のまま（取れない枠は「—」）。
 templ agentAccount(agent string, a domain.AgentAccount, now time.Time) {
 	<div class="flex flex-col gap-1">
-		<h3 class="text-xs font-medium text-slate-300">{ format.JoinNonEmpty(" · ", agent, a.Account) }</h3>
+		<h3 class="text-xs text-ink">{ format.JoinNonEmpty(" · ", agent, a.Account) }</h3>
 		if bothSlotsUnavailable(a) {
-			<p class="text-xs text-slate-400">
+			<p class="text-xs text-mute">
 				<span>取得できません</span>
 				if reason := format.UsageReasonLabel(a.Reason); reason != "" {
-					<span class="text-slate-500">{ " · " + reason }</span>
+					<span class="text-mute">{ " · " + reason }</span>
 				}
 			</p>
 		} else {

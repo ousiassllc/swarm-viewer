@@ -61,18 +61,19 @@ func SlotTone(slot domain.Slot) Tone {
 }
 
 // BadgeClass はバッジ（背景・文字・リング）の Tailwind クラスを返す。未知の Tone は muted。
+// 色はガイドのトークン（accent は無彩色の ink、状態色は success / warning / danger）。背景・リングはトークンの低 alpha。
 func BadgeClass(t Tone) string {
 	switch t {
 	case ToneAccent:
-		return "bg-sky-500/15 text-sky-300 ring-sky-500/40"
+		return "bg-ink/10 text-ink ring-ink/30"
 	case ToneWarning:
-		return "bg-amber-500/15 text-amber-300 ring-amber-500/40"
+		return "bg-warning/15 text-warning ring-warning/40"
 	case ToneSuccess:
-		return "bg-emerald-500/15 text-emerald-300 ring-emerald-500/40"
+		return "bg-success/15 text-success ring-success/40"
 	case ToneError:
-		return "bg-red-500/15 text-red-300 ring-red-500/40"
+		return "bg-danger/15 text-danger ring-danger/40"
 	default:
-		return "bg-slate-500/15 text-slate-300 ring-slate-500/40"
+		return "bg-mute/15 text-mute ring-mute/40"
 	}
 }
 
@@ -81,15 +82,15 @@ func BadgeClass(t Tone) string {
 func BarClass(t Tone) string {
 	switch t {
 	case ToneAccent:
-		return "[&::-webkit-progress-value]:bg-sky-500 [&::-moz-progress-bar]:bg-sky-500"
+		return "[&::-webkit-progress-value]:bg-accent [&::-moz-progress-bar]:bg-accent"
 	case ToneWarning:
-		return "[&::-webkit-progress-value]:bg-amber-500 [&::-moz-progress-bar]:bg-amber-500"
+		return "[&::-webkit-progress-value]:bg-warning [&::-moz-progress-bar]:bg-warning"
 	case ToneSuccess:
-		return "[&::-webkit-progress-value]:bg-emerald-500 [&::-moz-progress-bar]:bg-emerald-500"
+		return "[&::-webkit-progress-value]:bg-success [&::-moz-progress-bar]:bg-success"
 	case ToneError:
-		return "[&::-webkit-progress-value]:bg-red-500 [&::-moz-progress-bar]:bg-red-500"
+		return "[&::-webkit-progress-value]:bg-danger [&::-moz-progress-bar]:bg-danger"
 	default:
-		return "[&::-webkit-progress-value]:bg-slate-500 [&::-moz-progress-bar]:bg-slate-500"
+		return "[&::-webkit-progress-value]:bg-mute [&::-moz-progress-bar]:bg-mute"
 	}
 }
 
@@ -97,15 +98,15 @@ func BarClass(t Tone) string {
 func TextClass(t Tone) string {
 	switch t {
 	case ToneAccent:
-		return "text-sky-400"
+		return "text-ink"
 	case ToneWarning:
-		return "text-amber-400"
+		return "text-warning"
 	case ToneSuccess:
-		return "text-emerald-400"
+		return "text-success"
 	case ToneError:
-		return "text-red-400"
+		return "text-danger"
 	default:
-		return "text-slate-400"
+		return "text-mute"
 	}
 }
 
@@ -113,14 +114,14 @@ func TextClass(t Tone) string {
 func BorderClass(t Tone) string {
 	switch t {
 	case ToneAccent:
-		return "border-sky-500/60"
+		return "border-ink/60"
 	case ToneWarning:
-		return "border-amber-500/60"
+		return "border-warning/60"
 	case ToneSuccess:
-		return "border-emerald-500/60"
+		return "border-success/60"
 	case ToneError:
-		return "border-red-500/60"
+		return "border-danger/60"
 	default:
-		return "border-slate-600"
+		return "border-mute"
 	}
 }

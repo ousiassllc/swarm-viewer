@@ -39,7 +39,7 @@ templ NoSessionsPage(shell layout.BaseProps, connectionName string) {
 // NoSessionsContent は「許可されたセッションがありません」のフラグメント。
 templ NoSessionsContent(connectionName string) {
 	@pageTitle("許可されたセッションがありません")
-	<p class="text-sm text-slate-400">
+	<p class="text-sm text-mute">
 		if connectionName != "" {
 			接続「{ connectionName }」:
 		}

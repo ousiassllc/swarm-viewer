@@ -85,12 +85,12 @@ func TestDeleteOtherConnectionKeepsLastConnection(t *testing.T) {
 	}
 }
 
-func TestDeleteConnectionFailureShowsErrorToast(t *testing.T) {
+func TestDeleteConnectionFailureShowsInlineAlertNotToast(t *testing.T) {
 	a := connectionsApp(t)
 	a.env.Store.SetErr("DeleteConnection", errors.New("disk full"))
 	body := wantStatus(t, a.do(http.MethodDelete, "/connections/c1", hx()), http.StatusOK)
-	webtest.MustContain(t, body, "接続を削除できませんでした", "devbox")
-	webtest.MustNotContain(t, body, "disk full")
+	webtest.MustContain(t, body, `id="connection-list"`, `role="alert"`, "接続を削除できませんでした", "devbox")
+	webtest.MustNotContain(t, body, "disk full", `id="toasts"`, "hx-swap-oob")
 }
 
 func TestDeleteUnknownConnectionIs404(t *testing.T) {

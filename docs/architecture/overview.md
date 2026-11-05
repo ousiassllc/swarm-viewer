@@ -302,7 +302,8 @@ graph LR
 - token は repository 層の中だけで扱い、ハンドラ・テンプレート・ログに値を渡さない。ドメイン型の `Connection` は token を持たない（秘密領域のキーだけを持つ）
 - アセットハンドラは WebView のみから呼ばれる（TCP ポートなし）。それでも画面の状態変更ルート（POST/DELETE）には CSRF トークンを要求する（`<body hx-headers='{"X-CSRF-Token":"…"}'>` で配布。トークンはプロセス起動ごとに生成）
 - CSP: `default-src 'self'`、`connect-src 'self'`、`script-src 'self'`（`unsafe-eval`・`unsafe-inline` なし）、`style-src 'self'`、インラインスクリプトなし（NFR-SEC-9）。HTMX は `<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>` で eval とインラインスタイル注入を止める。外部ホストへは WebView から一切アクセスしない
-- フォント: Nerd Font のアイコン（PUA）は同梱の Symbols Nerd Font Mono（woff2。`static/src/fonts/` → generate で `static/dist/fonts/` → `/static/fonts/`）で描き、`app.css` の `@font-face` は `unicode-range` を PUA に絞る。日本語・英字は OS のフォント（Tailwind 既定の `font-sans` スタック）に任せる。CSP は変えない（`default-src 'self'`。NFR-SEC-9）。サブセット化はしない
+- フォント: Sora・Noto Sans JP（JIS X 0208 サブセット）・JetBrains Mono・Symbols Nerd Font Mono を同梱する（woff2。`static/src/fonts/` → generate で `static/dist/fonts/` → `/static/fonts/`）。`app.css` の `@font-face` で配り、Symbols Nerd Font だけ `unicode-range` を PUA に絞る。`font-sans` は Sora → Noto Sans JP → Symbols Nerd Font、`font-mono` は JetBrains Mono。CSP は変えない（`default-src 'self'`。NFR-SEC-9）
+- デザイントークン: 色・角丸・文字サイズ・フォント・影は `app.css` の `:root`（ライト）と `prefers-color-scheme: dark` で定義し、Tailwind の `@theme` から参照する（`bg-bone` `text-ink` `text-mute` `bg-surface` `border-border` `bg-accent` `bg-accent-soft` `text-danger` など）。Tailwind の既定色は無効。ペイン・使用率の状態色は `format/tone.go` が返すトークンのクラスが唯一の出所（NFR-DSG-1）
 - 画面に出す文字列はすべて Templ のエスケープに任せ、HTML として解釈しない（`templ.Raw` を使わない。NFR-SEC-10）
 - MCP の許可リスト: `sessions_list`・`report`（v1 で呼ぶのは 2 本）。リストは repository/report 内の定数で、それ以外のツール名は呼び出し時にエラーにする（NFR-SEC-1）
 
@@ -474,3 +475,4 @@ graph TD
 | 1.5 | 2026-11-04 | §11 #3（URL スキームの実機登録）の検証手順を「Release の成果物をインストールして確認」で確定 | Issue #3（release.yml で配布物を CI が作るようになったため） |
 | 1.6 | 2026-11-05 | §7 にフォントの扱い（同梱の Symbols Nerd Font・PUA のみ・`static/dist/fonts/`）を追記 | Issue #9 |
 | 1.7 | 2026-11-05 | Android 版の構成（§12）を追加。§11 に Android の未確認事項（#8〜#15）を追加 | Issue #15（Android 版の仕様書への反映） |
+| 1.8 | 2026-11-05 | §7 のフォントをガイド指定の書体の同梱に改訂し、デザイントークンの置き場を追記 | Issue #30（Ousiass デザインガイド準拠） |

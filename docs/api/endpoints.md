@@ -235,7 +235,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | CSRF | 状態変更ルート（`POST`・`PUT`・`DELETE`）は `X-CSRF-Token` を要求する。値はレイアウトが `<body hx-headers='{"X-CSRF-Token":"…"}'>` で配り、HTMX が全リクエストに付ける（JSON 属性のため eval 不要）。プロセス起動ごとに生成。不一致は 403 |
 | `Cache-Control` | 全ルート `no-store`（スナップショットがキャッシュされないように） |
 | ステータス | アプリ内の取得失敗（swarm-console の不達・認証エラー）は **200** のまま、状態を HTML で表現する（§4.4）。入力検証エラーは 422（フォームを再描画）。不正な `{cid}`・`{did}` は 404 |
-| トースト | ビジネスエラー・保存成功は `hx-swap-oob` でトースト atom を返す |
+| トースト | 保存成功・削除成功は `hx-swap-oob` でトースト atom（1 行の短文）を返す。3 秒で `app.js` が消す。エラー（接続の削除失敗など）はトーストにせず、フラグメント内のインラインアラートで示す（NFR-DSG-5） |
 | 文字列 | すべて Templ のエスケープに任せる。`templ.Raw` を使わない（NFR-SEC-10） |
 
 ### 4.2 ルート一覧
@@ -249,7 +249,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | POST | `/pairing/drafts/{did}/confirm` | アクション | `HX-Redirect: /connections/{cid}`（`HX-Request` なしならメイン画面を描画）/ 200 エラーフラグメント | `sessions_list` で疎通確認（FR-PAIR-2）。成功したら秘密領域に token、SQLite に接続を保存し、下書きを削除する（§4.3）。失敗は保存せず、下書きは残す（再試行可。期限は §4.3） |
 | POST | `/pairing/drafts/{did}/discard` | アクション | `HX-Redirect: /pairing` または `/`（`HX-Request` なしならその画面を描画） | 下書きを即時削除する |
 | GET | `/connections` | ページ | フルページ / フラグメント | 保存済み接続の一覧。表示名・URL の host のみ・「切替」・「削除」 |
-| DELETE | `/connections/{cid}` | アクション | フラグメント（一覧）+ トースト OOB | 接続を削除する（SQLite 行を先に削除し、秘密領域を削除。[ER §4](../architecture/er.md)） |
+| DELETE | `/connections/{cid}` | アクション | フラグメント（一覧）+ 成功時のみトースト OOB（失敗は一覧の上にインラインアラート） | 接続を削除する（SQLite 行を先に削除し、秘密領域を削除。[ER §4](../architecture/er.md)） |
 | GET | `/connections/{cid}` | ページ | フルページ / フラグメント（200） | その接続の `last_session`（なければ先頭の許可セッション）のメイン画面をその場に描画する（リダイレクトしない）。初回描画の規則は下記「メイン画面の初回描画」。許可セッションが 0 件なら「許可されたセッションがありません」ページ |
 | GET | `/connections/{cid}/sessions/{sid}` | ページ | フルページ / フラグメント | メイン画面。接続切替・セッションタブ・スナップショット領域を含む。`last_session` を表示するセッションに更新する。ホストとは通信しない（下記「メイン画面の初回描画」）。`{sid}` が許可外と分かっている（直近のタブに無い）ときは先頭の許可セッションを描画する |
 | GET | `/connections/{cid}/sessions/{sid}/snapshot` | ページ（部分） | フラグメント | スナップショット領域（要対応バー・ペイングリッド・利用上限・ホスト負荷）。`report` を呼ぶ（同一 `(cid, sid)` は single-flight）。直近の `sessions_list` が無い・古い（30 秒超）ときは並行して引き直し、`#session-tabs` の OOB を返す。画面更新ポーリングと手動更新が叩く |
@@ -313,7 +313,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>` をレイアウトの `<head>` に置く。`allowEval:false` で eval を使う機能（トリガーフィルタ、`hx-on:`・`js:` 構文）を無効にし、`includeIndicatorStyles:false` で htmx が注入するインライン `<style>` を止める（`style-src 'self'` に反するため）。`.htmx-indicator` の表示切替は `app.css`（Tailwind）に書く。
 
 - Lit コンポーネントは使わないため、HTMX ↔ Lit 境界ルールは適用しない（[アーキテクチャ設計 §8](../architecture/overview.md)）
-- 通信障害（`htmx:responseError`）の汎用トーストのみクライアントで処理する（HALT 標準）。アプリ内通信のため通常は起きない
+- トーストの 3 秒消去（`htmx:oobAfterSwap` で `#toasts` を空にする）だけをクライアントで処理する。通信障害（`htmx:responseError`）の汎用表示は持たない（アプリ内通信のため通常は起きない）
 
 ## 5. 変更の影響範囲
 

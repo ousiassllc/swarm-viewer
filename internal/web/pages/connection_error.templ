@@ -27,7 +27,7 @@ templ ConnectionErrorPage(shell layout.BaseProps, p ConnectionErrorProps) {
 // 失敗種別の固定文言（swarm-console の message は出さない）と、再試行・再ペアリング・接続管理への導線を出す。
 templ ConnectionErrorContent(p ConnectionErrorProps) {
 	@pageTitle("接続できません")
-	<p class="text-sm text-slate-300">接続「{ p.Name }」: { format.FetchErrorMessage(p.Err) }</p>
+	<p class="text-sm text-ink">接続「{ p.Name }」: { format.FetchErrorMessage(p.Err) }</p>
 	<div class="flex items-center gap-4">
 		if format.NeedsRepair(p.Err) {
 			@navLink(paths.Pairing, "再ペアリング")

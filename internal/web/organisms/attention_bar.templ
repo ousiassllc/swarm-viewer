@@ -98,9 +98,9 @@ func panePosKey(pos string) (rank, num int) {
 
 // attentionBoxClass は 2 グループの間にだけ区切り線（divide-y）を入れる。片方だけなら線を出さない。
 func attentionBoxClass(g attentionGroups) string {
-	base := "flex flex-col rounded-md border border-slate-700 bg-slate-900"
+	base := "flex flex-col rounded-lg border border-border bg-surface"
 	if len(g.Panes) > 0 && len(g.Agents) > 0 {
-		return base + " divide-y divide-slate-700"
+		return base + " divide-y divide-border"
 	}
 	return base
 }
@@ -108,7 +108,7 @@ func attentionBoxClass(g attentionGroups) string {
 // attentionAgentsClass はエージェントの間に、グループ間より薄い区切り線を入れる。
 func attentionAgentsClass(g attentionGroups) string {
 	if len(g.Agents) > 1 {
-		return "flex flex-col divide-y divide-slate-700/60"
+		return "flex flex-col divide-y divide-border/60"
 	}
 	return "flex flex-col"
 }
@@ -121,7 +121,7 @@ templ AttentionBar(p AttentionBarProps) {
 			if len(p.Warnings) > 0 {
 				<ul class="flex flex-col gap-1">
 					for _, w := range p.Warnings {
-						<li role="alert" class="rounded-md border border-amber-500/60 bg-amber-500/10 px-3 py-1.5 text-sm text-amber-200" data-warning-code={ w.Code }>
+						<li role="alert" class="rounded-md border border-warning/60 bg-warning/10 px-4 py-2 text-sm text-warning" data-warning-code={ w.Code }>
 							{ w.Message }
 						</li>
 					}
@@ -137,7 +137,7 @@ templ AttentionBar(p AttentionBarProps) {
 templ attentionList(g attentionGroups, auth domain.Auth) {
 	<div class={ attentionBoxClass(g) }>
 		if len(g.Panes) > 0 {
-			<ul class="flex flex-col gap-1 px-3 py-2" data-attention-group="panes">
+			<ul class="flex flex-col gap-1 px-4 py-3" data-attention-group="panes">
 				for _, a := range g.Panes {
 					@molecules.AttentionItem(molecules.AttentionItemProps{Attention: a, AuthExpiresAt: authExpiresAt(auth, a)})
 				}
@@ -146,7 +146,7 @@ templ attentionList(g attentionGroups, auth domain.Auth) {
 		if len(g.Agents) > 0 {
 			<div class={ attentionAgentsClass(g) } data-attention-group="agents">
 				for _, ag := range g.Agents {
-					<ul class="flex flex-col gap-1 px-3 py-2" data-attention-agent={ ag.Agent }>
+					<ul class="flex flex-col gap-1 px-4 py-3" data-attention-agent={ ag.Agent }>
 						for _, a := range ag.Items {
 							@molecules.AttentionItem(molecules.AttentionItemProps{Attention: a, AuthExpiresAt: authExpiresAt(auth, a)})
 						}

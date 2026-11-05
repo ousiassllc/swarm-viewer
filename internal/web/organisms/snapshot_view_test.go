@@ -186,7 +186,7 @@ func TestSnapshotView_ContainsAllPanels(t *testing.T) {
 	html := webtest.Render(t, organisms.SnapshotView(baseProps()))
 	webtest.MustContain(t, html, "alpha", "beta", "gamma", "要対応", "利用上限", "ホスト", "CPU", `data-layout="grid"`)
 	// asking の T2 は強調表示。
-	if !strings.Contains(html, `ring-amber-400/50" data-pane-pos="T2"`) {
+	if !strings.Contains(html, `ring-warning/40" data-pane-pos="T2"`) {
 		t.Errorf("asking の T2 が強調されていない")
 	}
 }

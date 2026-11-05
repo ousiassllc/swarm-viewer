@@ -24,17 +24,17 @@ func TestUsageRow_Percent(t *testing.T) {
 		used float64
 		want string // バーのクラスに含まれる色
 	}{
-		{"79.9", 79.9, "bg-sky-500"},
-		{"80", 80, "bg-amber-500"},
-		{"94.9", 94.9, "bg-amber-500"},
-		{"95", 95, "bg-red-500"},
+		{"79.9", 79.9, "bg-accent"},
+		{"80", 80, "bg-warning"},
+		{"94.9", 94.9, "bg-warning"},
+		{"95", 95, "bg-danger"},
 	}
 	for _, tt := range tests {
 		slot := domain.Slot{Available: true, Used: f(tt.used), Unit: domain.UnitPercent, Status: "ok"}
 		html := webtest.Render(t, molecules.UsageRow(molecules.UsageRowProps{Label: "5 時間枠", Slot: slot, Now: now}))
 		webtest.MustContain(t, html, "<progress", tt.want, "5 時間枠")
 		if tt.name == "79.9" {
-			webtest.MustNotContain(t, html, "bg-amber-500", "bg-red-500")
+			webtest.MustNotContain(t, html, "bg-warning", "bg-danger")
 		}
 	}
 }
@@ -43,7 +43,7 @@ func TestUsageRow_Exhausted(t *testing.T) {
 	t.Parallel()
 	slot := domain.Slot{Available: true, Used: f(10), Unit: domain.UnitPercent, Status: domain.SlotStatusExhausted}
 	html := webtest.Render(t, molecules.UsageRow(molecules.UsageRowProps{Label: "x", Slot: slot, Now: now}))
-	webtest.MustContain(t, html, "bg-red-500", "上限到達")
+	webtest.MustContain(t, html, "bg-danger", "上限到達")
 }
 
 func TestUsageRow_USDHasAmountOnly(t *testing.T) {
@@ -51,14 +51,14 @@ func TestUsageRow_USDHasAmountOnly(t *testing.T) {
 	slot := domain.Slot{Available: true, Used: f(512.5), Unit: domain.UnitUSD, Status: "ok"}
 	html := webtest.Render(t, molecules.UsageRow(molecules.UsageRowProps{Label: "月間", Slot: slot, Now: now}))
 	webtest.MustContain(t, html, "$512.50")
-	webtest.MustNotContain(t, html, "<progress", "bg-amber-500", "bg-red-500", "%")
+	webtest.MustNotContain(t, html, "<progress", "bg-warning", "bg-danger", "%")
 }
 
 func TestUsageRow_USDExhaustedIsError(t *testing.T) {
 	t.Parallel()
 	slot := domain.Slot{Available: true, Used: f(1), Unit: domain.UnitUSD, Status: domain.SlotStatusExhausted}
 	html := webtest.Render(t, molecules.UsageRow(molecules.UsageRowProps{Label: "月間", Slot: slot, Now: now}))
-	webtest.MustContain(t, html, "text-red-400", "上限到達")
+	webtest.MustContain(t, html, "text-danger", "上限到達")
 }
 
 func TestUsageRow_UnavailableShowsDash(t *testing.T) {
@@ -90,7 +90,7 @@ func TestUsageRow_ResetsAtRelative(t *testing.T) {
 func TestHostRow(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, molecules.HostRow(molecules.HostRowProps{Label: "CPU", Percent: 95, Available: true}))
-	webtest.MustContain(t, html, "bg-red-500", "95%")
+	webtest.MustContain(t, html, "bg-danger", "95%")
 	html = webtest.Render(t, molecules.HostRow(molecules.HostRowProps{Label: "CPU", Percent: 10}))
 	webtest.MustContain(t, html, "—")
 	webtest.MustNotContain(t, html, "<progress")
@@ -98,7 +98,7 @@ func TestHostRow(t *testing.T) {
 	webtest.MustContain(t, html, "なし")
 	webtest.MustNotContain(t, html, "<progress")
 	html = webtest.Render(t, molecules.HostRow(molecules.HostRowProps{Label: "/", Percent: 50, Available: true, Detail: "10 GB 空き"}))
-	webtest.MustContain(t, html, "10 GB 空き", "bg-sky-500")
+	webtest.MustContain(t, html, "10 GB 空き", "bg-accent")
 }
 
 // elementChildren は n の直下の要素を返す。

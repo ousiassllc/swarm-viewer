@@ -25,11 +25,11 @@ type ButtonProps struct {
 func buttonClass(v ButtonVariant) string {
 	switch v {
 	case ButtonPrimary:
-		return "bg-sky-600 text-white hover:bg-sky-500"
+		return "bg-accent text-bone hover:bg-accent/85"
 	case ButtonDanger:
-		return "bg-red-700 text-white hover:bg-red-600"
+		return "bg-danger text-bone hover:bg-danger/85"
 	default:
-		return "bg-slate-700 text-slate-100 hover:bg-slate-600"
+		return "border border-border bg-transparent text-ink hover:bg-accent-soft"
 	}
 }
 
@@ -44,7 +44,7 @@ func buttonType(t string) string {
 templ Button(p ButtonProps) {
 	<button
 		type={ buttonType(p.Type) }
-		class={ "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-50", buttonClass(p.Variant) }
+		class={ "inline-flex h-8 items-center gap-2 rounded-md px-4 text-sm font-semibold disabled:opacity-40", buttonClass(p.Variant) }
 		{ p.Attrs... }
 	>
 		{ p.Label }
@@ -74,6 +74,11 @@ func inputType(t string) string {
 	return t
 }
 
+// FieldClass は入力欄・select・textarea の共通クラス（高さ 40・--r-md・1px border・surface 地）。
+// フォーカスは app.css の outline（--focus の 2px）を、フォーム用の ring（--focus の 40%）に置き換える。
+// 横幅・padding・フォントは呼び出し側が足す。
+const FieldClass = "min-h-10 rounded-md border border-border bg-surface text-ink placeholder:text-mute focus-visible:outline-transparent focus-visible:ring-2 focus-visible:ring-focus/40"
+
 // Input は共通の 1 行入力。
 templ Input(p InputProps) {
 	<input
@@ -84,7 +89,7 @@ templ Input(p InputProps) {
 		placeholder={ p.Placeholder }
 		required?={ p.Required }
 		autocomplete="off"
-		class="w-full rounded-md border border-slate-600 bg-slate-900 px-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-500"
+		class={ FieldClass, "w-full px-3 text-sm" }
 		{ p.Attrs... }
 	/>
 }

@@ -44,10 +44,10 @@ templ RecoveryPage(shell layout.BaseProps, p RecoveryProps) {
 // RecoveryContent は初期化導線のフラグメント。
 templ RecoveryContent(p RecoveryProps) {
 	@pageTitle("保存データを開けません")
-	<p class="text-sm text-slate-300" data-recovery-reason={ string(p.Reason) }>{ recoveryMessage(p.Reason) }</p>
-	<p class="text-xs text-slate-500">保存していた token は OS の秘密領域に残ります。初期化後に接続をペアリングし直してください。</p>
+	<p class="text-sm text-ink" data-recovery-reason={ string(p.Reason) }>{ recoveryMessage(p.Reason) }</p>
+	<p class="text-sm text-mute">保存していた token は OS の秘密領域に残ります。初期化後に接続をペアリングし直してください。</p>
 	if p.Error != "" {
-		<p role="alert" class="text-sm text-red-300">{ p.Error }</p>
+		<p role="alert" class="text-sm text-danger">{ p.Error }</p>
 	}
 	<div>
 		@atoms.Button(atoms.ButtonProps{Label: "保存データを初期化する", Variant: atoms.ButtonDanger, Attrs: templ.Attributes{

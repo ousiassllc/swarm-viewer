@@ -4,11 +4,54 @@
 @source "../../../internal/web";
 
 /*
- * Nerd Font のアイコン（私用領域 PUA）用に Symbols Only フォントを同梱する（docs/requirements/non-functional.md NFR-SEC-9）。
- * unicode-range を PUA に絞るので、日本語・英字は OS のフォントで描かれ、PUA の文字が現れるまでフォントも読み込まれない。
+ * フォント。Ousiass デザインガイドの指定（Sora + Noto Sans JP、コードと桁を揃える数値は JetBrains Mono）と、
+ * Nerd Font のアイコン（私用領域 PUA）用の Symbols Only を同梱する（docs/requirements/non-functional.md NFR-SEC-9）。
  * CSP（default-src 'self'）に合わせ、フォントはこの CSS からの相対パス（/static/fonts/）で配る。
  * 元ファイルは static/src/fonts/（Taskfile の generate が static/dist/fonts/ へコピーする）。
+ * ウェイトは Regular 400 と SemiBold 600（見出しとボタンだけ）。Mono は 400 のみ。
+ * Noto Sans JP は JIS X 0208 の全文字 + ASCII + 半角カナのサブセット。範囲外の字は OS のフォントで描かれる。
+ * Symbols Nerd Font は unicode-range を PUA に絞るので、PUA の文字が現れるまで読み込まれない。
  */
+@font-face {
+  font-family: Sora;
+  src: url("../fonts/Sora-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: Sora;
+  src: url("../fonts/Sora-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans JP";
+  src: url("../fonts/NotoSansJP-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans JP";
+  src: url("../fonts/NotoSansJP-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../fonts/JetBrainsMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @font-face {
   font-family: "Symbols Nerd Font";
   src: url("../fonts/SymbolsNerdFontMono-Regular.woff2") format("woff2");
@@ -19,28 +62,140 @@
 }
 
 /*
- * 本文の font-family。先頭に Symbols Nerd Font を足し、残りは Tailwind v4 の既定の font-sans（OS のフォント）のまま。
- * Tailwind を更新したら node_modules/tailwindcss/theme.css の --font-sans と見比べる。
+ * Ousiass 共通デザインガイド（https://ousiassllc.github.io/brand-guide/ ）のトークン。
+ * ライト / ダークは prefers-color-scheme に追従する（JS・cookie なし。CSP と両立）。
+ * 色は必ずこのトークン経由（bg-bone / text-ink / text-mute / bg-surface / border-border / bg-accent /
+ * bg-accent-soft / ring-focus と状態色 success・warning・danger・info）で指定する。Tailwind の既定色は無効にしてある。
+ * 承認済みのガイドからの逸脱は docs/requirements/non-functional.md の「Ousiass デザインガイド準拠」を参照。
  */
+:root {
+  color-scheme: light dark;
+
+  --ink: #050505;
+  --bone: #f5f5f4;
+  --mute: #8b8b8e;
+  --surface: #ffffff;
+  --border: #e7e7e5;
+  --accent: #050505;
+  --accent-soft: #e7e7e5;
+  --focus: #4a72d0;
+
+  --success: #3d5c4a;
+  --warning: #7a6a3a;
+  --danger: #7a4545;
+  --info: #4a5a6a;
+
+  --motion-fade-in: 320ms;
+  --motion-fade-out: 240ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  --z-toast: 500;
+  --toast-offset: 24px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #ffffff;
+    --bone: #050505;
+    --surface: #141414;
+    --border: #2a2a2a;
+    --accent: #f5f5f4;
+    --accent-soft: #2a2a2a;
+    --focus: #60a5fa;
+
+    --success: #8fafa0;
+    --warning: #c4b87a;
+    --danger: #c49a9a;
+    --info: #9aabbc;
+  }
+}
+
+/*
+ * Tailwind 側のテーマ。--color-* を空にして既定のパレット（slate・sky など）を使えなくし、ガイドのトークンだけを残す。
+ * サイズはガイドのスケール（本文 16px 基準・行間付き）、角丸は --r-sm 4 / --r-md 8 / --r-lg 12 / --r-xl 16、
+ * 影はモーダルだけ（--shadow-modal）。Tailwind を更新したら node_modules/tailwindcss/theme.css と見比べる。
+ */
+@theme inline {
+  --color-*: initial;
+  --color-ink: var(--ink);
+  --color-bone: var(--bone);
+  --color-mute: var(--mute);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-focus: var(--focus);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+}
+
 @theme {
   --font-sans:
-    "Symbols Nerd Font", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    "Noto Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
-    "Noto Color Emoji";
+    Sora, "Noto Sans JP", "Symbols Nerd Font", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.6;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.7;
+  --text-base: 1rem;
+  --text-base--line-height: 1.8;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.7;
+  --text-xl: 1.5rem;
+  --text-xl--line-height: 1.5;
+  --text-2xl: 2rem;
+  --text-2xl--line-height: 1.4;
+  --text-3xl: 2.5rem;
+  --text-3xl--line-height: 1.3;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --shadow-*: initial;
+  --shadow-modal: 0 1px 2px rgb(0 0 0 / 0.06);
+}
+
+/*
+ * フォーカスリング: 2px solid --focus・offset 2（ガイド C3）。
+ * 入力欄・select は atoms.FieldClass が outline を ring（--focus の 40%）に置き換える。
+ */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
 }
 
 /*
  * htmx の indicator 切り替え。htmx は includeIndicatorStyles:false でインライン <style> を
  * 注入しない（CSP の style-src 'self' に反するため）ので、ここで定義する（docs/api/endpoints.md §4.5）。
+ * 出現はフェードイン 320ms（ease-out）、退出はフェードアウト 240ms（ease-in）。
+ * reduced-motion ではフェードを付けず即時に切り替える（スピナーの回転は処理中表示なので維持する）。
  */
 @layer components {
   .htmx-indicator {
     opacity: 0;
-    transition: opacity 200ms ease-in;
+    transition: opacity var(--motion-fade-out) var(--ease-in);
   }
 
   .htmx-request .htmx-indicator,
   .htmx-request.htmx-indicator {
     opacity: 1;
+    transition: opacity var(--motion-fade-in) var(--ease-out);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .htmx-indicator,
+    .htmx-request .htmx-indicator,
+    .htmx-request.htmx-indicator {
+      transition: none;
+    }
   }
 }

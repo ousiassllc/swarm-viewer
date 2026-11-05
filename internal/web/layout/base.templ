@@ -44,7 +44,7 @@ func csrfHeaders(token string) string {
 // 子要素は <main id="main"> に入る。
 templ Base(p BaseProps) {
 	<!DOCTYPE html>
-	<html lang="ja" class="bg-slate-950">
+	<html lang="ja" class="bg-bone">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -57,11 +57,11 @@ templ Base(p BaseProps) {
 			<script src={ paths.StaticAppJS } defer></script>
 		</head>
 		<body
-			class="min-h-screen bg-slate-950 text-slate-100 antialiased"
+			class="min-h-screen bg-bone text-ink antialiased"
 			hx-headers={ csrfHeaders(p.CSRFToken) }
 			hx-ext="response-targets"
 		>
-			<div id={ atoms.ToastContainerID } class="fixed bottom-4 right-4 z-50 flex flex-col gap-2" aria-live="polite"></div>
+			<div id={ atoms.ToastContainerID } class={ atoms.ToastContainerClass } aria-live="polite"></div>
 			<main id={ MainID } class="mx-auto flex max-w-6xl flex-col gap-4 p-4">
 				{ children... }
 			</main>

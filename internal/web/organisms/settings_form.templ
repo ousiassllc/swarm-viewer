@@ -50,36 +50,36 @@ templ SettingsForm(p SettingsFormProps) {
 		class="flex flex-col gap-4"
 	>
 		<div class="flex flex-col gap-1">
-			<label class="flex items-center gap-2 text-sm text-slate-200">
-				<input type="checkbox" name={ FieldNotificationsEnabled } value="on" checked?={ p.Settings.NotificationsEnabled }/>
+			<label class="flex items-center gap-2 text-sm text-ink">
+				<input type="checkbox" class="h-[18px] w-[18px] accent-accent" name={ FieldNotificationsEnabled } value="on" checked?={ p.Settings.NotificationsEnabled }/>
 				通知
 			</label>
 			if p.Permission == NotifyPermissionDenied {
-				<p class="text-xs text-slate-400">OS が通知を許可していません。OS の設定で許可してください</p>
+				<p class="text-sm text-mute">OS が通知を許可していません。OS の設定で許可してください</p>
 			}
 		</div>
 		<div class="flex flex-col gap-1">
-			<label for="screen-poll" class="text-sm text-slate-200">画面更新間隔（選択中のセッション）</label>
-			<select id="screen-poll" name={ FieldScreenPollSeconds } class="w-40 rounded-md border border-slate-600 bg-slate-900 px-2 py-1 text-sm">
+			<label for="screen-poll" class="text-sm text-ink">画面更新間隔（選択中のセッション）</label>
+			<select id="screen-poll" name={ FieldScreenPollSeconds } class={ atoms.FieldClass, "w-40 px-3 text-sm" }>
 				for _, n := range domain.AllowedScreenPollSeconds() {
 					<option value={ strconv.Itoa(n) } selected?={ n == p.Settings.ScreenPollSeconds }>{ strconv.Itoa(n) } 秒</option>
 				}
 			</select>
 		</div>
 		<div class="flex flex-col gap-1">
-			<label for="notify-poll" class="text-sm text-slate-200">通知用ポーリング間隔（全セッション）</label>
-			<select id="notify-poll" name={ FieldNotifyPollMinutes } class="w-40 rounded-md border border-slate-600 bg-slate-900 px-2 py-1 text-sm">
+			<label for="notify-poll" class="text-sm text-ink">通知用ポーリング間隔（全セッション）</label>
+			<select id="notify-poll" name={ FieldNotifyPollMinutes } class={ atoms.FieldClass, "w-40 px-3 text-sm" }>
 				for _, n := range domain.AllowedNotifyPollMinutes() {
 					<option value={ strconv.Itoa(n) } selected?={ n == p.Settings.NotifyPollMinutes }>{ strconv.Itoa(n) } 分</option>
 				}
 			</select>
 		</div>
-		<label class="flex items-center gap-2 text-sm text-slate-200">
-			<input type="checkbox" name={ FieldDebugLog } value="on" checked?={ p.Settings.DebugLog }/>
+		<label class="flex items-center gap-2 text-sm text-ink">
+			<input type="checkbox" class="h-[18px] w-[18px] accent-accent" name={ FieldDebugLog } value="on" checked?={ p.Settings.DebugLog }/>
 			デバッグログ
 		</label>
 		if p.Error != "" {
-			<p role="alert" class="text-sm text-red-300">{ p.Error }</p>
+			<p role="alert" class="text-sm text-danger">{ p.Error }</p>
 		}
 		<div class="flex items-center gap-3">
 			@atoms.Button(atoms.ButtonProps{Label: "保存", Type: "submit", Variant: atoms.ButtonPrimary})
