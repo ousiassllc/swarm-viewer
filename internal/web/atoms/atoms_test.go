@@ -180,6 +180,15 @@ func TestButton_Cursor(t *testing.T) {
 	}
 }
 
+// 入力欄・select・チェックボックスの無効（disabled）はボタンと同じく not-allowed にし、opacity はガイドの値（欄 .5・チェック .4）にする（ガイド O7・§4 フォーム）。
+func TestFormControls_Disabled(t *testing.T) {
+	t.Parallel()
+	webtest.MustContain(t, atoms.FieldClass, "disabled:cursor-not-allowed", "disabled:opacity-50")
+	webtest.MustContain(t, atoms.SelectClass, "disabled:cursor-not-allowed", "disabled:opacity-50")
+	webtest.MustContain(t, webtest.Render(t, atoms.Input(atoms.InputProps{Name: "n"})), "disabled:cursor-not-allowed", "disabled:opacity-50")
+	webtest.MustContain(t, webtest.Render(t, atoms.Checkbox(atoms.CheckboxProps{Name: "n", Value: "on"})), "disabled:cursor-not-allowed", "disabled:opacity-40")
+}
+
 // ボタンの大きさは標準（高さ 40・padding 18・16px）と小（高さ 32・padding 12・14px）（ガイド O7）。ゼロ値は標準。
 func TestButton_Sizes(t *testing.T) {
 	t.Parallel()

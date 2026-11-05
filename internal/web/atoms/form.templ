@@ -95,8 +95,9 @@ func inputType(t string) string {
 
 // FieldClass は入力欄・select・textarea の共通クラス（高さ 40・--r-md・1px border・surface 地・文字 16px）。
 // フォーカスは app.css の outline（--focus の 2px）を、フォーム用の ring（--focus の 40%）に置き換える。
+// 無効（disabled）は opacity .5・cursor not-allowed（ガイド O7・§4 フォーム）。
 // 横幅・padding・フォントは呼び出し側が足す。
-const FieldClass = "min-h-10 rounded-md text-base border border-border bg-surface text-ink placeholder:text-mute focus-visible:border-focus focus-visible:outline-transparent focus-visible:ring-2 focus-visible:ring-(color:--ring)"
+const FieldClass = "min-h-10 rounded-md text-base border border-border bg-surface text-ink placeholder:text-mute focus-visible:border-focus focus-visible:outline-transparent focus-visible:ring-2 focus-visible:ring-(color:--ring) disabled:cursor-not-allowed disabled:opacity-50"
 
 // SelectClass は select 用のクラス。FieldClass に、OS 既定の矢印を消して mute のシェブロンを足したもの（ガイド §4 フォーム）。
 // シェブロンは CSP（default-src 'self'）で data: URI が使えないので、ガイドの見本どおり linear-gradient 2 本（5px 四方）で描く。
