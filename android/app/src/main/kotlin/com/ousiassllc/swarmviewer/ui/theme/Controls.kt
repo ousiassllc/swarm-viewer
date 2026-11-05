@@ -29,6 +29,14 @@ private val SwitchThumbInset = 2.dp
 private val RadioSize = 18.dp
 private val RadioDotSize = 6.dp
 
+/**
+ * ラジオの記号→文字の間（ガイド `.chk` の `gap:10px` = `--list-marker-gap`）と、`AppRadio` が円の周囲に持つ余白。
+ * 余白の分は間に含まれるので、文字の前に足す余白は `RadioLabelStart`（10 - 3 = 7dp）にする。
+ */
+private val RadioMarkerGap = 10.dp
+private val RadioInset = 3.dp
+val RadioLabelStart = RadioMarkerGap - RadioInset
+
 /** 設定行（ラジオ・スイッチ）の最小の高さ（ガイド `--list-row-h`）。 */
 val ListRowMinHeight = 48.dp
 
@@ -77,7 +85,7 @@ fun AppRadio(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
-    Box(modifier = modifier.padding(3.dp)) {
+    Box(modifier = modifier.padding(RadioInset)) {
         Box(
             modifier =
                 Modifier
@@ -93,9 +101,9 @@ fun AppRadio(
     }
 }
 
-/** 引っ張って更新のインジケーターの外径（M3 の `SpinnerContainerSize` と同じ）と、中の円形進捗の径。 */
+/** 引っ張って更新のインジケーターの外径（M3 の `SpinnerContainerSize` と同じ）と、中の円形進捗の径（ガイドのスピナーは 20）。 */
 private val RefreshIndicatorSize = 40.dp
-private val RefreshSpinnerSize = 24.dp
+private val RefreshSpinnerSize = 20.dp
 
 /**
  * 引っ張って更新のインジケーター（ガイド S3・§6: 影はモーダルだけ）: surface の円・1dp の border・影なし・中は primary の円形進捗。
@@ -129,7 +137,7 @@ fun BoxScope.AppPullToRefreshIndicator(
                 modifier = spinnerModifier,
                 color = scheme.primary,
                 strokeWidth = 2.dp,
-                trackColor = Color.Transparent,
+                trackColor = scheme.surfaceVariant,
                 strokeCap = StrokeCap.Round,
             )
         } else {
@@ -138,7 +146,7 @@ fun BoxScope.AppPullToRefreshIndicator(
                 modifier = spinnerModifier,
                 color = scheme.primary,
                 strokeWidth = 2.dp,
-                trackColor = Color.Transparent,
+                trackColor = scheme.surfaceVariant,
                 strokeCap = StrokeCap.Round,
             )
         }

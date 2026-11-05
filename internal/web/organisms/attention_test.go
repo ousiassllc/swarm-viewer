@@ -71,8 +71,9 @@ func TestAttentionBar_SplitsPaneAndAgentGroups(t *testing.T) {
 	}))
 	webtest.MustContain(t, html, `data-attention-group="panes"`, `data-attention-group="agents"`, "brand_new_kind", "期限 2026/09/05 17:49")
 	webtest.MustNotContain(t, html, "/srv/x.md")
-	// グループ間は濃い線、エージェント間は薄い線。
-	webtest.MustContain(t, html, "divide-y divide-border", "divide-y divide-border/60")
+	// グループ間もエージェント間も同じ線（--border。透過で薄めない。ガイド C2・C8）。
+	webtest.MustContain(t, html, "divide-y divide-border")
+	webtest.MustNotContain(t, html, "divide-border/")
 
 	// ペイン関連 → ログイン関連の順。
 	if strings.Index(html, `data-attention-group="panes"`) > strings.Index(html, `data-attention-group="agents"`) {
@@ -114,11 +115,12 @@ func TestAttentionBar_NoDividerWithSingleGroup(t *testing.T) {
 	webtest.MustContain(t, oneAgent, `data-attention-group="agents"`)
 	webtest.MustNotContain(t, oneAgent, "divide-y", `data-attention-group="panes"`)
 
-	// ログイン関連だけで複数エージェントなら、エージェント間にだけ薄い線が出る。
+	// ログイン関連だけで複数エージェントなら、エージェント間にだけ線が出る。
 	twoAgents := webtest.Render(t, organisms.AttentionBar(organisms.AttentionBarProps{
 		Attention: []domain.Attention{{Kind: "auth_expired", Detail: "claude"}, {Kind: "auth_expiring", Detail: "codex"}},
 	}))
-	webtest.MustContain(t, twoAgents, "divide-border/60")
+	webtest.MustContain(t, twoAgents, "divide-y divide-border")
+	webtest.MustNotContain(t, twoAgents, "divide-border/")
 	webtest.MustNotContain(t, twoAgents, "divide-y divide-border ")
 }
 

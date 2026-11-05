@@ -6,7 +6,7 @@ package atoms
 // スクラム（::backdrop）の色とフェードは app.css の dialog.modal が持つ。
 // 出現は .modal-in（--motion-slow 280ms。アラート・トーストの .fade-in 320ms とは別。ガイド M5）。
 // ::backdrop は Tailwind の既定でマージンが 0 になるので、中央寄せの m-auto を付ける。
-const ModalClass = "modal-in modal m-auto w-[min(26.25rem,calc(100vw-2rem))] rounded-xl border border-border bg-surface p-0 text-ink shadow-modal"
+const ModalClass = "modal-in modal m-auto w-[min(26.25rem,calc(100vw-2rem))] rounded-xl border border-border bg-surface p-0 text-ink [box-shadow:var(--shadow-modal)]"
 
 // ModalBodyClass はモーダルの本文のクラス（見本の `.bd`: padding 20）。
 const ModalBodyClass = "flex flex-col gap-4 p-5 text-sm"

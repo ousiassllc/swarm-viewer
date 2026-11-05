@@ -22,7 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 
-private const val BADGE_BACKGROUND_ALPHA = 0.15f
+private const val BADGE_BACKGROUND_ALPHA = 0.10f
 private const val BADGE_BORDER_ALPHA = 0.4f
 private const val PILL_PERCENT = 50
 private const val STALE_ALPHA = 0.5f
@@ -37,8 +37,7 @@ fun Modifier.grayedOut(stale: Boolean): Modifier = if (stale) alpha(STALE_ALPHA)
  * 状態・agent・要対応の種別を示す小さなバッジ。色だけに依存せず、必ずラベルを持つ。[text] は常にテキストとして描画する。
  * 状態を示すバッジは [marker] を true にし、文言の前に文字と同じ色の小さな点（ガイドのステータスピルの見本 `● 完了`）を置く。
  * agent 名のように状態でないバッジは点なし。
- * muted の文字は情報（agent 名・shell / unknown の状態）なので、`onSurfaceVariant`（mute）でなく `onSurface`（ink）で描く（ガイド C6）。
- * 地は mute のまま。
+ * 中立（muted）は文字・枠・地とも mute（`onSurfaceVariant`。ガイドの `.pill.neu`。ガイド C4）。
  */
 @Composable
 fun Badge(
@@ -48,7 +47,6 @@ fun Badge(
     marker: Boolean = false,
 ) {
     val color = tone.color()
-    val textColor = if (tone == DisplayTone.Muted) MaterialTheme.colorScheme.onSurface else color
     Surface(
         color = color.copy(alpha = BADGE_BACKGROUND_ALPHA),
         shape = RoundedCornerShape(percent = PILL_PERCENT),
@@ -60,8 +58,8 @@ fun Badge(
             horizontalArrangement = Arrangement.spacedBy(MARKER_GAP),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (marker) Box(modifier = Modifier.size(MARKER_SIZE).background(textColor, CircleShape))
-            Text(text, color = textColor, style = MaterialTheme.typography.labelMedium)
+            if (marker) Box(modifier = Modifier.size(MARKER_SIZE).background(color, CircleShape))
+            Text(text, color = color, style = MaterialTheme.typography.labelMedium)
         }
     }
 }
@@ -88,7 +86,7 @@ fun ToneBar(
     )
 }
 
-/** キャプション・ラベル用（muted、14sp）。ライトテーマで AA に届かないので、文には使わず NoticeText を使う。 */
+/** キャプション・ラベル用（muted、14sp）。文には使わず NoticeText を使う（NFR-DSG-7）。 */
 @Composable
 fun MutedText(
     text: String,
@@ -98,7 +96,7 @@ fun MutedText(
     Text(text, style = MaterialTheme.typography.bodyMedium, color = color, modifier = modifier)
 }
 
-/** 文章の案内（ink）。muted は light テーマで AA に届かないので、キャプション・ラベル以外の文は必ずこちらを使う。 */
+/** 文章の案内（ink）。muted はキャプション・ラベル用なので、それ以外の文は必ずこちらを使う（NFR-DSG-7）。 */
 @Composable
 fun NoticeText(
     text: String,

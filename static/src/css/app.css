@@ -20,7 +20,7 @@
 
   --ink: #050505;
   --bone: #f5f5f4;
-  --mute: #8b8b8e;
+  --mute: #6b6b6e;
   --surface: #ffffff;
   --border: #e7e7e5;
   --accent: #050505;
@@ -34,6 +34,8 @@
 
   /* フォーム入力のフォーカスリング: --focus の 40%（ガイド C3）。--focus はダークで切り替わるので、ここは :root のままでよい。 */
   --ring: color-mix(in srgb, var(--focus) 40%, transparent);
+  /* 検証に失敗した入力欄のフォーカスリング: --danger の 40%（ガイド O7 の .fld.bad:focus）。--danger はダークで切り替わるが、:root で解決されるのでここのままでよい。 */
+  --ring-danger: color-mix(in srgb, var(--danger) 40%, transparent);
 
   /* 角丸（ガイド S1）。Tailwind の --radius-* は下の @theme でこれを参照する。 */
   --r-sm: 4px;
@@ -64,12 +66,16 @@
 
   /* モーダルのスクラム（ガイド O1）: ライトは --ink の 40%。ダークは --ink が白になるので、暗い --bone の 60% にする。 */
   --scrim: color-mix(in srgb, var(--ink) 40%, transparent);
+
+  /* モーダルの影（ガイド C5）。ダークは下の dark ブロックで濃くする。 */
+  --shadow-modal: 0 1px 2px rgb(0 0 0 / 0.06);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --ink: #ffffff;
     --bone: #050505;
+    --mute: #8b8b8e;
     --surface: #141414;
     --border: #2a2a2a;
     --accent: #f5f5f4;
@@ -91,7 +97,8 @@
 /*
  * Tailwind 側のテーマ。--color-* を空にして既定のパレット（slate・sky など）を使えなくし、ガイドのトークンだけを残す。
  * サイズはガイドのスケール（本文 16px 基準・行間付き）、角丸は --r-sm 4 / --r-md 8 / --r-lg 12 / --r-xl 16 / --r-full 9999、
- * 影はモーダルだけ（--shadow-modal）。Tailwind を更新したら node_modules/tailwindcss/theme.css と見比べる。
+ * 影はモーダルだけ。--shadow-modal は @theme に置かず :root（ライト）とダークの :root で持つ（@theme に置くと Tailwind v4 は値をクラスに埋め込み、ダークの上書きが効かない）。
+ * モーダルは `[box-shadow:var(--shadow-modal)]` で読む。Tailwind を更新したら node_modules/tailwindcss/theme.css と見比べる。
  */
 @theme inline {
   --color-*: initial;
@@ -138,7 +145,6 @@
   --animate-spin: spin 0.9s linear infinite;
 
   --shadow-*: initial;
-  --shadow-modal: 0 1px 2px rgb(0 0 0 / 0.06);
 }
 
 /*
@@ -146,7 +152,8 @@
  * 三角のマーカーは消す。画像・data: URI は CSP（default-src 'self'）で使えないので、シェブロンは枠線の回転で作る。
  * 見本どおり、シェブロンは右端（::after）・閉じているときは下向き（rotate 45）・開いているときは上向き（rotate -135）で、
  * 回転の中心が見た目の中心に来るよう 4px ずらす。遷移は --motion-base・--ease-out。reduced-motion では回転を即時にする。
- * 見本の枠付きコンテナ（.acc）は足さない（アラートの中などで枠を重ねないため）。
+ * 見本の枠付きコンテナ（.acc）は `acc` クラスで足す（枠 1px --border・角丸 --r-lg・surface の地・summary の padding 12px 16px）。本文は呼び出し側が `acc-body`
+ * （padding 0 16px 14px）で包み、文字色は text-mute を付ける（値の <code> は ink のまま）。単独の <details> だけに付け、アラートの中の <details> には付けない（枠を重ねないため）。
  */
 @layer components {
   details > summary {
@@ -184,6 +191,20 @@
     details > summary::after {
       transition: none;
     }
+  }
+
+  details.acc {
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+  }
+
+  details.acc > summary {
+    padding: 0.75rem 1rem;
+  }
+
+  details.acc > .acc-body {
+    padding: 0 1rem 0.875rem;
   }
 }
 

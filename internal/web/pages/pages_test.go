@@ -115,6 +115,8 @@ func TestPairingPage(t *testing.T) {
 	if !strings.Contains(html, "<summary>注意</summary>") || strings.Index(html, "<details") > strings.Index(html, "発行した接続文字列は再利用しないでください。") {
 		t.Error("再利用の注意は <details> の中にある")
 	}
+	// アコーディオンはガイドの `.acc`（枠付き）・本文は --mute（O8）。
+	webtest.MustContain(t, html, `<details class="acc text-sm text-ink">`, `<p class="acc-body text-mute">発行した接続文字列は再利用しないでください。</p>`)
 	webtest.MustNotContain(t, html, "が出力した接続文字列を貼り付けてください")
 	webtest.MustNotContain(t, webtest.Render(t, pages.PairingContent(pages.PairingProps{})), "保存済みの接続")
 }
@@ -140,7 +142,7 @@ func TestPairingDraft_IsModalOverPairingForm(t *testing.T) {
 	html := webtest.Render(t, pages.PairingDraftContent(pages.DraftProps{DraftID: "dr_1", Name: "devbox", Host: "100.64.0.5", HasConnections: true}))
 	webtest.MustContain(t, html,
 		"接続を追加", `id="pairing-form"`, `href="/connections"`, "保存済みの接続", // 背面の貼り付け画面
-		`<dialog open`, "data-modal", `data-dismiss="#draft-discard"`, `aria-labelledby="draft-title"`, "rounded-xl", "shadow-modal",
+		`<dialog open`, "data-modal", `data-dismiss="#draft-discard"`, `aria-labelledby="draft-title"`, "rounded-xl", "[box-shadow:var(--shadow-modal)]",
 		`id="draft-discard"`, "この接続を追加しますか？",
 	)
 	// フッターのボタン列は 8px（ガイド S2）で上に 1px の線。ヘッダーに閉じる × ボタン（ガイド O2 の見本）。

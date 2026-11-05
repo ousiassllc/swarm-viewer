@@ -64,17 +64,17 @@ func TestToneClasses_AllTonesAndUnknown(t *testing.T) {
 	}
 }
 
-// muted バッジの文字は情報なので ink で組む（--mute は 12px で AA に届かない。ガイド C6）。枠と地は mute のまま。
-func TestBadgeClass_MutedTextIsInk(t *testing.T) {
+// 中立（muted）バッジは文字・枠・地とも --mute（ガイドの .pill.neu。ガイド C4）。
+func TestBadgeClass_MutedUsesMute(t *testing.T) {
 	t.Parallel()
 	cls := format.BadgeClass(format.ToneMuted)
-	for _, want := range []string{"text-ink", "bg-mute/15", "ring-mute/40"} {
+	for _, want := range []string{"text-mute", "bg-mute/10", "ring-mute/40"} {
 		if !strings.Contains(cls, want) {
 			t.Errorf("BadgeClass(muted) = %q に %q が無い", cls, want)
 		}
 	}
-	if strings.Contains(cls, "text-mute") {
-		t.Errorf("BadgeClass(muted) = %q は文字色に mute を使わない", cls)
+	if strings.Contains(cls, "text-ink") {
+		t.Errorf("BadgeClass(muted) = %q は文字色に ink を使わない", cls)
 	}
 }
 

@@ -36,7 +36,7 @@ func TestBase_HeadAndBody(t *testing.T) {
 		`src="/static/js/htmx.min.js"`, `src="/static/js/response-targets.min.js"`, `src="/static/js/app.js"`, `src="/static/js/modal.js"`,
 		`hx-ext="response-targets, leave-fade"`, `<main id="main"`, `id="child"`, `id="toasts"`,
 		"p-4 md:p-6", // ガターはモバイル 16・デスクトップ 24（ガイド S5）
-		`<dialog id="confirm-dialog"`, "data-modal", "rounded-xl", "shadow-modal", `data-modal-result="cancel"`, `data-modal-result="confirm"`, "border-danger/45",
+		`<dialog id="confirm-dialog"`, "data-modal", "rounded-xl", "[box-shadow:var(--shadow-modal)]", `data-modal-result="cancel"`, `data-modal-result="confirm"`, "border-danger/45",
 	)
 }
 
