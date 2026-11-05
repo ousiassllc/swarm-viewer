@@ -5,6 +5,7 @@ import com.ousiassllc.swarmviewer.data.store.FakeTokenStore
 import com.ousiassllc.swarmviewer.data.store.FakeViewerStore
 import com.ousiassllc.swarmviewer.domain.ErrKind
 import com.ousiassllc.swarmviewer.domain.FetchException
+import com.ousiassllc.swarmviewer.domain.Report
 import com.ousiassllc.swarmviewer.domain.Session
 import com.ousiassllc.swarmviewer.service.ConnectionService
 import com.ousiassllc.swarmviewer.service.DRAFT_TTL
@@ -41,6 +42,7 @@ class PairingViewModelTest {
                 probeFailure?.let { throw it }
                 listOf(Session("0", true))
             },
+            reports = { _, _ -> Report() },
             store = store,
             tokens = tokens,
             connections = ConnectionService(store, tokens, io = Dispatchers.Unconfined),

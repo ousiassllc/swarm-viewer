@@ -5,13 +5,18 @@ import com.ousiassllc.swarmviewer.data.store.FakeViewerStore
 import com.ousiassllc.swarmviewer.domain.Connection
 import com.ousiassllc.swarmviewer.domain.ErrKind
 import com.ousiassllc.swarmviewer.domain.FetchException
+import com.ousiassllc.swarmviewer.domain.NotifiedKey
 import com.ousiassllc.swarmviewer.domain.PairingError
 import com.ousiassllc.swarmviewer.domain.PairingException
+import com.ousiassllc.swarmviewer.domain.Pane
+import com.ousiassllc.swarmviewer.domain.PaneState
+import com.ousiassllc.swarmviewer.domain.Report
 import com.ousiassllc.swarmviewer.domain.Session
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -53,12 +58,18 @@ class PairingServiceTest {
     private val connections = ConnectionService(store, tokens)
     private val probed = mutableListOf<Pair<String, String>>()
     private var probeResult: () -> List<Session> = { listOf(Session("0", true)) }
+    private val fetched = mutableListOf<String>()
+    private var reportResult: (String) -> Report = { Report() }
     private var ids = 0
     private val service =
         PairingService(
             probe = { url, token ->
                 probed += url to token
                 probeResult()
+            },
+            reports = { _, session ->
+                fetched += session
+                reportResult(session)
             },
             store = store,
             tokens = tokens,
@@ -115,8 +126,11 @@ class PairingServiceTest {
 
             assertEquals(listOf(URL_1 to TOKEN), probed)
             assertEquals("id-2", saved.id) // 下書き ID（id-1）とは別の接続 ID
-            assertEquals(Connection("id-2", "devbox", URL_1, createdAt = clock.now, updatedAt = clock.now), store.connection(saved.id))
-            assertNull(store.connection(saved.id)?.baselinedAt) // 最初の一巡は通知せず記録だけ（baselined_at は取得パスの完了時に記録）
+            assertEquals(
+                Connection("id-2", "devbox", URL_1, createdAt = clock.now, updatedAt = clock.now, baselinedAt = clock.now),
+                store.connection(saved.id),
+            )
+            assertEquals(saved, store.connection(saved.id))
             assertEquals(TOKEN, tokens.tokens[saved.id])
             assertEquals(saved.id, store.settings().lastConnectionId) // 最初の接続は選択される
         }
@@ -177,7 +191,9 @@ class PairingServiceTest {
         runTest {
             service.confirm(service.parse(link(token = "old-token", name = "old")).id)
             val first = store.connections().single()
-            store.markBaselined(first.id, clock.now)
+            val baselinedAt = first.baselinedAt
+            assertNotNull(baselinedAt) // 最初のペアリングで最初の一巡が済んでいる
+            fetched.clear()
             store.setLastSession(first.id, "1")
             clock.now = clock.now.plusSeconds(3600)
 
@@ -189,7 +205,8 @@ class PairingServiceTest {
             assertEquals(1, store.connectionRows.size)
             assertEquals("renamed", again.name)
             assertEquals(TOKEN, tokens.tokens[first.id])
-            assertEquals(clock.now.minusSeconds(3600), again.baselinedAt) // 初回の一巡は済み
+            assertEquals(baselinedAt, again.baselinedAt) // 初回の一巡は済んでいるので、やり直さない
+            assertTrue(fetched.isEmpty())
             assertEquals("1", again.lastSession)
             assertEquals(clock.now, again.updatedAt)
         }
@@ -332,5 +349,83 @@ class PairingServiceTest {
 
             assertNotEquals(first.id, second.id)
             assertEquals(first.id, store.settings().lastConnectionId)
+        }
+
+    private fun panes(vararg states: Pair<String, PaneState>) = Report(panes = states.map { (id, state) -> Pane(id = id, state = state) })
+
+    @Test
+    fun theFirstPassRecordsCurrentAttentionWithoutNotifyingThenMarksBaselined() =
+        runTest {
+            probeResult = { listOf(Session("0", true), Session("2", true)) }
+            reportResult = { session ->
+                if (session == "0") {
+                    panes("%1" to PaneState.Asking, "%2" to PaneState.Working, "%3" to PaneState.Stalled)
+                } else {
+                    panes("%9" to PaneState.Asking)
+                }
+            }
+
+            val saved = service.confirm(service.parse(link()).id)
+
+            assertEquals(listOf("0", "2"), fetched) // 全許可セッションを順に取得する
+            assertEquals(
+                setOf(NotifiedKey("%1", PaneState.Asking), NotifiedKey("%3", PaneState.Stalled)),
+                store.notifiedKeys(saved.id, "0").toSet(),
+            )
+            assertEquals(listOf(NotifiedKey("%9", PaneState.Asking)), store.notifiedKeys(saved.id, "2"))
+            assertEquals(clock.now, saved.baselinedAt)
+            // 次の取得（通知側）では、すでに記録済みの状態を新たな遷移として扱わない。
+            val next =
+                com.ousiassllc.swarmviewer.domain.detect(
+                    store.notifiedKeys(saved.id, "0"),
+                    panes("%1" to PaneState.Asking).panes,
+                    baselining = false,
+                )
+            assertTrue(next.notify.isEmpty())
+        }
+
+    @Test
+    fun aSessionThatCannotBeFetchedLeavesTheBaselineOpenWithoutFailingThePairing() =
+        runTest {
+            probeResult = { listOf(Session("0", true), Session("2", true)) }
+            reportResult = { session ->
+                if (session == "0") throw FetchException(ErrKind.Unreachable)
+                panes("%9" to PaneState.Asking)
+            }
+
+            val saved = service.confirm(service.parse(link()).id)
+
+            assertEquals(listOf("0", "2"), fetched) // 1 本の失敗は飛ばして次へ進む
+            assertNull(saved.baselinedAt) // 通知側の次の取得が続きを行う
+            assertNull(store.connection(saved.id)?.baselinedAt)
+            assertEquals(listOf(NotifiedKey("%9", PaneState.Asking)), store.notifiedKeys(saved.id, "2"))
+            assertEquals(TOKEN, tokens.tokens[saved.id]) // 接続は保存済み
+        }
+
+    @Test
+    fun aConnectionWithNoAllowedSessionsIsBaselinedImmediately() =
+        runTest {
+            probeResult = { emptyList() }
+
+            val saved = service.confirm(service.parse(link()).id)
+
+            assertTrue(fetched.isEmpty())
+            assertEquals(clock.now, saved.baselinedAt)
+        }
+
+    @Test
+    fun anUnfinishedBaselineIsRetriedWhenRePairing() =
+        runTest {
+            reportResult = { throw FetchException(ErrKind.Unreachable) }
+            val first = service.confirm(service.parse(link(token = "old-token")).id)
+            assertNull(first.baselinedAt)
+            fetched.clear()
+            reportResult = { Report() }
+
+            val again = service.confirm(service.parse(link()).id)
+
+            assertEquals(first.id, again.id)
+            assertEquals(listOf("0"), fetched)
+            assertEquals(clock.now, again.baselinedAt)
         }
 }

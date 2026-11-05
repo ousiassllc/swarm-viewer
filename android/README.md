@@ -53,7 +53,7 @@ push 前は `./gradlew lint ktlintCheck test` がクリーンに通ることを�
 
 ## service 層と画面（ペアリング・接続管理）
 
-- `service/PairingService`: 接続文字列（貼り付け・ディープリンク・QR のどれも `parse`）を検証して下書き（token はこの中だけ。有効 5 分・同時に 1 件）を作り、`confirm` が疎通確認（`sessions_list`）に成功したときだけ接続を保存する（token は `data/secret`、接続は `data/store`）。同じ URL の再ペアリングは接続 ID・`baselined_at` を保ったまま token を差し替える。`baselined_at` の記録は、初回の取得パスが完了する通知側（Issue #21）が行う
+- `service/PairingService`: 接続文字列（貼り付け・ディープリンク・QR のどれも `parse`）を検証して下書き（token はこの中だけ。有効 5 分・同時に 1 件）を作り、`confirm` が疎通確認（`sessions_list`）に成功したときだけ接続を保存する（token は `data/secret`、接続は `data/store`）。同じ URL の再ペアリングは接続 ID・`baselined_at` を保ったまま token を差し替える。保存のあと `baselined_at` が未記録なら最初の一巡（全許可セッションを順に取得し、今ある `asking` / `stalled` を通知せず通知済みとして記録）を行い、全セッションが取れたときだけ `baselined_at` を記録する（取れなければ未記録のまま、通知側（Issue #21）の次の取得が続きを行う）
 - `service/ConnectionService`: 一覧・切替・削除（token → 行の順。スナップショット・通知済み状態は外部キーで連鎖削除）と、401・403 で再ペアリングが必要な接続のメモリ上の記録
 - `ui/pairing`（貼り付け・確認・QR 読み取り）、`ui/connections`（S1）、`ui/navigation`（最小のナビゲーション。メイン画面 A2 は Issue #20 が拡張する）。ViewModel は固定文言（`ui/Messages.kt`。デスクトップ版と同じ文言）だけを画面に出し、token・完全な URL・貼り付けた文字列・例外の本文は出さない
 - QR 読み取りは CameraX + ML Kit の同梱モデル版（[アーキテクチャ設計 §11](../docs/architecture/overview.md) #10）。`AppContainer` が data 層とサービスを組み立てる（Application サブクラスは持たない）

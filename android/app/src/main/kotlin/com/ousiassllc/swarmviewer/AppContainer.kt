@@ -26,7 +26,14 @@ class AppContainer private constructor(
     val tokens: TokenStore = FileTokenStore(File(context.noBackupFilesDir, TOKEN_DIRECTORY), KeystoreTokenCipher())
     val report = ReportClient(tokens = tokens::get, logger = LogcatFetchLogger)
     val connections = ConnectionService(store, tokens)
-    val pairing = PairingService({ url, token -> report.probe(url, token) }, store, tokens, connections)
+    val pairing =
+        PairingService(
+            probe = { url, token -> report.probe(url, token) },
+            reports = { connection, session -> report.report(connection, session) },
+            store = store,
+            tokens = tokens,
+            connections = connections,
+        )
 
     companion object {
         @Volatile private var instance: AppContainer? = null

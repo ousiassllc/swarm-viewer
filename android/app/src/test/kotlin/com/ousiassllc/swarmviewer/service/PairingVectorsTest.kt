@@ -3,6 +3,7 @@ package com.ousiassllc.swarmviewer.service
 import com.ousiassllc.swarmviewer.data.store.FakeTokenStore
 import com.ousiassllc.swarmviewer.data.store.FakeViewerStore
 import com.ousiassllc.swarmviewer.domain.PairingException
+import com.ousiassllc.swarmviewer.domain.Report
 import com.ousiassllc.swarmviewer.domain.Session
 import com.ousiassllc.swarmviewer.domain.Vectors
 import kotlinx.coroutines.test.runTest
@@ -79,6 +80,7 @@ class PairingVectorsTest {
                             probed += url to token
                             listOf(Session("0", true))
                         },
+                        reports = { _, _ -> Report() },
                         store = store,
                         tokens = tokens,
                         connections = ConnectionService(store, tokens),
