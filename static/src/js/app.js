@@ -26,14 +26,24 @@
   const prefersReducedMotion = () =>
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // トーストは 3 秒で消す（ガイド O3）。#toasts は OOB で差し替わる（同時に 1 つ）ので、
+  // 時間は CSS のトークン（:root のカスタムプロパティ）が唯一の出どころで、JS は数値を持たない（ガイド M1）。
+  // 値は ms でも s でも書ける（Tailwind の minify が ms を s に直す）ので、単位を見てミリ秒にそろえる。
+  const cssDurationMs = (name) => {
+    const value = getComputedStyle(document.documentElement)
+      .getPropertyValue(name)
+      .trim();
+    return value.endsWith("ms")
+      ? Number.parseFloat(value)
+      : Number.parseFloat(value) * 1000;
+  };
+
+  // トーストは --toast-duration（3 秒）で消す（ガイド O3）。#toasts は OOB で差し替わる（同時に 1 つ）ので、
   // 差し替えのたびにタイマーを張り直す。中身が空の差し替え（初期状態）では何もしない。
   // htmx:oobAfterSwap の detail.target は差し替え前の（DOM から外れた）要素なので、id の判定にだけ使い、
   // 中身は DOM から引き直した新しい要素で見る。
-  // 出現のフェードインは CSS（.fade-in）、退出は .is-leaving のフェードアウト（240ms）が終わる animationend で消す（ガイド M5）。
+  // 出現のフェードインは CSS（.fade-in）、退出は .is-leaving のフェードアウト（--motion-fade-out）が終わる animationend で消す（ガイド M5）。
   // reduced-motion ではアニメーションが走らず animationend が来ないので、すぐ消す。
   const TOAST_ID = "toasts";
-  const TOAST_MS = 3000;
   let toastTimer;
 
   const dismissToast = () => {
@@ -67,7 +77,7 @@
     if (document.getElementById(TOAST_ID)?.childElementCount === 0) {
       return;
     }
-    toastTimer = setTimeout(dismissToast, TOAST_MS);
+    toastTimer = setTimeout(dismissToast, cssDurationMs("--toast-duration"));
   });
 
   // アラート（[data-alert]）は出現でフェードインする（CSS の .fade-in。ガイド M5）。
@@ -93,13 +103,12 @@
   document.addEventListener("htmx:oobAfterSwap", settleRepeatedAlerts);
   document.addEventListener("htmx:afterSettle", recordShownAlerts);
 
-  // 差し替えで消えるアラート（[data-alert]）と応答に無いモーダルは、フェードアウト（.is-leaving。240ms・ease-in。ガイド M5・O1）を終えてから
-  // 差し替える。応答の中身は差し替わるまで引き留められないので、差し替えの swap:240ms を足して待つ。
+  // 差し替えで消えるアラート（[data-alert]）と応答に無いモーダルは、フェードアウト（.is-leaving。--motion-fade-out・ease-in。ガイド M5・O1）を終えてから
+  // 差し替える。応答の中身は差し替わるまで引き留められないので、差し替えの swap:<--motion-fade-out> を足して待つ（CSS の退出と同じトークンを読む）。
   // 消えるのは「応答に同じ文言が無い」アラート（同じ文言はポーリングの再描画。上の is-settled）で、差し替え先は
   // 主ターゲット（response-targets の 422 の差し替え先を含む）と OOB の id が指す要素の中だけを見る。
   // response-targets が htmx:beforeSwap で差し替え先と shouldSwap を決めた後に見るため、DOM のリスナーではなく拡張（hx-ext の 2 番目）にする。
   // reduced-motion ではフェードを付けず待たない。
-  const LEAVE_MS = 240;
   const within = (root, selector) => [
     ...(root.matches(selector) ? [root] : []),
     ...root.querySelectorAll(selector),
@@ -157,7 +166,7 @@
           el.classList.add("is-leaving");
         }
         const style = swapStyleOf(detail).replace(/\s*swap:\S+/, "");
-        detail.swapOverride = `${style} swap:${LEAVE_MS}ms`;
+        detail.swapOverride = `${style} swap:${cssDurationMs("--motion-fade-out")}ms`;
       }
       return true;
     },

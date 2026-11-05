@@ -58,6 +58,8 @@
 
   --z-toast: 500;
   --toast-offset: 24px;
+  --toast-h: 40px;
+  --toast-duration: 3s;
 
   /* モーダルのスクラム（ガイド O1）: ライトは --ink の 40%。ダークは --ink が白になるので、暗い --bone の 60% にする。 */
   --scrim: color-mix(in srgb, var(--ink) 40%, transparent);
