@@ -134,8 +134,7 @@
 
 @theme {
   --font-sans:
-    Sora, "Noto Sans JP", "Symbols Nerd Font", -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+    Sora, "Noto Sans JP", "Symbols Nerd Font", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --text-xs: 0.75rem;
