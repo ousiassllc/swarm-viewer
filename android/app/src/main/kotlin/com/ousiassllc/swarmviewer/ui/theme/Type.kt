@@ -88,7 +88,8 @@ private val SemiBold = FontWeight.SemiBold
 
 /**
  * Regular が既定で、見出し（display / headline / title）とボタン（labelLarge）だけ SemiBold。
- * 文章は 14sp 以上（bodyMedium 以上）。12sp（bodySmall / labelMedium / labelSmall）は注記・バッジだけに使う。
+ * 文章は 14sp 以上（bodyMedium 以上）。ボタン（labelLarge）は標準の高さ 40dp なので `base` の 16sp（T3）。
+ * 12sp（bodySmall / labelMedium / labelSmall）は注記・バッジだけに使う。
  */
 internal val GuideTypography =
     Typography(
@@ -104,7 +105,7 @@ internal val GuideTypography =
         bodyLarge = style(16, 1.8f, Regular),
         bodyMedium = style(14, 1.7f, Regular),
         bodySmall = style(12, 1.6f, Regular),
-        labelLarge = style(14, 1.7f, SemiBold),
+        labelLarge = style(16, 1.8f, SemiBold),
         labelMedium = style(12, 1.6f, Regular),
         labelSmall = style(12, 1.6f, Regular),
     )
