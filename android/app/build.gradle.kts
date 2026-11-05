@@ -40,6 +40,15 @@ kotlin {
     jvmToolchain(17)
 }
 
+// Go と共有するテストベクタ（testdata/vectors）をテストの入力にする。宣言しないと、ベクタだけを変えたときに
+// Gradle が「入力に変更なし」としてテストを再実行せず（ビルドキャッシュも含む）、変更が静かに検証されない。
+tasks.withType<Test>().configureEach {
+    inputs
+        .dir(rootProject.layout.projectDirectory.dir("../testdata/vectors"))
+        .withPropertyName("testVectors")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.core.ktx)

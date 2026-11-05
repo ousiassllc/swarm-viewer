@@ -323,7 +323,7 @@ Android 版（`android/`）の開発環境・CI・署名鍵・リリース。設
 | Gradle | `android/gradle/wrapper/gradle-wrapper.properties` で固定 | ラッパー（`./gradlew`）が取得する。別途インストールしない |
 | 実機 | Android 10（API 29）以降。まず Galaxy Fold7 | 開発者向けオプションの USB デバッグ。実機でしか確認できない項目は[アーキテクチャ設計 §11](../architecture/overview.md) #8〜#15 |
 
-- Android の開発に Go・bun・Wails は要らない（デスクトップ版の `task` とは独立）。テストベクタ（§11.5）を変えるときだけ、Go のテスト（`go test ./internal/domain/...`）も実行する
+- Android の開発に Go・bun・Wails は要らない（デスクトップ版の `task` とは独立）。テストベクタ（§11.5）を変えるときだけ、Go のテスト（`go test ./internal/domain/... ./internal/web/format/...`）も実行する
 - `android/` で実行するコマンド:
 
 | コマンド | 内容 |
@@ -385,7 +385,7 @@ Release の APK の実機確認（手動確認項目）:
 | 項目 | 内容 |
 |------|------|
 | 場所 | `testdata/vectors/*.json` と `testdata/vectors/README.md`（形式の説明） |
-| 読むテスト | Go: `internal/domain/*_test.go`（`go test` の対象パッケージ。CI の `test` ジョブ）。Kotlin: `android/app/src/test/kotlin/com/ousiassllc/swarmviewer/domain/`（`./gradlew test`） |
+| 読むテスト | Go: `internal/domain/vectors/*_test.go`・`internal/web/format/vectors_test.go`（`go test` の対象パッケージ。CI の `test` ジョブ）。Kotlin: `android/app/src/test/kotlin/com/ousiassllc/swarmviewer/domain/`（`./gradlew test`） |
 | 変更の規則 | ベクタを変えたら、Go と Kotlin の両方のテストが通ることを確かめる。仕様の変更は、ドキュメント・ベクタ・Go・Kotlin を 1 つの PR で揃える（[アーキテクチャ設計 §12.4](../architecture/overview.md)） |
 | CI | ベクタの変更は Go の CI と Android の CI の両方を動かす（§11.2） |
 

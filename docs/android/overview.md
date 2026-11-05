@@ -152,7 +152,7 @@ sequenceDiagram
 |------|------|
 | 置き場所 | リポジトリ直下の `testdata/vectors/` |
 | 説明 | `testdata/vectors/README.md` に形式（ファイルごとの入力・期待値のキー、正規化の約束）を書く |
-| Go 側 | `internal/domain/*_test.go` が `testdata/vectors/*.json` を読む（テスト以外の Go コードは変えない） |
+| Go 側 | `internal/domain/vectors/*_test.go`（domain の公開 API を検証する。linterly の 1 ディレクトリ 2,000 行の上限のため `internal/domain` 直下と分ける）と `internal/web/format/vectors_test.go`（state の表示ラベル）が `testdata/vectors/*.json` を読む（テスト以外の Go コードは変えない） |
 | Kotlin 側 | `android/app/src/test/kotlin/com/ousiassllc/swarmviewer/domain/` の JUnit が同じファイルを読む。Gradle のユニットテストの作業ディレクトリは `android/app` のため、親ディレクトリをたどって `testdata/vectors/` を見つける |
 
 | ファイル | 内容 | 対応する仕様 |

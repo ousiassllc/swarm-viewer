@@ -32,6 +32,12 @@ Gradle 本体はラッパー（`./gradlew`）が取得するため、別途イ�
 
 push 前は `./gradlew lint ktlintCheck test` がクリーンに通ることを確認する。
 
+## domain 層とテストベクタ
+
+`app/src/main/kotlin/com/ousiassllc/swarmviewer/domain/` は、デスクトップ版（Go の `internal/domain`）と同じ責務の純 Kotlin（Android API・OkHttp・Room を import しない）。接続文字列と URL の検証（`parsePairing`・`validateUrl`）、`report` / `sessions_list` の解析（`parseReport`・`parseSessions`）、通知判定（`detect`）、エラー分類（`classify`）、しきい値の判定（`usageTone`）を持つ。token は `PairingPayload` だけが持ち、`toString`・例外メッセージには出さない。
+
+挙動の一致は、リポジトリ直下の [`testdata/vectors/`](../testdata/vectors/README.md)（JSON）を Go と Kotlin の両方が読んで保つ。ケースを足す・変えるときは、`./gradlew test` と `go test ./internal/domain/... ./internal/web/format/...` の両方が通ることを確かめる。
+
 ## 依存の版について
 
 - `compileSdk` は 35 に固定している（親 Issue #7 の確定事項）。このため、`minCompileSdk` が 36 以上の版（Compose BOM 2025.08.00 以降・`activity-compose` 1.11 以降・`core-ktx` 1.17 以降・OkHttp 5.4 以降）は使えない。詳細は `gradle/libs.versions.toml` の先頭コメントを参照。

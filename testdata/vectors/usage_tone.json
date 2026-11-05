@@ -1,0 +1,31 @@
+{
+  "description": "利用上限・ホスト負荷のしきい値判定 usageTone・percentTone（機能要件 §5.3）。want は normal・warning・error。形式は README.md",
+  "cases": [
+    {"name": "0", "slot": {"available": true, "used": 0, "unit": "percent", "status": "ok"}, "want": "normal"},
+    {"name": "79.9", "slot": {"available": true, "used": 79.9, "unit": "percent", "status": "ok"}, "want": "normal"},
+    {"name": "80", "slot": {"available": true, "used": 80, "unit": "percent", "status": "ok"}, "want": "warning"},
+    {"name": "94.9", "slot": {"available": true, "used": 94.9, "unit": "percent", "status": "ok"}, "want": "warning"},
+    {"name": "95", "slot": {"available": true, "used": 95, "unit": "percent", "status": "ok"}, "want": "error"},
+    {"name": "100", "slot": {"available": true, "used": 100, "unit": "percent", "status": "ok"}, "want": "error"},
+    {"name": "超過", "slot": {"available": true, "used": 130, "unit": "percent", "status": "ok"}, "want": "error"},
+    {"name": "exhausted は used に関わらず赤", "slot": {"available": true, "used": 10, "unit": "percent", "status": "exhausted"}, "want": "error"},
+    {"name": "exhausted で used なし", "slot": {"available": true, "used": null, "unit": "percent", "status": "exhausted"}, "want": "error"},
+    {"name": "usd は高額でもしきい値なし", "slot": {"available": true, "used": 500, "unit": "usd", "status": "ok"}, "want": "normal"},
+    {"name": "usd でも exhausted は赤", "slot": {"available": true, "used": 5, "unit": "usd", "status": "exhausted"}, "want": "error"},
+    {"name": "unit なし", "slot": {"available": true, "used": 99, "unit": "", "status": "ok"}, "want": "normal"},
+    {"name": "unit 未知", "slot": {"available": true, "used": 99, "unit": "tokens", "status": "ok"}, "want": "normal"},
+    {"name": "used なし", "slot": {"available": true, "used": null, "unit": "percent", "status": "ok"}, "want": "normal"},
+    {"name": "unavailable な枠", "slot": {"available": false, "used": null, "unit": "", "status": ""}, "want": "normal"},
+    {"name": "unavailable で他が入っていても通常", "slot": {"available": false, "used": 99, "unit": "percent", "status": "exhausted"}, "want": "normal"},
+    {"name": "status unknown でもしきい値は効く", "slot": {"available": true, "used": 96, "unit": "percent", "status": "unknown"}, "want": "error"}
+  ],
+  "percent_cases": [
+    {"percent": -1, "want": "normal"},
+    {"percent": 0, "want": "normal"},
+    {"percent": 79.9, "want": "normal"},
+    {"percent": 80, "want": "warning"},
+    {"percent": 94.9, "want": "warning"},
+    {"percent": 95, "want": "error"},
+    {"percent": 100, "want": "error"}
+  ]
+}
