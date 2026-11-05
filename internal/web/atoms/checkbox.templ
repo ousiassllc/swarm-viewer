@@ -11,6 +11,7 @@ type CheckboxProps struct {
 
 // Checkbox は共通のチェックボックス（ガイド §4: 18px・--r-sm・外枠 --mute）。
 // ネイティブの input（appearance-none）を形の土台にして、オンの印は Iconoir の check（インライン SVG）を peer-checked で出す。
+// 無効（disabled）は opacity .4・cursor not-allowed（ガイド O7）。ラベルの mute 化は呼び出し側の <label> が has-disabled:text-mute で持つ。
 // ラベルは呼び出し側の <label> で包む。フォーカスは入力欄と同じ ring（--ring・3px。ガイド C3・tokens-preview の .chk）に置き換える。
 templ Checkbox(p CheckboxProps) {
 	<span class="relative inline-flex h-[18px] w-[18px] shrink-0">
@@ -19,7 +20,7 @@ templ Checkbox(p CheckboxProps) {
 			name={ p.Name }
 			value={ p.Value }
 			checked?={ p.Checked }
-			class="peer h-full w-full cursor-pointer appearance-none rounded-sm border border-mute bg-surface checked:border-accent checked:bg-accent focus-visible:outline-transparent focus-visible:ring-[3px] focus-visible:ring-(color:--ring)"
+			class="peer h-full w-full cursor-pointer appearance-none rounded-sm border border-mute bg-surface checked:border-accent checked:bg-accent focus-visible:outline-transparent focus-visible:ring-[3px] focus-visible:ring-(color:--ring) disabled:cursor-not-allowed disabled:opacity-40"
 		/>
 		@Icon(IconCheck, "pointer-events-none absolute inset-0 m-auto h-4 w-4 text-bone invisible peer-checked:visible")
 	</span>

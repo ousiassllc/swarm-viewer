@@ -50,7 +50,7 @@ templ SettingsForm(p SettingsFormProps) {
 		class="flex flex-col gap-4"
 	>
 		<div class="flex flex-col gap-1">
-			<label class="flex items-center gap-2 text-sm text-ink">
+			<label class="flex items-center gap-2 text-sm text-ink has-disabled:cursor-not-allowed has-disabled:text-mute">
 				@atoms.Checkbox(atoms.CheckboxProps{Name: FieldNotificationsEnabled, Value: "on", Checked: p.Settings.NotificationsEnabled})
 				通知
 			</label>
@@ -74,7 +74,7 @@ templ SettingsForm(p SettingsFormProps) {
 				}
 			</select>
 		</div>
-		<label class="flex items-center gap-2 text-sm text-ink">
+		<label class="flex items-center gap-2 text-sm text-ink has-disabled:cursor-not-allowed has-disabled:text-mute">
 			@atoms.Checkbox(atoms.CheckboxProps{Name: FieldDebugLog, Value: "on", Checked: p.Settings.DebugLog})
 			デバッグログ
 		</label>
