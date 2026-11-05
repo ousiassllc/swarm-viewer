@@ -31,11 +31,11 @@ func TestUsagePanel_ToneBoundaries(t *testing.T) {
 		want   string
 		absent []string
 	}{
-		{"79.9", domain.Slot{Available: true, Used: fp(79.9), Unit: domain.UnitPercent}, "bg-accent", []string{"bg-warning", "bg-danger"}},
-		{"80", domain.Slot{Available: true, Used: fp(80), Unit: domain.UnitPercent}, "bg-warning", []string{"bg-danger"}},
-		{"94.9", domain.Slot{Available: true, Used: fp(94.9), Unit: domain.UnitPercent}, "bg-warning", []string{"bg-danger"}},
-		{"95", domain.Slot{Available: true, Used: fp(95), Unit: domain.UnitPercent}, "bg-danger", []string{"bg-warning"}},
-		{"exhausted", domain.Slot{Available: true, Used: fp(1), Unit: domain.UnitPercent, Status: domain.SlotStatusExhausted}, "bg-danger", []string{"bg-warning"}},
+		{"79.9", domain.Slot{Available: true, Used: fp(79.9), Unit: domain.UnitPercent}, "[&amp;::-webkit-progress-value]:bg-accent", []string{"[&amp;::-webkit-progress-value]:bg-warning", "[&amp;::-webkit-progress-value]:bg-danger"}},
+		{"80", domain.Slot{Available: true, Used: fp(80), Unit: domain.UnitPercent}, "[&amp;::-webkit-progress-value]:bg-warning", []string{"[&amp;::-webkit-progress-value]:bg-danger"}},
+		{"94.9", domain.Slot{Available: true, Used: fp(94.9), Unit: domain.UnitPercent}, "[&amp;::-webkit-progress-value]:bg-warning", []string{"[&amp;::-webkit-progress-value]:bg-danger"}},
+		{"95", domain.Slot{Available: true, Used: fp(95), Unit: domain.UnitPercent}, "[&amp;::-webkit-progress-value]:bg-danger", []string{"[&amp;::-webkit-progress-value]:bg-warning"}},
+		{"exhausted", domain.Slot{Available: true, Used: fp(1), Unit: domain.UnitPercent, Status: domain.SlotStatusExhausted}, "[&amp;::-webkit-progress-value]:bg-danger", []string{"[&amp;::-webkit-progress-value]:bg-warning"}},
 	}
 	for _, tt := range tests {
 		html := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: usageWith(domain.UsageOK, tt.slot), Now: now}))
@@ -156,7 +156,7 @@ func TestHostPanel(t *testing.T) {
 		},
 	}
 	html := webtest.Render(t, organisms.HostPanel(organisms.HostPanelProps{Host: h}))
-	webtest.MustContain(t, html, "CPU", "96%", "bg-danger", "メモリ", "32.3%", "41.3 GB / 128 GB", "スワップ", "なし", "12.3 GB 空き", "bg-warning", "/data", "—")
+	webtest.MustContain(t, html, "CPU", "96%", "[&amp;::-webkit-progress-value]:bg-danger", "メモリ", "32.3%", "41.3 GB / 128 GB", "スワップ", "なし", "12.3 GB 空き", "[&amp;::-webkit-progress-value]:bg-warning", "/data", "—")
 	webtest.MustNotContain(t, html, "load")
 	// 表示順: CPU → メモリ → スワップ → ディスク。
 	cpu, mem, swap, disk := strings.Index(html, "CPU"), strings.Index(html, "メモリ"), strings.Index(html, "スワップ"), strings.Index(html, "/data")
@@ -178,9 +178,9 @@ func TestHostPanel_Mem(t *testing.T) {
 	}
 
 	// しきい値色は CPU などと同じ（80 / 95）。
-	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 79.9, UsedPercent: 79.9}), "79.9%", "79.9 GB / 100 GB", "bg-accent")
-	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 80, UsedPercent: 80}), "bg-warning")
-	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 95, UsedPercent: 95}), "bg-danger")
+	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 79.9, UsedPercent: 79.9}), "79.9%", "79.9 GB / 100 GB", "[&amp;::-webkit-progress-value]:bg-accent")
+	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 80, UsedPercent: 80}), "[&amp;::-webkit-progress-value]:bg-warning")
+	webtest.MustContain(t, render(domain.Mem{Available: true, TotalGB: 100, UsedGB: 95, UsedPercent: 95}), "[&amp;::-webkit-progress-value]:bg-danger")
 
 	// host.mem が無い（古い swarm-console）・available: false は「メモリ」の行を「—」で出す。ほかの行は崩れない。
 	for _, m := range []domain.Mem{{}, {Available: false, TotalGB: 8, UsedGB: 4, UsedPercent: 50}} {
