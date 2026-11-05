@@ -51,7 +51,7 @@ fun UsagePanel(
                 usage.fetchedAt?.let { MutedText("最終取得 " + formatDateTime(it)) }
             }
             if (usage.reason.isNotEmpty() && (status == UsageStatus.STALE || status == UsageStatus.UNAVAILABLE)) {
-                MutedText(usage.reason) // `reason` はホスト由来の文字列。コードとしてそのまま出す
+                NoticeText(usage.reason) // `reason` はホスト由来の文字列。コードとしてそのまま出す
             }
         }
     }

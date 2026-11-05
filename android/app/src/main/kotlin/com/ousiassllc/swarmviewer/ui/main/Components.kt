@@ -50,7 +50,7 @@ fun ToneBar(
     )
 }
 
-/** 補足の文言（muted）。文章を含むので 14sp（bodyMedium）。12sp は注記・バッジだけ。 */
+/** キャプション・ラベル用（muted、14sp）。ライトテーマで AA に届かないので、文には使わず NoticeText を使う。 */
 @Composable
 fun MutedText(
     text: String,
