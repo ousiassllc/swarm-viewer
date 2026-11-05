@@ -31,8 +31,8 @@ swarm-viewer の Android 版（Kotlin + Jetpack Compose）に固有の設計を�
 android/app/src/main/kotlin/com/ousiassllc/swarmviewer/
 ├── domain/   # 型・検証・解析・通知判定（副作用なし）。デスクトップの internal/domain と同じ責務
 ├── data/     # OkHttp の /report クライアント、Room、Keystore による token 保護
-├── work/     # WorkManager の周期ジョブ（通知用の確認）と再スケジュール
-├── notify/   # 通知チャンネル・通知の組み立て・権限
+├── service/  # ペアリング・接続管理・画面更新の取得とスナップショット保存・設定（data を使うユースケース）
+├── notify/   # WorkManager の周期ジョブ（通知用の確認）・通知チャンネル・通知の組み立て・権限
 └── ui/       # Compose 画面（接続管理・メイン・設定）、WindowSizeClass による切替
 ```
 
@@ -61,7 +61,7 @@ android/app/src/main/kotlin/com/ousiassllc/swarmviewer/
 
 ```mermaid
 sequenceDiagram
-    participant W as AttentionCheckWorker
+    participant W as NotificationWorker（AttentionCheck）
     participant DB as Room
     participant C as swarm-console
     participant N as 通知
@@ -93,19 +93,17 @@ sequenceDiagram
 
 | 項目 | 値 |
 |------|----|
-| チャンネル ID | `attention` |
-| 名前 | 「要対応」 |
-| 説明 | 「ペインが答え待ち・止まってるかも になったときの通知」 |
-| 重要度 | `IMPORTANCE_HIGH`（外出中に気づくための通知）。端末のシステム設定で利用者が変更できる |
-| 作成 | アプリ起動時（API 26 以降は必須。minSdk 29 のため分岐なし） |
+| チャンネル ID | `asking`（名前「答え待ち」）・`stalled`（名前「止まってるかも」）。別のチャンネルにして、利用者が OS の設定で個別に調整できるようにする。401・403 の再ペアリングの案内には `repair`（名前「再ペアリング」。重要度 `IMPORTANCE_DEFAULT`）を使う |
+| 重要度 | `asking`・`stalled` は `IMPORTANCE_HIGH`（外出中に気づくための通知）。端末のシステム設定で利用者が変更できる |
+| 作成 | アプリ起動時（`SystemNotifier` の生成時）（API 26 以降は必須。minSdk 29 のため分岐なし） |
 
 ### 4.2 通知の中身
 
 | 項目 | 内容 |
 |------|------|
 | タイトル | 接続の表示名 |
-| 本文 | セッション・`pos`・状態ラベル（`asking` は `attention` の `detail` も添える）。token・URL 全体を含めない |
-| ロック画面 | `VISIBILITY_PRIVATE`。`detail`（質問文の先頭）はロック画面に出さず、公開用の版は「要対応があります」だけにする |
+| 本文 | セッション・`pos`・状態ラベルだけ。token・URL 全体・ペイン本文（`attention` の `detail`＝質問文の先頭を含む）は載せない（通知は他人の目にも入るため。Issue #21） |
+| ロック画面 | `VISIBILITY_PRIVATE`。公開用の版は「要対応があります」だけにする |
 | 識別 | 通知 ID は `(接続, セッション, ペイン ID, 状態)` から決める。同じ組の再投稿は置き換わる |
 | タップ | アプリを開き、該当接続・セッションのタブを選択する（`PendingIntent`。Intent に接続 ID・セッション ID だけを載せる。FR-AND-5）。`PendingIntent` は `FLAG_IMMUTABLE` |
 

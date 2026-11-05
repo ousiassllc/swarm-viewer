@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 通知（Android 13 以降の実行時権限）。通知をオンにするとき・初回起動時に要求し、拒否されたら設定画面に案内を出す。
+         RECEIVE_BOOT_COMPLETED は宣言しない: 周期ジョブの再起動後の再開は WorkManager 自身の受信機（依存のマニフェストがマージする）が行う。 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- QR 読み取りを開始したときだけ実行時に要求する。カメラが無い端末でも貼り付け・ディープリンクで使える。 -->
     <uses-permission android:name="android.permission.CAMERA" />
 
