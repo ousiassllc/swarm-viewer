@@ -10,13 +10,14 @@ const (
 	IconInfoCircle      IconName = "info-circle"
 	IconCheckCircle     IconName = "check-circle"
 	IconCheck           IconName = "check"
+	IconXmark           IconName = "xmark"
 )
 
 // Icon ライン SVG のアイコン。インライン <svg>（外部ファイルを読まないので CSP に合う）で、装飾なので aria-hidden にする。
+// HTML に埋め込む svg は名前空間（xmlns）が要らない。レイアウトに常にある確認ダイアログの閉じるボタンも使うので、base の「http:// を含まない」検査に合わせて付けない。
 // class は大きさ（例: "h-5 w-5"）。意味は隣の文言が伝える。未知の name は何も描画しない。
 templ Icon(name IconName, class string) {
 	<svg
-		xmlns="http://www.w3.org/2000/svg"
 		viewBox="0 0 24 24"
 		fill="none"
 		stroke="currentColor"
@@ -45,6 +46,8 @@ templ Icon(name IconName, class string) {
 				<path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"></path>
 			case IconCheck:
 				<path d="M5 13.3636L8.03559 16.3204C8.42388 16.6986 9.04279 16.6986 9.43108 16.3204L19 7"></path>
+			case IconXmark:
+				<path d="M6.75827 17.2426L12.0009 12M17.2435 6.75736L12.0009 12M12.0009 12L6.75827 6.75736M12.0009 12L17.2435 17.2426"></path>
 		}
 	</svg>
 }

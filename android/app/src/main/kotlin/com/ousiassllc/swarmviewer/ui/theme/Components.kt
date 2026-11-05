@@ -2,6 +2,7 @@ package com.ousiassllc.swarmviewer.ui.theme
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -17,7 +18,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -61,14 +64,15 @@ fun AppCard(
     )
 }
 
-/** 確認ダイアログの幅（Material の AlertDialog の下限・上限と同じ）。 */
+/** 確認ダイアログの幅。下限は Material の AlertDialog と同じ、上限はガイドの見本（`.modal` の max-width 420px）。 */
 private val DialogMinWidth = 280.dp
-private val DialogMaxWidth = 560.dp
+private val DialogMaxWidth = 420.dp
 
 /**
  * 確認ダイアログ（ガイド O2）: surface の面・1dp の border・角丸 16dp（r-xl）・影は 1dp（`--shadow-modal`。影はモーダルだけ）。
  * Material の `AlertDialog` は枠も影も持たないため、`BasicAlertDialog` に面を組んで置き換える。
- * ボタンは `dismissButton`・`confirmButton` の順に右寄せで並べる。
+ * 構造もガイドの見本（`.modal`）に合わせる: ヘッダー（[title] と閉じる × のアイコンボタン。外側タップ・戻ると同じ [onDismissRequest]）・
+ * 本文（[text]）・フッター（右寄せ・ボタン間 8dp）を 1dp の border の線で区切る。ボタンは `dismissButton`・`confirmButton` の順に並べる。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,11 +93,23 @@ fun AppDialog(
             shadowElevation = 1.dp,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         ) {
-            Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                ProvideTextStyle(MaterialTheme.typography.titleLarge) { title() }
-                ProvideTextStyle(MaterialTheme.typography.bodyMedium) { text() }
+            Column {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(modifier = Modifier.weight(1f)) { ProvideTextStyle(MaterialTheme.typography.titleLarge) { title() } }
+                    IconButton(onClick = onDismissRequest, modifier = Modifier.size(32.dp)) {
+                        Icon(painterResource(R.drawable.ic_xmark), contentDescription = "閉じる")
+                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    ProvideTextStyle(MaterialTheme.typography.bodyMedium) { text() }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -107,6 +123,9 @@ fun AppDialog(
 
 /** 無効のときの不透明度（ガイド O7: disabled は opacity .4。Web の `disabled:opacity-40`）。 */
 private const val DISABLED_ALPHA = 0.4f
+
+/** 危険ボタンの枠の不透明度（`.dan` の `color-mix(in srgb, var(--danger) 45%, transparent)`）。 */
+private const val DANGER_BORDER_ALPHA = 0.45f
 
 /** 主ボタン（ガイド）: accent（ink 自身）の面・角丸 8dp（r-md）。文字は SemiBold（labelLarge）。無効のときは面も文字も不透明度 .4（O7）。 */
 @Composable
@@ -151,19 +170,29 @@ fun AppOutlinedButton(
     )
 }
 
-/** 危険なテキストボタン（ガイド O7）: 文字を状態色の danger にする。削除など取り返しのつかない操作の確定・起点に使い、カード上で塗りつぶしを増やさない。 */
+/**
+ * 危険ボタン（ガイド O7。tokens-preview の `.dan`）: 透明地・文字は状態色の danger・枠は danger の 45%・角丸 8dp（r-md）。
+ * 削除など取り返しのつかない操作の確定・起点に使い、カード上で塗りつぶしを増やさない。無効のときは文字も枠も不透明度 .4（O7）。
+ */
 @Composable
-fun AppDangerTextButton(
+fun AppDangerButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit,
 ) {
-    TextButton(
+    val danger = MaterialTheme.extraColors.danger
+    OutlinedButton(
         onClick = onClick,
         modifier = modifier,
         enabled = enabled,
-        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.extraColors.danger),
+        shape = MaterialTheme.shapes.medium,
+        colors =
+            ButtonDefaults.outlinedButtonColors(
+                contentColor = danger,
+                disabledContentColor = danger.copy(alpha = DISABLED_ALPHA),
+            ),
+        border = BorderStroke(1.dp, danger.copy(alpha = if (enabled) DANGER_BORDER_ALPHA else DANGER_BORDER_ALPHA * DISABLED_ALPHA)),
         content = content,
     )
 }

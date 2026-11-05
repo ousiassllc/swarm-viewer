@@ -12,7 +12,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,7 +24,7 @@ import com.ousiassllc.swarmviewer.ui.NEEDS_REPAIR_LABEL
 import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppCard
-import com.ousiassllc.swarmviewer.ui.theme.AppDangerTextButton
+import com.ousiassllc.swarmviewer.ui.theme.AppDangerButton
 import com.ousiassllc.swarmviewer.ui.theme.AppDialog
 import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
 import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
@@ -80,8 +79,8 @@ fun ConnectionsScreen(
             onDismissRequest = viewModel::dismissDelete,
             title = { Text("接続を削除") },
             text = { Text("「${target.name}」を削除します。保存した token・前回取得した表示・通知済みの記録もすべて消えます。") },
-            confirmButton = { AppDangerTextButton(onClick = viewModel::confirmDelete) { Text("削除") } },
-            dismissButton = { TextButton(onClick = viewModel::dismissDelete) { Text("キャンセル") } },
+            confirmButton = { AppDangerButton(onClick = viewModel::confirmDelete) { Text("削除") } },
+            dismissButton = { AppOutlinedButton(onClick = viewModel::dismissDelete) { Text("キャンセル") } },
         )
     }
 }
@@ -102,7 +101,7 @@ private fun ConnectionCard(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (!item.selected) AppOutlinedButton(onClick = onSelect) { Text("切り替える") }
                 if (item.needsRepair) AppButton(onClick = onRepair) { Text("再ペアリング") }
-                AppDangerTextButton(onClick = onDelete) { Text("削除") }
+                AppDangerButton(onClick = onDelete) { Text("削除") }
             }
         }
     }

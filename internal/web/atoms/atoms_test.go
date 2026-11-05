@@ -141,9 +141,10 @@ func TestConfirmDialog(t *testing.T) {
 	webtest.MustContain(t, html, `<dialog id="confirm-dialog"`, "data-modal", "rounded-xl", "border border-border", "shadow-modal", "m-auto",
 		"data-confirm-title", "data-confirm-message", "data-confirm-action", "text-danger", "border-danger/45", `data-modal-result="cancel"`, "キャンセル")
 	webtest.MustNotContain(t, html, "<script", "onclick", "hx-on", " open")
-	// ボタン列は 8px（ガイド S2）。
-	webtest.MustContain(t, html, `class="flex items-center justify-end gap-2"`)
-	webtest.MustNotContain(t, html, "gap-3")
+	// ガイドの見本の構造: ヘッダー（見出し＋閉じる × のアイコンボタン・下に線）・本文・フッター（右寄せ・ボタン間 8px・上に線）。幅は max 420px（26.25rem）。
+	webtest.MustContain(t, html, `<header class="flex items-center justify-between gap-2 border-b border-border px-5 py-4">`, `aria-label="閉じる"`, "data-modal-close", "size-8", "M6.75827 17.2426",
+		`<footer class="flex items-center justify-end gap-2 border-t border-border px-5 py-3">`, "p-0", "w-[min(26.25rem,")
+	webtest.MustNotContain(t, html, "gap-3", "p-6", "28rem")
 	// 出現は --motion-slow の .modal-in。アラート・トーストの .fade-in（320ms）は使わない（M5）。
 	webtest.MustContain(t, html, "modal-in")
 	webtest.MustNotContain(t, html, "fade-in")

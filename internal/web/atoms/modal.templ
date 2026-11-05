@@ -1,10 +1,45 @@
 package atoms
 
 // ModalClass は中央モーダル（ネイティブ <dialog>）のクラス（ガイド O1・O2）。
-// 角丸 --r-xl（rounded-xl）・1px の --border・--shadow-modal・padding 24。スクラム（::backdrop）の色とフェードは app.css の dialog.modal が持つ。
+// 角丸 --r-xl（rounded-xl）・1px の --border・--shadow-modal・幅は見本の max-width 420px。余白は持たず、ヘッダー・本文・フッターが
+// それぞれ持つ（ModalHeader・ModalBodyClass・ModalFooterClass。ヘッダーとフッターは 1px の --border で区切る）。
+// スクラム（::backdrop）の色とフェードは app.css の dialog.modal が持つ。
 // 出現は .modal-in（--motion-slow 280ms。アラート・トーストの .fade-in 320ms とは別。ガイド M5）。
 // ::backdrop は Tailwind の既定でマージンが 0 になるので、中央寄せの m-auto を付ける。
-const ModalClass = "modal-in modal m-auto w-[min(28rem,calc(100vw-2rem))] rounded-xl border border-border bg-surface p-6 text-ink shadow-modal"
+const ModalClass = "modal-in modal m-auto w-[min(26.25rem,calc(100vw-2rem))] rounded-xl border border-border bg-surface p-0 text-ink shadow-modal"
+
+// ModalBodyClass はモーダルの本文のクラス（見本の `.bd`: padding 20）。
+const ModalBodyClass = "flex flex-col gap-4 p-5 text-sm"
+
+// ModalFooterClass はモーダルのフッター（右寄せ・ボタン間は --gap-inline の 8・padding 12×20・上に 1px の --border）。
+const ModalFooterClass = "flex items-center justify-end gap-2 border-t border-border px-5 py-3"
+
+// ModalHeaderProps は ModalHeader の入力。
+type ModalHeaderProps struct {
+	// ID は見出し（h2）の id。dialog の aria-labelledby が指す。
+	ID string
+	// Title は見出しの文言。
+	Title string
+	// Attrs は見出しの追加属性（app.js が差し込む data-confirm-title など）。
+	Attrs templ.Attributes
+}
+
+// ModalHeader はモーダルのヘッダー（見本の `header`）: 見出しと閉じるアイコンボタン（Iconoir の xmark・32px・枠なし）を左右に置き、
+// 下に 1px の --border を引く。閉じるボタンは外側クリック・Esc と同じ「閉じる」要求（data-modal-close。app.js が受ける）で、
+// data-dismiss を持つモーダルでは、そのボタン（ペアリング確認では「破棄」）を押す。
+templ ModalHeader(p ModalHeaderProps) {
+	<header class="flex items-center justify-between gap-2 border-b border-border px-5 py-4">
+		<h2 id={ p.ID } class="text-lg font-semibold" { p.Attrs... }>{ p.Title }</h2>
+		<button
+			type="button"
+			aria-label="閉じる"
+			data-modal-close
+			class="hover-fade relative inline-grid size-8 shrink-0 cursor-pointer place-content-center overflow-clip rounded-md border border-transparent text-ink hover:bg-accent-soft"
+		>
+			@Icon(IconXmark, "h-4 w-4")
+		</button>
+	</header>
+}
 
 // ConfirmDialogID は確認ダイアログの id。static/src/js/app.js が htmx:confirm（hx-confirm）で開く。
 const ConfirmDialogID = "confirm-dialog"
@@ -16,13 +51,13 @@ const ConfirmDialogID = "confirm-dialog"
 // インラインスクリプト・hx-on・eval は使わない（NFR-SEC-9）。
 templ ConfirmDialog() {
 	<dialog id={ ConfirmDialogID } data-modal aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-message" class={ ModalClass }>
-		<div class="flex flex-col gap-4">
-			<h2 id="confirm-dialog-title" class="text-lg font-semibold" data-confirm-title>確認</h2>
-			<p id="confirm-dialog-message" class="text-sm" data-confirm-message></p>
-			<div class="flex items-center justify-end gap-2">
-				@Button(ButtonProps{Label: "キャンセル", Size: ButtonSmall, Attrs: templ.Attributes{"data-modal-result": "cancel"}})
-				@Button(ButtonProps{Label: "実行", Variant: ButtonDanger, Size: ButtonSmall, Attrs: templ.Attributes{"data-modal-result": "confirm", "data-confirm-action": true}})
-			</div>
+		@ModalHeader(ModalHeaderProps{ID: "confirm-dialog-title", Title: "確認", Attrs: templ.Attributes{"data-confirm-title": true}})
+		<div class={ ModalBodyClass }>
+			<p id="confirm-dialog-message" data-confirm-message></p>
 		</div>
+		<footer class={ ModalFooterClass }>
+			@Button(ButtonProps{Label: "キャンセル", Size: ButtonSmall, Attrs: templ.Attributes{"data-modal-result": "cancel"}})
+			@Button(ButtonProps{Label: "実行", Variant: ButtonDanger, Size: ButtonSmall, Attrs: templ.Attributes{"data-modal-result": "confirm", "data-confirm-action": true}})
+		</footer>
 	</dialog>
 }

@@ -97,7 +97,8 @@ func TestSmokeEndToEnd(t *testing.T) {
 	mustContain(t, main0Conn, `hx-get="`+sessionPath+`/snapshot"`)
 	mustContain(t, main0, "<html", "stubbox", `hx-get="`+sessionPath+`/snapshot"`, "every 10s",
 		`hx-get="`+connPath+`/sessions/work"`) // 許可セッションだけがタブになる
-	mustNotContain(t, main0, "hidden")
+	// 許可していないセッション（id `hidden`）はタブにしない。語 "hidden" は aria-hidden（閉じるアイコン）にも出るので、パスで見る。
+	mustNotContain(t, main0, "/sessions/hidden")
 
 	// スナップショット: ペイン・利用上限・ホスト負荷。
 	snap0 := c.expect(c.do(http.MethodGet, sessionPath+"/snapshot", hx, nil), http.StatusOK)

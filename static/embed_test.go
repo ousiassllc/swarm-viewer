@@ -110,7 +110,8 @@ func TestAppCSS_FontFaceIsSelfHosted(t *testing.T) {
 }
 
 // アコーディオン（<details>）は summary を SemiBold にし、ブラウザ既定の三角を消して CSS のシェブロンを付ける（ガイド §7）。
-// シェブロンは CSP（default-src 'self'）で data: URI の画像を使えないので、枠線の回転で描く。
+// シェブロンは見本（tokens-preview の .acc）どおり右端（::after）・閉じて下向き（45deg）・開いて上向き（-135deg）。
+// CSP（default-src 'self'）で data: URI の画像を使えないので、枠線の回転で描く。
 func TestAppCSS_Accordion(t *testing.T) {
 	t.Parallel()
 
@@ -119,10 +120,14 @@ func TestAppCSS_Accordion(t *testing.T) {
 		t.Fatalf("css/app.css を読めない（先に task generate を実行する）: %v", err)
 	}
 	css := string(data)
-	for _, want := range []string{"details>summary{", "font-weight:600", "list-style:none", "details>summary::-webkit-details-marker{display:none}", "details>summary:before{", "details[open]>summary:before{transform:rotate(45deg)}"} {
+	for _, want := range []string{"details>summary{", "justify-content:space-between", "font-weight:600", "list-style:none", "details>summary::-webkit-details-marker{display:none}", "details>summary:after{",
+		"transition:transform var(--motion-base) var(--ease-out)", "transform:rotate(45deg)", "details[open]>summary:after{margin-top:.25rem;transform:rotate(-135deg)}"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("app.css に %q が無い", want)
 		}
+	}
+	if strings.Contains(css, "summary:before") {
+		t.Error("シェブロンは右端の ::after で、::before は使わない")
 	}
 	// 開閉マークの線はアイコンのストローク（≈1.5）で、色は --mute（ガイド I2）。
 	for _, want := range []string{"border-right:1.5px solid var(--mute)", "border-bottom:1.5px solid var(--mute)"} {
@@ -268,7 +273,7 @@ func TestModal_AppJSAndCSS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("js/app.js を読めない（先に task generate を実行する）: %v", err)
 	}
-	for _, want := range []string{`"htmx:confirm"`, "showModal()", "issueRequest", "data-dismiss", "dataset.dismiss", `"cancel"`, "getBoundingClientRect", "data-modal-result", "textContent"} {
+	for _, want := range []string{`"htmx:confirm"`, "showModal()", "issueRequest", "data-dismiss", "dataset.dismiss", `"cancel"`, "getBoundingClientRect", "data-modal-result", "data-modal-close", "textContent"} {
 		if !strings.Contains(string(js), want) {
 			t.Errorf("app.js に %q が無い", want)
 		}

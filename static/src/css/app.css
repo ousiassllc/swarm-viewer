@@ -141,15 +141,18 @@
 }
 
 /*
- * アコーディオン（ガイド §7）: ネイティブ <details>・summary は SemiBold・開閉のシェブロンは CSS で描く。
+ * アコーディオン（ガイド §7・tokens-preview の `.acc`）: ネイティブ <details>・summary は SemiBold・開閉のシェブロンは CSS で描く。
  * 三角のマーカーは消す。画像・data: URI は CSP（default-src 'self'）で使えないので、シェブロンは枠線の回転で作る。
- * 閉じているときは右向き、開いているときは下向き。reduced-motion では回転を即時にする。
+ * 見本どおり、シェブロンは右端（::after）・閉じているときは下向き（rotate 45）・開いているときは上向き（rotate -135）で、
+ * 回転の中心が見た目の中心に来るよう 4px ずらす。遷移は --motion-base・--ease-out。reduced-motion では回転を即時にする。
+ * 見本の枠付きコンテナ（.acc）は足さない（アラートの中などで枠を重ねないため）。
  */
 @layer components {
   details > summary {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    justify-content: space-between;
+    gap: 0.75rem;
     cursor: pointer;
     font-weight: 600;
     list-style: none;
@@ -159,22 +162,25 @@
     display: none;
   }
 
-  details > summary::before {
+  details > summary::after {
     content: "";
+    flex: none;
     width: 0.5rem;
     height: 0.5rem;
+    margin-top: -0.25rem;
     border-right: 1.5px solid var(--mute);
     border-bottom: 1.5px solid var(--mute);
-    transform: rotate(-45deg);
-    transition: transform var(--motion-base) var(--ease-in-out);
+    transform: rotate(45deg);
+    transition: transform var(--motion-base) var(--ease-out);
   }
 
-  details[open] > summary::before {
-    transform: rotate(45deg);
+  details[open] > summary::after {
+    margin-top: 0.25rem;
+    transform: rotate(-135deg);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    details > summary::before {
+    details > summary::after {
       transition: none;
     }
   }

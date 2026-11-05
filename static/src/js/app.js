@@ -26,15 +26,11 @@
   const prefersReducedMotion = () =>
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // 時間は CSS のトークン（:root のカスタムプロパティ）が唯一の出どころで、JS は数値を持たない（ガイド M1）。
-  // 値は ms でも s でも書ける（Tailwind の minify が ms を s に直す）ので、単位を見てミリ秒にそろえる。
+  // 時間は CSS のトークンが唯一の出どころで、JS は数値を持たず読む（ガイド M1）。minify で ms が s になるので単位を見る。
   const cssDurationMs = (name) => {
-    const value = getComputedStyle(document.documentElement)
-      .getPropertyValue(name)
-      .trim();
-    return value.endsWith("ms")
-      ? Number.parseFloat(value)
-      : Number.parseFloat(value) * 1000;
+    const root = getComputedStyle(document.documentElement);
+    const value = root.getPropertyValue(name);
+    return Number.parseFloat(value) * (value.includes("ms") ? 1 : 1000);
   };
 
   // トーストは --toast-duration（3 秒）で消す（ガイド O3）。#toasts は OOB で差し替わる（同時に 1 つ）ので、
@@ -199,7 +195,7 @@
   // - 外側（スクラム）クリックと Esc は「閉じる」要求。data-dismiss があればそのボタンを押し（ペアリング確認では「破棄」）、
   //   無ければ何も送らず閉じる。
   // - 閉じるときは .is-leaving のフェードアウトが終わる animationend で close() する（reduced-motion は即時）。
-  // - data-modal-result のボタンは、その値を returnValue にして閉じる。
+  // - data-modal-result のボタンはその値を returnValue にして閉じる。data-modal-close（ヘッダーの ×）は外側クリック・Esc と同じ要求。
   // - markup に open だけが付いた dialog（ペアリング確認）は、読み込み・差し替えのたびにモーダルへ引き上げる。
   const closeModal = (dialog, result = "") => {
     if (!dialog.open || dialog.classList.contains("is-leaving")) {
@@ -249,6 +245,11 @@
   // ダイアログ自体が click の target になるのは、中身の外（::backdrop）か自分の余白を押したとき。座標で外側だけを見分ける。
   document.addEventListener("click", (event) => {
     const result = event.target.closest?.("[data-modal-result]");
+    const closer = event.target.closest?.("[data-modal-close]");
+    if (closer) {
+      dismissModal(closer.closest("dialog"));
+      return;
+    }
     if (result) {
       closeModal(result.closest("dialog"), result.dataset.modalResult);
       return;
