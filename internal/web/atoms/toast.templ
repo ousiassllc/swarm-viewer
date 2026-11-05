@@ -15,10 +15,10 @@ const ToastContainerID = "toasts"
 const ToastContainerClass = "pointer-events-none fixed bottom-[var(--toast-offset)] left-1/2 z-[var(--z-toast)] -translate-x-1/2"
 
 // Toast はトースト 1 件を OOB（hx-swap-oob）で返す。レイアウトの #toasts を置き換える。
-// 見た目はガイドどおり、高さ 40・ピル・ink 地に bone 字・1 行。
+// 見た目はガイドどおり、高さ 40・ピル・ink 地に bone 字・1 行。出現・退出の移動量は 8px（ガイド M5。--fade-rise で .fade-in の既定 4px を上書きする）。
 templ Toast(p ToastProps) {
 	<div id={ ToastContainerID } hx-swap-oob="true" class={ ToastContainerClass } aria-live="polite">
-		<div role="status" class="fade-in inline-flex h-(--toast-h) max-w-[calc(100vw-3rem)] items-center rounded-full bg-ink px-[18px] text-sm text-bone">
+		<div role="status" class="fade-in [--fade-rise:8px] inline-flex h-(--toast-h) max-w-[calc(100vw-3rem)] items-center rounded-full bg-ink px-[18px] text-sm text-bone">
 			<span class="truncate">{ p.Message }</span>
 		</div>
 	</div>

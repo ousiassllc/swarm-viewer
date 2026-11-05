@@ -27,7 +27,7 @@
 
 /*
  * 出現と退出のモーション（ガイド M5・NFR-DSG-6）。
- * アラートとトーストは .fade-in（フェードイン 320ms・ease-out・4px 上へ）で現れる。トーストの退出は .is-leaving
+ * アラートとトーストは .fade-in（フェードイン 320ms・ease-out・既定 4px 上へ）で現れる。移動量は --fade-rise で変えられ、トーストは 8px（ガイドの「下から 8px」）。トーストの退出は .is-leaving
  * （フェードアウト 240ms・ease-in）を app.js が付け、animationend で消す。
  * アラートの退出も .is-leaving（同じ 240ms）。差し替えで消えるアラートへ app.js が付け、フェードが終わってから差し替える。
  * .is-settled は、ポーリングの再描画で同じ文言のアラートが差し替わっただけのとき app.js が付ける（フェードを繰り返さない）。
@@ -41,7 +41,7 @@
   @keyframes fade-in {
     from {
       opacity: 0;
-      transform: translateY(4px);
+      transform: translateY(var(--fade-rise, 4px));
     }
 
     to {
@@ -58,7 +58,7 @@
 
     to {
       opacity: 0;
-      transform: translateY(4px);
+      transform: translateY(var(--fade-rise, 4px));
     }
   }
 
