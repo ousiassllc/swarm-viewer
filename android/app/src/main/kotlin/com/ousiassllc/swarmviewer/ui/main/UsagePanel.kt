@@ -79,7 +79,7 @@ private fun AgentAccountBlock(
     account: AgentAccount,
     now: Instant,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(joinNonEmpty(" · ", agent, account.account), style = MaterialTheme.typography.bodyMedium)
         if (!account.fiveHour.available && !account.sevenDay.available) {
             AppAlert(joinNonEmpty(" · ", "取得できません", usageReasonLabel(account.reason)), kind = AlertKind.Warning)
@@ -95,7 +95,7 @@ private fun CursorAccountBlock(
     account: CursorAccount,
     now: Instant,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(joinNonEmpty(" · ", "Cursor", account.account), style = MaterialTheme.typography.bodyMedium)
         SlotRow(cursorWindowLabel(account.window).ifEmpty { "モデル" }, account.models, now)
     }
