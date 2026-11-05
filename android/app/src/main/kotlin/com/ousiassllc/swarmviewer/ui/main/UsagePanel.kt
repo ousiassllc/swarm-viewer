@@ -132,7 +132,7 @@ private fun SlotRow(
                     )
                 else -> MutedText(DASH)
             }
-            if (slot.available && slot.status == SlotValues.STATUS_EXHAUSTED) Badge("上限到達", DisplayTone.Error)
+            if (slot.available && slot.status == SlotValues.STATUS_EXHAUSTED) Badge("上限到達", DisplayTone.Error, marker = true)
         }
         val resetsAt = slot.resetsAt
         if (slot.available && resetsAt != null) {

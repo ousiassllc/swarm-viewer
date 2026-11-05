@@ -75,7 +75,7 @@ private fun AttentionRow(
     auth: Auth,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Badge(attentionLabel(item.kind), attentionTone(item.kind))
+        Badge(attentionLabel(item.kind), attentionTone(item.kind), marker = true)
         if (item.pane.isNotEmpty()) Text(item.pane, style = MaterialTheme.typography.bodyMedium, fontFamily = MonoFontFamily)
         val detail = attentionDetail(item.kind, item.detail)
         if (detail.isNotEmpty()) {

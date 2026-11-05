@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -138,7 +140,14 @@ private fun ScannerView(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("接続文字列の QR コードを枠に映してください")
+            // カメラ映像の明るさに依らず読めるよう、文言は ink の帯（inverseSurface + inverseOnSurface）に載せる（C5）。
+            Surface(
+                color = MaterialTheme.colorScheme.inverseSurface,
+                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                shape = MaterialTheme.shapes.medium,
+            ) {
+                Text("接続文字列の QR コードを枠に映してください", modifier = Modifier.padding(16.dp))
+            }
             AppButton(onClick = onBack) { Text("貼り付けに戻る") }
         }
     }

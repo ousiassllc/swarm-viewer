@@ -27,7 +27,7 @@ func attentionDetail(a domain.Attention) string {
 // AttentionItem は要対応バーの 1 件（kind バッジ・ペイン位置・detail）。
 templ AttentionItem(p AttentionItemProps) {
 	<li class="flex min-w-0 items-center gap-2 text-sm">
-		@atoms.Badge(atoms.BadgeProps{Text: format.AttentionLabel(p.Attention.Kind), Tone: format.AttentionTone(p.Attention.Kind)})
+		@atoms.Badge(atoms.BadgeProps{Text: format.AttentionLabel(p.Attention.Kind), Tone: format.AttentionTone(p.Attention.Kind), Marker: true})
 		if p.Attention.Pane != "" {
 			<span class="font-mono text-xs text-ink">{ p.Attention.Pane }</span>
 		}

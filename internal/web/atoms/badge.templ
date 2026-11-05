@@ -8,11 +8,17 @@ type BadgeProps struct {
 	Text string
 	// Tone は色の意味。未知の値は muted。
 	Tone format.Tone
+	// Marker が true のとき、文言の前に文字と同じ色の小さな点を置く（ガイドのステータスピルの見本 `● 完了`）。
+	// 状態を示すバッジ（ペイン状態・要対応・上限到達・表示中）に付け、エージェント名のように状態でないバッジには付けない。
+	Marker bool
 }
 
 // Badge はエージェント種別・状態・要対応を示す小さなラベル。色だけに頼らず Text を必ず表示する。
 templ Badge(p BadgeProps) {
 	<span class={ "inline-flex items-center rounded-full px-2 text-xs ring-1 ring-inset", format.BadgeClass(p.Tone) }>
+		if p.Marker {
+			<span class="me-1.5 size-1.5 shrink-0 rounded-full bg-current" aria-hidden="true"></span>
+		}
 		{ p.Text }
 	</span>
 }
