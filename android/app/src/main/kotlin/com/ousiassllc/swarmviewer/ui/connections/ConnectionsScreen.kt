@@ -37,11 +37,14 @@ fun ConnectionsScreen(
     viewModel: ConnectionsViewModel,
     onAdd: () -> Unit,
     onRepair: () -> Unit,
+    onBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { viewModel.refresh() } // ペアリングから戻ったときに読み直す
 
-    Scaffold(topBar = { TopAppBar(title = { Text("接続") }) }) { padding ->
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("接続") }, navigationIcon = { TextButton(onClick = onBack) { Text("戻る") } }) },
+    ) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),

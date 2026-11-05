@@ -31,6 +31,7 @@ swarm-viewer の Android 版（Kotlin + Jetpack Compose）に固有の設計を�
 android/app/src/main/kotlin/com/ousiassllc/swarmviewer/
 ├── domain/   # 型・検証・解析・通知判定（副作用なし）。デスクトップの internal/domain と同じ責務
 ├── data/     # OkHttp の /report クライアント、Room、Keystore による token 保護
+├── service/  # ペアリング・接続管理・画面更新の取得とスナップショット保存・設定（data を使うユースケース）
 ├── work/     # WorkManager の周期ジョブ（通知用の確認）と再スケジュール
 ├── notify/   # 通知チャンネル・通知の組み立て・権限
 └── ui/       # Compose 画面（接続管理・メイン・設定）、WindowSizeClass による切替

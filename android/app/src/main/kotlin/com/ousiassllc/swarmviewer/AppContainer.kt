@@ -11,6 +11,8 @@ import com.ousiassllc.swarmviewer.data.store.SwarmDatabase
 import com.ousiassllc.swarmviewer.data.store.ViewerStore
 import com.ousiassllc.swarmviewer.service.ConnectionService
 import com.ousiassllc.swarmviewer.service.PairingService
+import com.ousiassllc.swarmviewer.service.SettingsService
+import com.ousiassllc.swarmviewer.service.SnapshotService
 import java.io.File
 
 /** token の保存先のディレクトリ名（`noBackupFilesDir` 配下。バックアップ・端末間転送の対象外）。 */
@@ -33,6 +35,14 @@ class AppContainer private constructor(
             store = store,
             tokens = tokens,
             connections = connections,
+        )
+
+    val settings = SettingsService(store)
+    val snapshots =
+        SnapshotService(
+            lister = { connection -> report.sessions(connection) },
+            reports = { connection, session -> report.report(connection, session) },
+            store = store,
         )
 
     companion object {

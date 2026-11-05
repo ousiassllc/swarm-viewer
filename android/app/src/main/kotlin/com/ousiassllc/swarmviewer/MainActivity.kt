@@ -8,13 +8,17 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
+import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
+import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.ousiassllc.swarmviewer.ui.connections.ConnectionsViewModel
+import com.ousiassllc.swarmviewer.ui.main.MainViewModel
 import com.ousiassllc.swarmviewer.ui.navigation.AppNavigation
 import com.ousiassllc.swarmviewer.ui.navigation.NavigationViewModel
 import com.ousiassllc.swarmviewer.ui.pairing.PairingViewModel
+import com.ousiassllc.swarmviewer.ui.settings.SettingsViewModel
 import com.ousiassllc.swarmviewer.ui.theme.SwarmViewerTheme
 
 /** ディープリンク（`swarm-viewer://pair?...`）の scheme（マニフェストの intent-filter と同じ）。 */
@@ -27,7 +31,14 @@ class MainActivity : ComponentActivity() {
     private val connections: ConnectionsViewModel by viewModels {
         viewModelFactory { initializer { ConnectionsViewModel(container.connections) } }
     }
+    private val main: MainViewModel by viewModels {
+        viewModelFactory { initializer { MainViewModel(container.snapshots, container.connections, container.settings) } }
+    }
+    private val settings: SettingsViewModel by viewModels {
+        viewModelFactory { initializer { SettingsViewModel(container.settings) } }
+    }
 
+    @OptIn(ExperimentalMaterial3WindowSizeClassApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -36,7 +47,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             SwarmViewerTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    AppNavigation(navigation = navigation, connections = connections, pairing = pairing)
+                    // 幅の区分（Compact / Medium / Expanded）で表示を切り替える。折りたたみ⇔展開で変わる。
+                    AppNavigation(
+                        navigation = navigation,
+                        main = main,
+                        settings = settings,
+                        connections = connections,
+                        pairing = pairing,
+                        widthClass = calculateWindowSizeClass(this).widthSizeClass,
+                    )
                 }
             }
         }
