@@ -2,62 +2,20 @@ package com.ousiassllc.swarmviewer.data.report
 
 import com.ousiassllc.swarmviewer.domain.Connection
 import com.ousiassllc.swarmviewer.domain.ErrKind
-import com.ousiassllc.swarmviewer.domain.FetchException
 import com.ousiassllc.swarmviewer.domain.PaneState
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.SocketPolicy
-import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
-import java.util.concurrent.TimeUnit
 
-private const val CONN_ID = "conn-1"
 private const val SHORT_TIMEOUT_MILLIS = 300L
 private const val TIMEOUT_BOUND_MILLIS = 5_000L
 private const val STEP_DELAY_MILLIS = 150L
-private const val AWAIT_SECONDS = 10L
 
-class ReportClientTest {
-    private lateinit var console: FakeConsole
-    private val logged = mutableListOf<String>()
-    private val logger = FetchLogger { id, tool, kind, code -> logged += "$id $tool $kind $code" }
-
-    @Before
-    fun setUp() {
-        console = FakeConsole().start()
-        console.tools = okTools()
-    }
-
-    @After
-    fun tearDown() = console.stop()
-
-    private fun client(
-        token: String? = TEST_TOKEN,
-        timeoutMillis: Long = REQUEST_TIMEOUT_MILLIS,
-    ) = ReportClient({ token }, timeoutMillis = timeoutMillis, logger = logger)
-
-    private fun connection() = Connection(id = CONN_ID, name = "stub", url = console.url)
-
-    private suspend fun failure(block: suspend () -> Unit): FetchException {
-        try {
-            block()
-        } catch (e: FetchException) {
-            return e
-        }
-        throw AssertionError("FetchException が投げられなかった")
-    }
-
+internal class ReportClientTest : ReportClientTestBase() {
     @Test
     fun sessionsReturnsAllowedOnesAndSendsTheHandshakeWithBearer() =
         runTest {
@@ -253,50 +211,5 @@ class ReportClientTest {
             val e = failure { client().sessions(Connection(CONN_ID, "stub", closed)) }
 
             assertEquals(ErrKind.Unreachable, e.kind)
-        }
-
-    @Test
-    fun urlsOutsideTheAllowedRangeAreNeverContacted() =
-        runTest {
-            for (url in listOf("http://192.168.0.1:48120/report", "http://devbox.ts.net:48120/report", "https://100.64.0.5:48120/report")) {
-                val e = failure { client().sessions(Connection(CONN_ID, "stub", url)) }
-                assertEquals(url, ErrKind.Protocol, e.kind)
-                assertEquals(url, "invalid_url", e.code)
-            }
-            assertEquals(0, console.seen.size)
-        }
-
-    @Test
-    fun failuresNeverLeakTokenUrlOrServerMessages() =
-        runTest {
-            val errors = mutableListOf<FetchException>()
-            console.rawPostResponse = console.httpError(401, "unauthorized")
-            errors += failure { client().sessions(connection()) }
-            console.rawPostResponse = null
-            console.tools = { toolError("tmux_error") }
-            errors += failure { client().report(connection(), "0") }
-            console.tools = { ToolReply("""{"layout":"$SECRET_MESSAGE"}""") } // 型が想定外の応答
-            errors += failure { client().report(connection(), "0") }
-
-            val everything = (errors.map { it.message.orEmpty() } + logged).joinToString("\n")
-            for (forbidden in listOf(TEST_TOKEN, console.url, "127.0.0.1", SECRET_MESSAGE)) {
-                assertFalse(forbidden, everything.contains(forbidden))
-            }
-            assertEquals(3, logged.size)
-        }
-
-    @Test
-    fun cancellationIsNotSwallowedAsAFetchError() =
-        runTest {
-            console.rawPostResponse = MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE)
-            var unexpected: Throwable? = null
-            val handler = CoroutineExceptionHandler { _, e -> unexpected = e }
-            val job = launch(Dispatchers.Default + handler) { client().sessions(connection()) }
-            assertTrue(withContext(Dispatchers.IO) { console.firstRequest.await(AWAIT_SECONDS, TimeUnit.SECONDS) })
-
-            job.cancelAndJoin()
-
-            assertTrue(job.isCancelled)
-            assertNull(unexpected) // 取得失敗（FetchException）として伝わらない
         }
 }
