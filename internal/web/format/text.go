@@ -153,7 +153,7 @@ func UsageReasonLabel(reason *string) string {
 	}
 	switch *reason {
 	case "without_usage":
-		return "使用量を取れませんでした（ログイン切れの可能性）"
+		return "ログイン切れの可能性"
 	case "no_email":
 		return "アカウントを特定できません（ログイン切れの可能性）"
 	default:

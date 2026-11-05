@@ -99,7 +99,7 @@ func TestUsagePanel_BothSlotsUnavailableIsOneLine(t *testing.T) {
 
 	// reason があれば理由を添える。
 	for reason, want := range map[string]string{
-		"without_usage": "使用量を取れませんでした（ログイン切れの可能性）",
+		"without_usage": "ログイン切れの可能性",
 		"no_email":      "アカウントを特定できません（ログイン切れの可能性）",
 	} {
 		html = render(domain.AgentAccount{Account: "account-1", Reason: strp(reason)})

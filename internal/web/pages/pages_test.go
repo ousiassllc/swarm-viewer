@@ -70,6 +70,11 @@ func TestPairingPage(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, pages.PairingPage(shell, pages.PairingProps{HasConnections: true}))
 	webtest.MustContain(t, html, `id="pairing-form"`, `hx-post="/pairing"`, "保存済みの接続", "<html")
+	webtest.MustContain(t, html, "<summary", "注意", "<details", "発行した接続文字列は再利用しないでください。", "の出力を貼り付けてください。")
+	if !strings.Contains(html, "<summary class=\"cursor-pointer\">注意</summary>") || strings.Index(html, "<details") > strings.Index(html, "発行した接続文字列は再利用しないでください。") {
+		t.Error("再利用の注意は <details> の中にある")
+	}
+	webtest.MustNotContain(t, html, "が出力した接続文字列を貼り付けてください")
 	webtest.MustNotContain(t, webtest.Render(t, pages.PairingContent(pages.PairingProps{})), "保存済みの接続")
 }
 
@@ -102,7 +107,8 @@ func TestPairingDraft_ConfirmError(t *testing.T) {
 func TestDraftExpiredPage(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, pages.DraftExpiredPage(shell))
-	webtest.MustContain(t, html, "もう一度ペアリングしてください", `href="/pairing"`)
+	webtest.MustContain(t, html, "もう一度ペアリングしてください", `href="/pairing"`, "確認画面の有効期限が切れました。")
+	webtest.MustNotContain(t, html, "ペアリングの確認画面", "もう一度貼り付けてください")
 }
 
 func TestConnectionsAndNoSessions(t *testing.T) {
@@ -110,8 +116,11 @@ func TestConnectionsAndNoSessions(t *testing.T) {
 	html := webtest.Render(t, pages.ConnectionsPage(shell, pages.ConnectionsProps{List: organisms.ConnectionListProps{Connections: []domain.Connection{{ID: "01A", Name: "n"}}}}))
 	webtest.MustContain(t, html, "接続管理", `hx-delete="/connections/01A"`, `href="/pairing"`)
 	html = webtest.Render(t, pages.NoSessionsPage(shell, "devbox"))
-	webtest.MustContain(t, html, "許可されたセッションがありません", "devbox")
-	webtest.MustNotContain(t, webtest.Render(t, pages.NoSessionsContent("")), "接続「")
+	webtest.MustContain(t, html, "許可されたセッションがありません", "接続「devbox」:", "ホスト側でトークンの許可セッションを確認してください。")
+	webtest.MustNotContain(t, html, "見られるセッションがありません")
+	empty := webtest.Render(t, pages.NoSessionsContent(""))
+	webtest.MustContain(t, empty, "許可されたセッションがありません", "ホスト側でトークンの許可セッションを確認してください。")
+	webtest.MustNotContain(t, empty, "接続「")
 }
 
 func TestSettingsPage(t *testing.T) {

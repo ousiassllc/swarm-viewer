@@ -19,11 +19,14 @@ func TestConnectionList(t *testing.T) {
 	webtest.MustContain(t, html,
 		`id="connection-list"`,
 		`hx-delete="/connections/01A"`, `hx-delete="/connections/01B"`,
-		`hx-confirm=`, `hx-get="/connections/01A"`,
+		`hx-confirm=`, `hx-get="/connections/01B"`,
 		"devbox", "100.64.0.5", "100.64.0.6", "表示中",
 		`hx-target="#connection-list"`,
 	)
-	webtest.MustNotContain(t, html, "48120", "/report", "<b>", "http://")
+	webtest.MustNotContain(t, html, "48120", "/report", "<b>", "http://", `hx-get="/connections/01A"`)
+	if strings.Count(html, `hx-get=`) != 1 {
+		t.Error("切替は表示中以外の行だけにある")
+	}
 	if strings.Count(html, "hx-confirm") != 2 {
 		t.Error("削除ごとに確認がある")
 	}
@@ -71,6 +74,12 @@ func TestSettingsForm_DebugOnNotifyOffAndPermissions(t *testing.T) {
 	if strings.Count(html, "checked") != 1 {
 		t.Errorf("デバッグログだけがオン: %d", strings.Count(html, "checked"))
 	}
-	webtest.MustContain(t, html, "OS の通知は許可されています", "設定を保存できません", `role="alert"`)
-	webtest.MustContain(t, webtest.Render(t, organisms.SettingsForm(organisms.SettingsFormProps{Settings: domain.DefaultSettings()})), "確認できません")
+	webtest.MustContain(t, html, "設定を保存できません", `role="alert"`)
+	// Granted・Unknown は許可状態の <p> を出さない（Denied のときだけ案内を出す）。
+	const deniedText = "OS が通知を許可していません。OS の設定で許可してください"
+	webtest.MustNotContain(t, html, deniedText, "OS の通知", "text-slate-400")
+	unknown := webtest.Render(t, organisms.SettingsForm(organisms.SettingsFormProps{Settings: domain.DefaultSettings()}))
+	webtest.MustNotContain(t, unknown, deniedText, "OS の通知", "text-slate-400")
+	denied := webtest.Render(t, organisms.SettingsForm(organisms.SettingsFormProps{Settings: domain.DefaultSettings(), Permission: organisms.NotifyPermissionDenied}))
+	webtest.MustContain(t, denied, deniedText)
 }
