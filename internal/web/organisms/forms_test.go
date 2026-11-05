@@ -31,6 +31,10 @@ func TestConnectionList(t *testing.T) {
 	if strings.Count(html, "hx-confirm") != 2 {
 		t.Error("削除ごとに確認がある")
 	}
+	// 確認は中央モーダル（#confirm-dialog）で取る。見出しとボタンのラベルは要素の data-confirm-* から差し込まれる（ガイド O2）。
+	if strings.Count(html, `data-confirm-title="接続を削除"`) != 2 || strings.Count(html, `data-confirm-label="削除"`) != 2 {
+		t.Error("削除ごとに確認ダイアログの見出しとラベルがある")
+	}
 }
 
 func TestConnectionList_Empty(t *testing.T) {

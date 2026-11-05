@@ -51,10 +51,12 @@ templ RecoveryContent(p RecoveryProps) {
 	}
 	<div>
 		@atoms.Button(atoms.ButtonProps{Label: "保存データを初期化する", Variant: atoms.ButtonDanger, Attrs: templ.Attributes{
-			"hx-post":         paths.RecoveryReset,
-			"hx-target":       "#main",
-			"hx-confirm":      "接続と設定を消去して初期化します。よろしいですか？",
-			"hx-disabled-elt": "this",
+			"hx-post":            paths.RecoveryReset,
+			"hx-target":          "#main",
+			"hx-confirm":         "接続と設定を消去して初期化します。よろしいですか？",
+			"data-confirm-title": "保存データを初期化",
+			"data-confirm-label": "初期化する",
+			"hx-disabled-elt":    "this",
 		}})
 	</div>
 }

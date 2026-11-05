@@ -1,0 +1,57 @@
+/*
+ * フォント。Ousiass デザインガイドの指定（Sora + Noto Sans JP、コードと桁を揃える数値は JetBrains Mono）と、
+ * Nerd Font のアイコン（私用領域 PUA）用の Symbols Only を同梱する（docs/requirements/non-functional.md NFR-SEC-9）。
+ * CSP（default-src 'self'）に合わせ、フォントはこの CSS からの相対パス（/static/fonts/）で配る。
+ * 元ファイルは static/src/fonts/（Taskfile の generate が static/dist/fonts/ へコピーする）。
+ * ウェイトは Regular 400 と SemiBold 600（見出しとボタンだけ）。Mono は 400 のみ。
+ * Noto Sans JP は JIS X 0208 の全文字 + ASCII + 半角カナのサブセット。範囲外の字は OS のフォントで描かれる。
+ * Symbols Nerd Font は unicode-range を PUA に絞るので、PUA の文字が現れるまで読み込まれない。
+ */
+@font-face {
+  font-family: Sora;
+  src: url("../fonts/Sora-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: Sora;
+  src: url("../fonts/Sora-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans JP";
+  src: url("../fonts/NotoSansJP-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans JP";
+  src: url("../fonts/NotoSansJP-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("../fonts/JetBrainsMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Symbols Nerd Font";
+  src: url("../fonts/SymbolsNerdFontMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+E000-F8FF, U+F0000-FFFFD;
+}

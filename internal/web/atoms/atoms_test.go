@@ -98,6 +98,16 @@ func TestButton_HostsRipple(t *testing.T) {
 	webtest.MustContain(t, webtest.Render(t, atoms.Button(atoms.ButtonProps{Label: "保存"})), "relative", "overflow-clip")
 }
 
+// ConfirmDialog は確認・破壊的操作の中央モーダル（ネイティブ dialog・--r-xl・--shadow-modal）。確定は危険ボタン。
+// 文言・見出し・ラベルは app.js が htmx:confirm で textContent に差し込むので、描画時は空・既定値で、インライン script を持たない（O2・NFR-SEC-9）。
+func TestConfirmDialog(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, atoms.ConfirmDialog())
+	webtest.MustContain(t, html, `<dialog id="confirm-dialog"`, "data-modal", "rounded-xl", "shadow-modal", "m-auto",
+		"data-confirm-title", "data-confirm-message", "data-confirm-action", "bg-danger", `data-modal-result="cancel"`, "キャンセル")
+	webtest.MustNotContain(t, html, "<script", "onclick", "hx-on", " open")
+}
+
 func TestButton(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, atoms.Button(atoms.ButtonProps{Label: "削除", Variant: atoms.ButtonDanger, Attrs: templ.Attributes{"hx-delete": "/connections/x", "hx-confirm": `"確認" <ok>`}}))

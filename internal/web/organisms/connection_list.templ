@@ -54,11 +54,13 @@ templ ConnectionList(p ConnectionListProps) {
 							}})
 						}
 						@atoms.Button(atoms.ButtonProps{Label: "削除", Variant: atoms.ButtonDanger, Attrs: templ.Attributes{
-							"hx-delete":       paths.Connection(c.ID),
-							"hx-confirm":      deleteConfirm(c.Name),
-							"hx-target":       "#" + ConnectionListID,
-							"hx-swap":         "outerHTML",
-							"hx-disabled-elt": "this",
+							"hx-delete":          paths.Connection(c.ID),
+							"hx-confirm":         deleteConfirm(c.Name),
+							"data-confirm-title": "接続を削除",
+							"data-confirm-label": "削除",
+							"hx-target":          "#" + ConnectionListID,
+							"hx-swap":            "outerHTML",
+							"hx-disabled-elt":    "this",
 						}})
 					</li>
 				}
