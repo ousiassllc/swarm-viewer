@@ -44,7 +44,7 @@ func buttonType(t string) string {
 templ Button(p ButtonProps) {
 	<button
 		type={ buttonType(p.Type) }
-		class={ "inline-flex h-8 items-center gap-2 rounded-md px-4 text-sm font-semibold disabled:opacity-40", buttonClass(p.Variant) }
+		class={ "relative inline-flex h-8 items-center gap-2 overflow-clip rounded-md px-4 text-sm font-semibold disabled:opacity-40", buttonClass(p.Variant) }
 		{ p.Attrs... }
 	>
 		{ p.Label }

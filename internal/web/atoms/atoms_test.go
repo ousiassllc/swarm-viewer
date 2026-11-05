@@ -41,7 +41,7 @@ func TestSpinner(t *testing.T) {
 func TestToast(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, atoms.Toast(atoms.ToastProps{Message: "保存しました"}))
-	webtest.MustContain(t, html, `id="toasts"`, `hx-swap-oob="true"`, `role="status"`, "保存しました")
+	webtest.MustContain(t, html, `id="toasts"`, `hx-swap-oob="true"`, `role="status"`, "保存しました", "fade-in")
 }
 
 // Alert は種類ごとにアイコン（装飾の svg）・文言・色を持ち、本文はエスケープされる（ガイド C4）。
@@ -61,7 +61,8 @@ func TestAlert_KindsHaveIconAndText(t *testing.T) {
 	}
 	for _, tt := range tests {
 		html := webtest.Render(t, atoms.Alert(atoms.AlertProps{Kind: tt.kind, Message: "<b>x</b>"}))
-		webtest.MustContain(t, html, tt.role, tt.color, tt.icon, `<svg`, `aria-hidden="true"`, "&lt;b&gt;")
+		// 出現はフェードイン（.fade-in）。ポーリングの再描画で繰り返さないために data-alert で app.js が見分ける（M5）。
+		webtest.MustContain(t, html, tt.role, tt.color, tt.icon, `<svg`, `aria-hidden="true"`, "&lt;b&gt;", "fade-in", "data-alert")
 		webtest.MustNotContain(t, html, "<b>")
 	}
 }
@@ -78,7 +79,7 @@ func TestAlert_AttrsAndEmptyMessage(t *testing.T) {
 func TestCheckbox(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, atoms.Checkbox(atoms.CheckboxProps{Name: "debug_log", Value: "on", Checked: true}))
-	webtest.MustContain(t, html, `type="checkbox"`, `name="debug_log"`, `value="on"`, " checked ", "h-[18px] w-[18px]", "rounded-sm", "border-mute", "appearance-none", "peer-checked:block", "M5 13.3636L8.03559")
+	webtest.MustContain(t, html, `type="checkbox"`, `name="debug_log"`, `value="on"`, " checked ", "h-[18px] w-[18px]", "rounded-sm", "border-mute", "appearance-none", "peer-checked:visible", "M5 13.3636L8.03559")
 	webtest.MustNotContain(t, html, "accent-accent")
 	webtest.MustNotContain(t, webtest.Render(t, atoms.Checkbox(atoms.CheckboxProps{Name: "n", Value: "on"})), " checked ")
 }
@@ -89,6 +90,12 @@ func TestEmptyState(t *testing.T) {
 	html := webtest.Render(t, atoms.EmptyState(atoms.EmptyStateProps{Message: "<b>なし</b>"}))
 	webtest.MustContain(t, html, "border-dashed", "rounded-lg", "p-6", "md:p-12", "h-8 w-8", `aria-hidden="true"`, "&lt;b&gt;")
 	webtest.MustNotContain(t, html, "<b>")
+}
+
+// ボタンの押下のリップルは円をボタン内に収める（relative overflow-clip。M4。smoke テストが "hidden" を禁じるので overflow-hidden は使わない）。
+func TestButton_HostsRipple(t *testing.T) {
+	t.Parallel()
+	webtest.MustContain(t, webtest.Render(t, atoms.Button(atoms.ButtonProps{Label: "保存"})), "relative", "overflow-clip")
 }
 
 func TestButton(t *testing.T) {

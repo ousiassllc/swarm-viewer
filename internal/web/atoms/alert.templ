@@ -22,7 +22,7 @@ type AlertProps struct {
 }
 
 func alertClass(k AlertKind) string {
-	const base = "flex items-start gap-2 rounded-lg border px-4 py-3 text-sm "
+	const base = "fade-in flex items-start gap-2 rounded-lg border px-4 py-3 text-sm "
 	switch k {
 	case AlertInfo:
 		return base + "border-info/60 bg-info/10 text-info"
@@ -59,7 +59,7 @@ func alertRole(k AlertKind) string {
 // Alert はインラインアラート（アイコン＋本文）。状態は色だけでなく、アイコンと文言でも伝える。
 // 応答全体の失敗（Recover・CSRF・404 など）、フォームのエラー、取得失敗・警告のバナーはすべてこれに載せる。
 templ Alert(p AlertProps) {
-	<div role={ alertRole(p.Kind) } class={ alertClass(p.Kind) } { p.Attrs... }>
+	<div role={ alertRole(p.Kind) } data-alert class={ alertClass(p.Kind) } { p.Attrs... }>
 		@Icon(alertIcon(p.Kind), "mt-0.5 h-5 w-5")
 		<div class="flex min-w-0 flex-1 flex-col gap-1">
 			if p.Message != "" {

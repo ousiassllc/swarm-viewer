@@ -305,16 +305,18 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | 接続削除 | `hx-delete="/connections/{cid}"` `hx-confirm` | アクション |
 | 共通 | `hx-disabled-elt="this"`、`hx-indicator` | 二重送信防止・ローディング表示。Optimistic UI とスケルトンは使わない |
 
-`static/dist/js/app.js`（外部ファイル。CSP の `script-src 'self'` で許可される。インラインではない）は次の 3 つだけを行う。
+`static/dist/js/app.js`（外部ファイル。CSP の `script-src 'self'` で許可される。インラインではない）は次の 5 つだけを行う。
 
 - `htmx:beforeRequest` で、`document.hidden` のあいだ `…/snapshot` へのリクエストを `preventDefault()` で取り消す（FR-POLL-3）
 - `visibilitychange` で `document.hidden` が `false` になったら `htmx.trigger(document.body, 'refresh')` を発火し、即時取得する（NFR-AVL-4）
-- `htmx:oobAfterSwap` で `#toasts` が差し替わったら、3 秒後に `#toasts` の中身を空にする（NFR-DSG-5）
+- `htmx:oobAfterSwap` で `#toasts` が差し替わったら、3 秒後にトーストへ `is-leaving`（フェードアウト 240ms）を付け、`animationend` で `#toasts` の中身を空にする。`prefers-reduced-motion: reduce` ではすぐ空にする（NFR-DSG-5・6）
+- `htmx:afterSwap`・`htmx:oobAfterSwap` で、差し替え前から画面にあったアラート（`[data-alert]`）と同じ文言のものに `is-settled` を付け、ポーリングの再描画でフェードインを繰り返さない。`htmx:afterSettle` で「いま画面にあるアラートの文言」を記録し直す（NFR-DSG-6）
+- `pointerdown` でボタン内にリップル（`.ripple`。280ms）を足す。円の大きさと位置は CSSOM（`element.style`）で決める（マークアップの `style` 属性ではないので CSP の `style-src 'self'` に反しない）。reduced-motion では足さない（NFR-DSG-6）
 
 HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>` をレイアウトの `<head>` に置く。`allowEval:false` で eval を使う機能（トリガーフィルタ、`hx-on:`・`js:` 構文）を無効にし、`includeIndicatorStyles:false` で htmx が注入するインライン `<style>` を止める（`style-src 'self'` に反するため）。`.htmx-indicator` の表示切替は `app.css`（Tailwind）に書く。
 
 - Lit コンポーネントは使わないため、HTMX ↔ Lit 境界ルールは適用しない（[アーキテクチャ設計 §8](../architecture/overview.md)）
-- トーストの 3 秒消去（`htmx:oobAfterSwap` で `#toasts` を空にする）だけをクライアントで処理する。通信障害（`htmx:responseError`）の汎用表示は持たない（アプリ内通信のため通常は起きない）
+- トーストの 3 秒消去・アラートのフェード・ボタンのリップルだけをクライアントで処理する。通信障害（`htmx:responseError`）の汎用表示は持たない（アプリ内通信のため通常は起きない）
 
 ## 5. 変更の影響範囲
 
@@ -333,3 +335,4 @@ HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"include
 | 1.2 | 2026-11-04 | 通常モードのルートから 302・303 を撤去（フルページはその場に描画、HX は `HX-Redirect`）。メイン画面の初回描画をホストへの通信なしにし、タブを snapshot 応答の OOB で更新する | WebKit の WebView が `http.Redirect` を扱えないため。到達不能なホストで初回表示が遅れるため |
 | 1.3 | 2026-11-05 | `usage.claude[]`・`codex[]` に `reason`（2 枠とも取れない理由）を追加し、2 枠とも `available: false` は 1 行表示と明記 | Issue #11（swarm-console #87 の `reason` に備える） |
 | 1.4 | 2026-11-05 | `report` の `host.mem` を読むキーに追加（無い古い swarm-console では「—」） | Issue #10（swarm-console #86 の `host.mem` に備える） |
+| 1.5 | 2026-11-05 | `app.js` の役割に、トーストの退出フェード・アラートのフェードの重複抑止・ボタンのリップルを追記 | Issue #36（デザインガイド M4・M5） |
