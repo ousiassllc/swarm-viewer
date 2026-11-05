@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,6 +44,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
 import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
+import com.ousiassllc.swarmviewer.ui.theme.AppPullToRefreshIndicator
 import java.time.Instant
 
 /**
@@ -86,7 +88,15 @@ fun MainScreen(
                 state.noConnections -> EmptyConnections(onManageConnections)
                 else -> {
                     SessionTabs(state.sessions, state.session, viewModel::selectSession)
-                    PullToRefreshBox(isRefreshing = state.refreshing, onRefresh = viewModel::refresh, modifier = Modifier.fillMaxSize()) {
+                    val pullState = rememberPullToRefreshState()
+                    PullToRefreshBox(
+                        isRefreshing = state.refreshing,
+                        onRefresh = viewModel::refresh,
+                        modifier = Modifier.fillMaxSize(),
+                        state = pullState,
+                        // 既定のインジケーターは影を付ける（ガイド S3: 影はモーダルだけ）ので、影なしの自前の部品に置き換える。
+                        indicator = { AppPullToRefreshIndicator(state = pullState, isRefreshing = state.refreshing) },
+                    ) {
                         MainContent(state, widthClass != WindowWidthSizeClass.Compact, onRepair)
                     }
                 }

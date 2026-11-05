@@ -1,7 +1,10 @@
 package com.ousiassllc.swarmviewer.ui.theme
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -10,12 +13,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +33,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshState
+import androidx.compose.material3.pulltorefresh.pullToRefreshIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +44,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.VisualTransformation
@@ -286,4 +294,56 @@ fun AppSwitch(
                 uncheckedBorderColor = scheme.outline,
             ),
     )
+}
+
+/** 引っ張って更新のインジケーターの外径（M3 の `SpinnerContainerSize` と同じ）と、中の円形進捗の径。 */
+private val RefreshIndicatorSize = 40.dp
+private val RefreshSpinnerSize = 24.dp
+
+/**
+ * 引っ張って更新のインジケーター（ガイド S3・§6: 影はモーダルだけ）: surface の円・1dp の border・影なし・中は primary の円形進捗。
+ * M3 の既定（`PullToRefreshDefaults.Indicator`）は引っ張り始めから更新中まで 2 段の影を付けるので、影を 0 にした自前の面に置き換える。
+ * 引っ張っている間は進捗が引っ張り量に追従し、更新中は不定の回転になる。`PullToRefreshBox` の `indicator` に渡す。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BoxScope.AppPullToRefreshIndicator(
+    state: PullToRefreshState,
+    isRefreshing: Boolean,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Box(
+        modifier =
+            Modifier
+                .align(Alignment.TopCenter)
+                .size(RefreshIndicatorSize)
+                .pullToRefreshIndicator(
+                    state = state,
+                    isRefreshing = isRefreshing,
+                    shape = CircleShape,
+                    containerColor = scheme.surface,
+                    elevation = 0.dp,
+                ).border(1.dp, scheme.outline, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        val spinnerModifier = Modifier.size(RefreshSpinnerSize)
+        if (isRefreshing) {
+            CircularProgressIndicator(
+                modifier = spinnerModifier,
+                color = scheme.primary,
+                strokeWidth = 2.dp,
+                trackColor = Color.Transparent,
+                strokeCap = StrokeCap.Round,
+            )
+        } else {
+            CircularProgressIndicator(
+                progress = { state.distanceFraction.coerceIn(0f, 1f) },
+                modifier = spinnerModifier,
+                color = scheme.primary,
+                strokeWidth = 2.dp,
+                trackColor = Color.Transparent,
+                strokeCap = StrokeCap.Round,
+            )
+        }
+    }
 }

@@ -305,6 +305,8 @@ func TestSessionTabs(t *testing.T) {
 		Sessions: []domain.Session{{ID: "0", Allowed: true}, {ID: "1", Allowed: true}, {ID: "hidden", Allowed: false}},
 	}))
 	webtest.MustContain(t, html, `hx-get="/connections/c1/sessions/0"`, `hx-get="/connections/c1/sessions/1"`)
+	// タブ間は 24px（ガイドのタブ見本。S2）。
+	webtest.MustContain(t, html, "gap-6")
 	webtest.MustNotContain(t, html, "hidden")
 	if strings.Count(html, "aria-current") != 1 {
 		t.Error("選択中は 1 つだけ")
