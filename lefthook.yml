@@ -41,3 +41,6 @@ pre-push:
     test:
       priority: 2
       run: go test ./...
+    js-test:
+      priority: 3
+      run: bun test static/src/js

@@ -6,6 +6,7 @@
     "@biomejs/biome": "2.6.4",
     "@linterly/cli": "0.3.3",
     "@tailwindcss/cli": "4.3.4",
+    "happy-dom": "^21.0.4",
     "htmx-ext-response-targets": "2.0.4",
     "htmx.org": "2.0.11",
     "lefthook": "2.2.2",

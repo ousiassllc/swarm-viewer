@@ -2,50 +2,111 @@ package static_test
 
 import (
 	"io/fs"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/ousiassllc/swarm-viewer/static"
 )
 
-// 確認はネイティブの dialog で取る（hx-confirm の window.confirm を使わない）。スクラムはトークン（--scrim）で、ダークでは暗い色に切り替わる。
-// 外側クリック・Esc・フェードアウト・showModal への引き上げ・htmx:confirm を modal.js が受ける（ガイド O1・O2）。
-func TestModal_ModalJSAndCSS(t *testing.T) {
-	t.Parallel()
+// readAppCSS は埋め込まれた app.css（生成物）を読む。
+//
+// モーダル（確認ダイアログ・Esc・外側クリック・data-dismiss・退出フェードなど）の JS の挙動は、static/src/js/modal.test.js・app.test.js
+// （`bun test static/src/js`。CI の test ジョブと task test が実行する）で確かめる。このファイルは CSS のトークンだけを見る。
+func readAppCSS(t *testing.T) string {
+	t.Helper()
 
-	js, err := fs.ReadFile(static.FS(), "js/modal.js")
-	if err != nil {
-		t.Fatalf("js/modal.js を読めない（先に task generate を実行する）: %v", err)
-	}
-	for _, want := range []string{`"htmx:confirm"`, "showModal()", "issueRequest", "data-dismiss", "dataset.dismiss", `"cancel"`, "getBoundingClientRect", "data-modal-result", "data-modal-close", "textContent"} {
-		if !strings.Contains(string(js), want) {
-			t.Errorf("modal.js に %q が無い", want)
-		}
-	}
-	if strings.Contains(string(js), "window.confirm") {
-		t.Error("modal.js が window.confirm を呼んでいる")
-	}
-
-	css, err := fs.ReadFile(static.FS(), "css/app.css")
+	data, err := fs.ReadFile(static.FS(), "css/app.css")
 	if err != nil {
 		t.Fatalf("css/app.css を読めない（先に task generate を実行する）: %v", err)
 	}
-	for _, want := range []string{"dialog.modal::backdrop", "background-color:var(--scrim)", "@keyframes backdrop-in", "@keyframes backdrop-out", "--scrim:"} {
-		if !strings.Contains(string(css), want) {
-			t.Errorf("app.css に %q が無い", want)
+	return string(data)
+}
+
+// braceBlock は s の open（"{" の位置）から対応する "}" までの中身（波括弧は含まない）と、次の位置を返す。対応が無ければ ok=false。
+func braceBlock(s string, open int) (body string, next int, ok bool) {
+	depth := 0
+	for i := open; i < len(s); i++ {
+		switch s[i] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return s[open+1 : i], i + 1, true
+			}
 		}
 	}
-	// モーダルの影はダークで見えるよう、prefers-color-scheme: dark のブロックでライトより濃い値（.4）に切り替える（ガイド C5）。
-	dark := string(css)
-	start := strings.Index(dark, "prefers-color-scheme:dark")
-	if start < 0 {
+	return "", 0, false
+}
+
+var (
+	darkMediaRE    = regexp.MustCompile(`@media\s*\(\s*prefers-color-scheme\s*:\s*dark\s*\)\s*\{`)
+	backdropRuleRE = regexp.MustCompile(`dialog\.modal::backdrop\s*\{`)
+	shadowModalRE  = regexp.MustCompile(`--shadow-modal\s*:\s*([^;}]+)`)
+)
+
+// darkBlocksAndRest は CSS を、prefers-color-scheme: dark の @media ブロックの中身（連結）と、それ以外に分ける。
+func darkBlocksAndRest(t *testing.T, css string) (dark, rest string) {
+	t.Helper()
+
+	var darkParts, restParts []string
+	pos := 0
+	for _, loc := range darkMediaRE.FindAllStringIndex(css, -1) {
+		if loc[0] < pos {
+			continue // 別のダークのブロックの中にある
+		}
+		body, next, ok := braceBlock(css, loc[1]-1)
+		if !ok {
+			t.Fatalf("prefers-color-scheme: dark のブロックの波括弧が閉じていない: %.80s", css[loc[0]:])
+		}
+		restParts = append(restParts, css[pos:loc[0]])
+		darkParts = append(darkParts, body)
+		pos = next
+	}
+	restParts = append(restParts, css[pos:])
+	return strings.Join(darkParts, "\n"), strings.Join(restParts, "\n")
+}
+
+// モーダルの影はダークで見えるよう、prefers-color-scheme: dark のブロックでライトとは別の（濃い）値に上書きする（ガイド C5）。
+// Tailwind の minify の書き方（0 1px 2px #0006 など）には依存せず、ダークのブロックに --shadow-modal があり、
+// ライト側の値と違うことだけを見る。
+func TestAppCSS_ShadowModalIsOverriddenInDark(t *testing.T) {
+	t.Parallel()
+
+	dark, rest := darkBlocksAndRest(t, readAppCSS(t))
+	if dark == "" {
 		t.Fatal("app.css に prefers-color-scheme: dark のブロックが無い")
 	}
-	dark = dark[start:]
-	if end := strings.Index(dark, "@property"); end >= 0 {
-		dark = dark[:end]
+	darkValue := shadowModalRE.FindStringSubmatch(dark)
+	if darkValue == nil {
+		t.Fatalf("ダークのブロックに --shadow-modal が無い: %s", dark)
 	}
-	if !strings.Contains(dark, "--shadow-modal:0 1px 2px #0006") {
-		t.Errorf("ダークのブロックに --shadow-modal（0 1px 2px rgb(0 0 0 / .4)）が無い: %s", dark)
+	lightValue := shadowModalRE.FindStringSubmatch(rest)
+	if lightValue == nil {
+		t.Fatal("ダーク以外に --shadow-modal の定義（ライト）が無い")
+	}
+	if strings.TrimSpace(darkValue[1]) == strings.TrimSpace(lightValue[1]) {
+		t.Errorf("--shadow-modal がダークでもライトと同じ値のまま: %s", darkValue[1])
+	}
+}
+
+// モーダルのスクラム（::backdrop）はトークン --scrim の色で、出現と退出のフェードのキーフレームを持つ（ガイド O1）。
+func TestAppCSS_ModalBackdropUsesScrimToken(t *testing.T) {
+	t.Parallel()
+
+	css := readAppCSS(t)
+	loc := backdropRuleRE.FindStringIndex(css)
+	if loc == nil {
+		t.Fatal("app.css に dialog.modal::backdrop の規則が無い")
+	}
+	rule, _, ok := braceBlock(css, loc[1]-1)
+	if !ok || !strings.Contains(rule, "var(--scrim)") {
+		t.Errorf("dialog.modal::backdrop が --scrim を使っていない: %s", rule)
+	}
+	for _, name := range []string{"backdrop-in", "backdrop-out"} {
+		if !strings.Contains(css, "@keyframes "+name) {
+			t.Errorf("app.css に @keyframes %s が無い", name)
+		}
 	}
 }

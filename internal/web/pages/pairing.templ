@@ -59,7 +59,7 @@ type DraftProps struct {
 	HasConnections bool
 }
 
-// DraftDiscardID は確認モーダルの「破棄」ボタンの id。外側クリック・Esc の閉じる操作はこのボタンの押下になる（app.js の data-dismiss）。
+// DraftDiscardID は確認モーダルの「破棄」ボタンの id。外側クリック・Esc の閉じる操作はこのボタンの押下になる（modal.js の data-dismiss）。
 const DraftDiscardID = "draft-discard"
 
 // PairingDraftPage はペアリング確認のフルページ（貼り付け画面の上に確認モーダルを開いた状態）。
@@ -71,7 +71,7 @@ templ PairingDraftPage(shell layout.BaseProps, p DraftProps) {
 
 // PairingDraftContent はペアリング確認のフラグメント。背面に貼り付け画面、その上に中央モーダルで
 // 表示名・接続先ホスト・申告された許可セッションを見せ、確定（confirm）と破棄（discard）を用意する（ガイド O1・O2）。
-// モーダルは `open` 付きで出し、app.js が showModal() に引き上げる（スクラム・フォーカスの閉じ込め・Esc）。
+// モーダルは `open` 付きで出し、modal.js が showModal() に引き上げる（スクラム・フォーカスの閉じ込め・Esc）。
 // 外側クリック・Esc は破棄として扱う（`data-dismiss`）。保存するまで何も保存しない（NFR-SEC-4）。
 templ PairingDraftContent(p DraftProps) {
 	@PairingContent(PairingProps{HasConnections: p.HasConnections})

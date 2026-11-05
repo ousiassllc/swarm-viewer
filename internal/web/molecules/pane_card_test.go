@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
 	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
 	"github.com/ousiassllc/swarm-viewer/internal/web/webtest"
 )
@@ -34,16 +36,17 @@ func TestPaneCard_StateLabels(t *testing.T) {
 	}
 }
 
-// 状態を示すバッジには点（マーカー）があり、エージェント名のバッジにはない（C4）。
+// 状態を示すバッジには点（Marker）があり、エージェント名のバッジにはない（C4）。
+// 両方のバッジを単体でレンダリングし、その HTML がカードにそのまま入っていることで見る（個数や出現位置には頼らない）。
 func TestPaneCard_StateBadgeHasMarkerAgentBadgeDoesNot(t *testing.T) {
 	t.Parallel()
+	stateBadge := webtest.Render(t, atoms.Badge(atoms.BadgeProps{Text: format.StateLabel(domain.StateIdle), Tone: format.StateTone(domain.StateIdle), Marker: true}))
+	agentBadge := webtest.Render(t, atoms.Badge(atoms.BadgeProps{Text: "claude", Tone: format.ToneMuted}))
+	webtest.MustContain(t, stateBadge, "bg-current")
+	webtest.MustNotContain(t, agentBadge, "bg-current")
+
 	html := webtest.Render(t, molecules.PaneCard(molecules.PaneCardProps{Pane: domain.Pane{Pos: "T1", Agent: str("claude"), State: domain.StateIdle, Title: "t"}}))
-	if got := strings.Count(html, "bg-current"); got != 1 {
-		t.Fatalf("点は状態のバッジだけに 1 つ: %d\n%s", got, html)
-	}
-	if strings.Index(html, "claude") > strings.Index(html, "bg-current") {
-		t.Errorf("エージェント名のバッジ（点なし）が先にある: %s", html)
-	}
+	webtest.MustContain(t, html, stateBadge, agentBadge)
 }
 
 // ペインカードは読み取り専用（FR-PANE・機能要件 §4.4）。

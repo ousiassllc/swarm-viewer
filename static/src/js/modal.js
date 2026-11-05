@@ -5,6 +5,15 @@
   const prefersReducedMotion = () =>
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // 時間は CSS のトークンが唯一の出どころで、JS は数値を持たず読む（ガイド M1）。minify で ms が s になるので単位を見る。app.js の同名の関数と同じ。
+  const cssDurationMs = (name) => {
+    const root = getComputedStyle(document.documentElement);
+    const value = root.getPropertyValue(name);
+    return Number.parseFloat(value) * (value.includes("ms") ? 1 : 1000);
+  };
+  // 退出フェードの animationend が来ないときのフォールバックを、フェードの時間にどれだけ足して待つか。
+  const FADE_FALLBACK_MARGIN_MS = 100;
+
   // モーダルは、ネイティブの <dialog>（showModal() でフォーカスの閉じ込め・Esc・::backdrop が付く）に載せる（ガイド O1・O2）。
   // - 外側（スクラム）クリックと Esc は「閉じる」要求。data-dismiss があればそのボタンを押し（ペアリング確認では「破棄」）、
   //   無ければ何も送らず閉じる。
@@ -20,16 +29,27 @@
       return;
     }
     dialog.classList.add("is-leaving");
+    // animationend が来ない場合（アニメーションが走らない・タブが裏で止まる）に備えて、フェードアウトの時間より少し長いタイマーでも閉じる。
+    // animationend が先に来たらタイマーは解除する。
+    let fallbackTimer;
+    const finish = () => {
+      clearTimeout(fallbackTimer);
+      dialog.removeEventListener("animationend", onEnd);
+      dialog.classList.remove("is-leaving");
+      dialog.close(result);
+    };
     const onEnd = (event) => {
       // 中身（スピナー・リップル）の animationend・::backdrop 側の animationend では閉じない。
       if (event.target !== dialog || event.pseudoElement) {
         return;
       }
-      dialog.removeEventListener("animationend", onEnd);
-      dialog.classList.remove("is-leaving");
-      dialog.close(result);
+      finish();
     };
     dialog.addEventListener("animationend", onEnd);
+    fallbackTimer = setTimeout(
+      finish,
+      cssDurationMs("--motion-fade-out") + FADE_FALLBACK_MARGIN_MS,
+    );
   };
 
   const dismissModal = (dialog) => {

@@ -157,6 +157,9 @@ jobs:
       - run: |
           # shellcheck disable=SC2086
           go test ${LINUX_PKGS}
+      # app.js・modal.js の挙動テスト（bun のテストランナー + happy-dom。ブラウザ不要）。
+      - name: JS の挙動テスト
+        run: bun test static/src/js
       # release.yml の plan ジョブが使う plan-release.sh の表駆動テスト（ネットワーク不要）。
       - name: plan-release.sh のテスト
         run: bash .github/scripts/plan-release_test.sh

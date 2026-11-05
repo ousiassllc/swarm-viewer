@@ -72,6 +72,7 @@ tasks:
     cmds:
       - task: generate
       - go test ./...
+      - bun test static/src/js
 
   build:
     summary: 生成物を作ってから Wails でビルドする（`wails3 build` はこのタスクを実行する）
