@@ -403,7 +403,7 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 | atoms | `Checkbox` | `Name`・`Value`・`Checked` | 18px・`--r-sm`・外枠 `--mute`。オンの印は Iconoir の `check`（インライン SVG。16px = `--icon-sm` を箱の中央に置く） |
 | atoms | `EmptyState` | `Message`・子要素 | 空状態（破線の枠・`--r-lg`・padding 48 / モバイル 24・32px のアイコン＋文言＋子要素の主ボタン）。ローディングは `Spinner` を使う |
 | atoms | `ConfirmDialog` | なし | 確認・破壊的操作の中央モーダル。レイアウトに 1 つだけ置き、`app.js` が `htmx:confirm`（`hx-confirm`）で開く。見出し・ラベルは要素の `data-confirm-title`・`data-confirm-label` |
-| atoms | `Button` / `Input` | 通常の属性 | `Input`・select・textarea は `FieldClass`（高さ 40・文字 16px） |
+| atoms | `Button` / `Input` | 通常の属性 | `Input`・select・textarea は `FieldClass`（高さ 40・文字 16px）。`Button` は `cursor-pointer`、無効（処理中の `hx-disabled-elt` を含む）は `cursor-not-allowed` |
 | molecules | `PaneCard` | `Pane`・`Stale`・`Highlight`・`ReportWaiting` | 状態ラベル・activity・note 要約。`ReportWaiting` は state バッジの隣に「報告待ち」を出す。操作ボタンは**持たない** |
 | molecules | `UsageRow` | `Label`・`Slot` | `unit` で percent / usd を出し分け。`available: false` は「—」 |
 | molecules | `HostRow` | `Label`・`Percent`・`Detail` | |

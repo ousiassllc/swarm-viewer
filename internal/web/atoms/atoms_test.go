@@ -140,6 +140,14 @@ func TestButton(t *testing.T) {
 	webtest.MustContain(t, webtest.Render(t, atoms.Button(atoms.ButtonProps{Label: "送信", Type: "submit"})), `type="submit"`)
 }
 
+// ボタンは押せることをカーソルで伝え、無効（処理中の hx-disabled-elt を含む）は not-allowed にする（ガイド O7）。
+func TestButton_Cursor(t *testing.T) {
+	t.Parallel()
+	for _, v := range []atoms.ButtonVariant{atoms.ButtonPrimary, atoms.ButtonSecondary, atoms.ButtonDanger} {
+		webtest.MustContain(t, webtest.Render(t, atoms.Button(atoms.ButtonProps{Label: "x", Variant: v})), "cursor-pointer", "disabled:cursor-not-allowed", "disabled:opacity-40")
+	}
+}
+
 // ボタンの大きさは標準（高さ 40・padding 18・16px）と小（高さ 32・padding 12・14px）（ガイド O7）。ゼロ値は標準。
 func TestButton_Sizes(t *testing.T) {
 	t.Parallel()
