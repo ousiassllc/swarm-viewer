@@ -18,6 +18,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -207,4 +209,31 @@ fun AppEmptyState(
         Text(message, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
         content()
     }
+}
+
+/**
+ * スイッチ（ガイド `.sw2`）: オフはトラック accent-soft（surfaceVariant）・border の枠・つまみ surface、オンはトラック accent（primary）・つまみ bone（background）。
+ * Material の既定はオフのつまみもトラックも border / accent-soft と同じ値になり、つまみがトラックに溶けるので色を明示する。
+ * 操作は呼び出し側の行（toggleable）が受けるので、`onCheckedChange` は null のまま使う。
+ */
+@Composable
+fun AppSwitch(
+    checked: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Switch(
+        checked = checked,
+        onCheckedChange = null,
+        modifier = modifier,
+        colors =
+            SwitchDefaults.colors(
+                checkedThumbColor = scheme.background,
+                checkedTrackColor = scheme.primary,
+                checkedBorderColor = scheme.primary,
+                uncheckedThumbColor = scheme.surface,
+                uncheckedTrackColor = scheme.surfaceVariant,
+                uncheckedBorderColor = scheme.outline,
+            ),
+    )
 }

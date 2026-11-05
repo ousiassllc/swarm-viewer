@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,6 +24,7 @@ import com.ousiassllc.swarmviewer.ui.main.NoticeText
 import com.ousiassllc.swarmviewer.ui.theme.AlertKind
 import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
+import com.ousiassllc.swarmviewer.ui.theme.AppSwitch
 
 /** 通知確認間隔の下に常に出す注記（機能要件 §12.4、FR-AND-7）。 */
 const val DOZE_NOTE = "Doze・バッテリー最適化により、通知は設定した間隔より遅れることがあります"
@@ -64,7 +64,7 @@ fun NotificationSettings(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text("答え待ち・止まってるかもを通知する")
-            Switch(checked = settings.notificationsEnabled, onCheckedChange = null)
+            AppSwitch(checked = settings.notificationsEnabled)
         }
         if (state.showsPermissionGuide) PermissionGuide(context)
         Text("通知確認間隔（バックグラウンド）", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
