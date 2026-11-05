@@ -11,6 +11,7 @@ import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
+import okhttp3.mockwebserver.SocketPolicy
 import java.net.InetAddress
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -66,6 +67,9 @@ internal class FakeConsole(
     /** null でなければ、tools/call の本文をこの JSON-RPC 応答（id 2）にする。 */
     @Volatile var rpcOverride: String? = null
 
+    /** 応答のあと接続を閉じる（`Connection: close` は付けない。待機中の接続をサーバーが閉じた状況の再現）。 */
+    @Volatile var closeAfterResponse = false
+
     /** すべての応答のヘッダーをこのミリ秒だけ遅らせる（合計時間の上限の検査用）。 */
     @Volatile var delayMillis = 0L
 
@@ -83,7 +87,10 @@ internal class FakeConsole(
     fun rpcMethods(): List<String> = seen.filter { it.httpMethod == "POST" }.mapNotNull { it.rpcMethod }
 
     override fun dispatch(request: RecordedRequest): MockResponse =
-        answer(request).also { if (delayMillis > 0) it.setHeadersDelay(delayMillis, TimeUnit.MILLISECONDS) }
+        answer(request).also {
+            if (delayMillis > 0) it.setHeadersDelay(delayMillis, TimeUnit.MILLISECONDS)
+            if (closeAfterResponse) it.setSocketPolicy(SocketPolicy.DISCONNECT_AT_END)
+        }
 
     private fun answer(request: RecordedRequest): MockResponse {
         val body = request.body.readUtf8()

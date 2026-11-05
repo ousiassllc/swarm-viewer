@@ -1,6 +1,5 @@
 package com.ousiassllc.swarmviewer.data.store
 
-import com.ousiassllc.swarmviewer.data.secret.TokenStore
 import com.ousiassllc.swarmviewer.domain.Connection
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -19,28 +18,9 @@ private suspend inline fun <reified T : Throwable> assertFailsWith(block: () -> 
     throw AssertionError("${T::class.simpleName} が投げられなかった")
 }
 
-private class MapTokenStore : TokenStore {
-    val tokens = HashMap<String, String>()
-    var failDelete = false
-
-    override fun put(
-        connectionId: String,
-        token: String,
-    ) {
-        tokens[connectionId] = token
-    }
-
-    override fun get(connectionId: String): String? = tokens[connectionId]
-
-    override fun delete(connectionId: String) {
-        if (failDelete) throw IOException("cannot delete")
-        tokens.remove(connectionId)
-    }
-}
-
 class ConnectionRepositoryTest {
     private val store = FakeViewerStore()
-    private val tokens = MapTokenStore()
+    private val tokens = FakeTokenStore()
     private val repository = ConnectionRepository(store, tokens)
 
     private suspend fun seed() {

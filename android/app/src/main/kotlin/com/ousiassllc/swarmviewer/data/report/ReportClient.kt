@@ -48,8 +48,11 @@ fun interface FetchLogger {
 }
 
 /**
- * 環境のプロキシを使わず、リダイレクトに追従せず、接続失敗でも再試行しない [OkHttpClient]。
- * token を意図しない宛先へ流さないため（デスクトップ版と同じ）。
+ * 環境のプロキシを使わず、リダイレクトに追従しない [OkHttpClient]。token を意図しない宛先へ流さないため（デスクトップ版と同じ）。
+ *
+ * 接続の再利用に失敗したとき（サーバーが閉じた待機中の接続）だけは、OkHttp が新しい接続で送り直す（既定。デスクトップ版の
+ * Go の `http.Transport` と同じ）。これは接続の問題の回復で、取得の失敗（タイムアウト・応答の誤り）の再試行ではない。
+ * 呼び出し全体の期限（[REQUEST_TIMEOUT_MILLIS]）の中で行い、取得の失敗を繰り返し試すことはしない（NFR-AVL-2）。
  */
 fun newReportHttpClient(): OkHttpClient =
     OkHttpClient
@@ -57,7 +60,6 @@ fun newReportHttpClient(): OkHttpClient =
         .proxy(Proxy.NO_PROXY)
         .followRedirects(false)
         .followSslRedirects(false)
-        .retryOnConnectionFailure(false)
         .build()
 
 /**
@@ -147,7 +149,13 @@ class ReportClient(
             } catch (e: InvalidUrlException) {
                 throw FetchException(ErrKind.Protocol, "invalid_url")
             }
-        val bearer = token() ?: throw FetchException(ErrKind.Unauthorized, "token_missing")
+        // 保護領域（ファイル・Keystore）の読み出しは呼び出し元のスレッドで行わない。
+        val bearer =
+            try {
+                withContext(Dispatchers.IO) { token() }
+            } catch (e: IOException) {
+                throw FetchException(ErrKind.Unreachable, "secret_store") // 保護領域を読めない（原因・パスは出さない）
+            } ?: throw FetchException(ErrKind.Unauthorized, "token_missing")
         val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis)
         val client = http.newBuilder().addInterceptor(GuardInterceptor(endpoint, bearer)).build()
         try {

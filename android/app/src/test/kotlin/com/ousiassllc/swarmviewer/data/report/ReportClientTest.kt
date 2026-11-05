@@ -128,6 +128,17 @@ class ReportClientTest {
         }
 
     @Test
+    fun aKeptAliveConnectionClosedByTheServerIsRecoveredOnANewConnection() =
+        runTest {
+            console.closeAfterResponse = true
+
+            val sessions = client().sessions(connection())
+
+            assertEquals(listOf("0", "2"), sessions.map { it.id })
+            assertEquals(listOf("initialize", "notifications/initialized", "tools/call"), console.rpcMethods().distinct())
+        }
+
+    @Test
     fun unauthorizedAndForbiddenAreClassifiedFromTheHttpStatus() =
         runTest {
             console.rawPostResponse = console.httpError(401, "unauthorized")
