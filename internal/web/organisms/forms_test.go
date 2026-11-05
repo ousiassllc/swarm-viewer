@@ -83,9 +83,14 @@ func TestSettingsForm(t *testing.T) {
 		"OS が通知を許可していません",
 	)
 	// select の文字は本文と同じ 16px（ガイド T3）。
-	if strings.Count(html, "w-40 px-3") != 2 || strings.Contains(html, "w-40 px-3 text-sm") || !strings.Contains(html, "text-base") {
+	if strings.Count(html, "w-40 pl-3") != 2 || strings.Contains(html, "w-40 pl-3 text-sm") || !strings.Contains(html, "text-base") {
 		t.Errorf("select は text-base（text-sm を足さない）: %s", html)
 	}
+	// select は OS 既定の矢印を消し、mute のシェブロン（linear-gradient 2 本）を右端に出す（ガイド §4 フォーム・O8）。
+	if n := strings.Count(html, "appearance-none pr-9"); n != 2 {
+		t.Errorf("select 2 つに appearance-none と pr-9 が要る: %d", n)
+	}
+	webtest.MustContain(t, html, "linear-gradient(45deg,transparent_50%,var(--mute)_50%)", "linear-gradient(135deg,var(--mute)_50%,transparent_50%)")
 	if n := checkedCount(html); n != 1 {
 		t.Errorf("通知だけがオン（デバッグログはオフ）: %d", n)
 	}
