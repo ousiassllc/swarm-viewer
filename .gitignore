@@ -36,3 +36,14 @@ Thumbs.db
 
 # sweep の作業ディレクトリ
 .sweep/
+
+# Android（android/。docs/environment/setup.md・android/README.md）
+android/.gradle/
+android/.kotlin/
+android/**/build/
+android/local.properties
+android/captures/
+*.apk
+*.aab
+*.jks
+*.keystore
