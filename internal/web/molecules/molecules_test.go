@@ -195,6 +195,23 @@ func TestHostRow_ThreeColumnGrid(t *testing.T) {
 	webtest.MustContain(t, out, "tabular-nums", `title="87% 108.5 GB 空き"`)
 }
 
+// 補足（メモリの「1 GB / 4 GB」など）は読み取りたい値そのものなので --mute にしない（NFR-DSG-7）。
+func TestHostRow_DetailIsInk(t *testing.T) {
+	t.Parallel()
+	out := webtest.Render(t, molecules.HostRow(molecules.HostRowProps{Label: "メモリ", Percent: 41, Available: true, Detail: "41.3 GB / 128 GB"}))
+	for _, span := range webtest.Elements(t, out, "span") {
+		if textOf(span) != "41.3 GB / 128 GB" {
+			continue
+		}
+		class, _ := webtest.Attr(span, "class")
+		if !slices.Contains(strings.Fields(class), "text-ink") || strings.Contains(class, "text-mute") {
+			t.Errorf("補足は text-ink（text-mute にしない）: %q", class)
+		}
+		return
+	}
+	t.Fatalf("補足の span が無い:\n%s", out)
+}
+
 func TestSessionTab(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, molecules.SessionTab(molecules.SessionTabProps{ConnectionID: "01ABC", Session: "dev work", Selected: true}))

@@ -44,7 +44,7 @@ templ HostRow(p HostRowProps) {
 			<span class="truncate text-right tabular-nums" title={ hostRowText(p) }>
 				<span class={ "font-mono", valueClass(format.PercentTone(p.Percent)) }>{ format.Percent(p.Percent) }</span>
 				if p.Detail != "" {
-					<span class="font-mono text-mute">{ p.Detail }</span>
+					<span class="font-mono text-ink">{ p.Detail }</span>
 				}
 			</span>
 		}
