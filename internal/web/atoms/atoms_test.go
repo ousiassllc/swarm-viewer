@@ -124,12 +124,12 @@ func TestCheckbox(t *testing.T) {
 	webtest.MustNotContain(t, webtest.Render(t, atoms.Checkbox(atoms.CheckboxProps{Name: "n", Value: "on"})), " checked ")
 }
 
-// EmptyState は破線の枠・--r-lg・padding 48 / 24・48px の accent-soft の円に載せた 24px のアイコン・文言・子要素（主ボタンなど）を持つ（ガイド S4）。
+// EmptyState は破線の枠・--r-lg・padding 縦 48・横 24（画面幅で変えない）・48px の accent-soft の円に載せた 24px のアイコン・文言・子要素（主ボタンなど）を持つ（ガイド S4）。
 func TestEmptyState(t *testing.T) {
 	t.Parallel()
 	html := webtest.Render(t, atoms.EmptyState(atoms.EmptyStateProps{Message: "<b>なし</b>"}))
-	webtest.MustContain(t, html, "border-dashed", "rounded-lg", "p-6", "md:p-12", "h-12 w-12", "rounded-full", "bg-accent-soft", "h-6 w-6", `aria-hidden="true"`, "&lt;b&gt;")
-	webtest.MustNotContain(t, html, "<b>")
+	webtest.MustContain(t, html, "border-dashed", "rounded-lg", "px-6", "py-12", "h-12 w-12", "rounded-full", "bg-accent-soft", "h-6 w-6", `aria-hidden="true"`, "&lt;b&gt;")
+	webtest.MustNotContain(t, html, "<b>", "md:p-12", "p-6")
 }
 
 // ボタンの押下のリップルは円をボタン内に収める（relative overflow-clip。M4。smoke テストが "hidden" を禁じるので overflow-hidden は使わない）。

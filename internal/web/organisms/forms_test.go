@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/organisms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/webtest"
 )
@@ -99,7 +100,11 @@ func TestSettingsForm(t *testing.T) {
 		t.Errorf("通知だけがオン（デバッグログはオフ）: %d", n)
 	}
 	// ラベル→入力は 8px（ガイド S2）。チェックボックスは 18px・--r-sm・外枠 --mute（ガイド S1・§4）。
+	// チェックボックス→文言は 10px（--list-marker-gap。ガイド S2 の .chk）。
 	webtest.MustContain(t, html, `<div class="flex flex-col gap-2"><label for="screen-poll"`, "rounded-sm border border-mute", "appearance-none")
+	if n := strings.Count(html, `<label class="`+atoms.CheckboxRowClass+`">`); n != 2 {
+		t.Errorf("チェックボックスの行 2 つは CheckboxRowClass（gap-(--list-marker-gap)）: %d", n)
+	}
 	webtest.MustNotContain(t, html, "accent-accent")
 	// 「保存」とスピナーのボタン列は 8px（ガイド S2）。
 	// （エラーのアラートは アイコンと文の間が 12px の gap-3 なので、ボタン列の gap だけを見る。）

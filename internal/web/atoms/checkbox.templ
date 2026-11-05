@@ -9,6 +9,10 @@ type CheckboxProps struct {
 	Checked bool
 }
 
+// CheckboxRowClass はチェックボックスと文言を並べる <label> のクラス（ガイド S2: 記号→文字は 10px = --list-marker-gap。tokens-preview の .chk）。
+// 無効（disabled）のときの文言の mute 化と not-allowed もここで持つ。
+const CheckboxRowClass = "flex items-center gap-(--list-marker-gap) text-sm text-ink has-disabled:cursor-not-allowed has-disabled:text-mute"
+
 // Checkbox は共通のチェックボックス（ガイド §4: 18px・--r-sm・外枠 --mute）。
 // ネイティブの input（appearance-none）を形の土台にして、オンの印は Iconoir の check（インライン SVG）を peer-checked で出す。
 // 無効（disabled）は opacity .4・cursor not-allowed（ガイド O7）。ラベルの mute 化は呼び出し側の <label> が has-disabled:text-mute で持つ。
