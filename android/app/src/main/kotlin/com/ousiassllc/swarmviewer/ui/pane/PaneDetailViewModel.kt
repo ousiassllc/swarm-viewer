@@ -206,7 +206,7 @@ class PaneDetailViewModel(
                 } finally {
                     mutableState.update { it.copy(busy = false) }
                 }
-                if (started && !leaving) ensureRefresh()
+                if (started && !leaving) ensureRefresh(restart = true)
             }
     }
 
@@ -246,8 +246,9 @@ class PaneDetailViewModel(
     }
 
     /** 実行中の取得があればそれを返し、無ければ始める（同時に 1 本だけ）。 */
-    private fun ensureRefresh(): Job {
-        refreshJob?.takeIf { it.isActive }?.let { return it }
+    private fun ensureRefresh(restart: Boolean = false): Job {
+        // [restart]（操作のあと）は、操作より前に始まった取得（答える前の ask_card を読んでいるかもしれない）を取り消して取り直す。
+        if (restart) refreshJob?.cancel() else refreshJob?.takeIf { it.isActive }?.let { return it }
         return viewModelScope.launch { fetch() }.also { refreshJob = it }
     }
 

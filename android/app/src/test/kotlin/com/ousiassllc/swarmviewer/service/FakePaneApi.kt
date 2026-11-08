@@ -24,8 +24,14 @@ internal class FakePaneApi : PaneApi {
     var gate: CompletableDeferred<Unit>? = null
     var failure: FetchException? = null
 
-    /** あれば、それが開くまで `ask_card` は応答しない（質問カードの再取得が終わる前の表示の検査用）。 */
+    /**
+     * あれば、次の `ask_card` 1 回だけ、それが開くまで応答しない（質問カードの再取得が終わる前の表示の検査用）。
+     * 応答する中身は呼ばれた時点の [card]（待っている間に変えても、その呼び出しには反映しない）。
+     */
     var cardGate: CompletableDeferred<Unit>? = null
+
+    /** あれば、次の `pane_tail` 1 回だけ、それが開くまで応答しない。 */
+    var tailGate: CompletableDeferred<Unit>? = null
     var card = AskCard(true, "どうしますか？", listOf(AskOption(1, "A", true), AskOption(2, "B")), cursor = 1, allowsCustom = true)
     var pick = PickResult(ok = true, state = "working", pickedN = 1, pickedLabel = "A", cardClosed = true)
     var send = SendResult(ok = true, state = "working", accepted = true, chars = 3)
@@ -52,6 +58,9 @@ internal class FakePaneApi : PaneApi {
         lines: Int,
     ): PaneTail {
         calls += "pane_tail $session $pane $lines"
+        val gate = tailGate
+        tailGate = null
+        gate?.await()
         failure?.let { throw it }
         return tail
     }
@@ -62,8 +71,11 @@ internal class FakePaneApi : PaneApi {
         pane: String,
     ): AskCard {
         calls += "ask_card $session $pane"
-        cardGate?.await()
-        return card
+        val answered = card
+        val gate = cardGate
+        cardGate = null
+        gate?.await()
+        return answered
     }
 
     override suspend fun askPick(

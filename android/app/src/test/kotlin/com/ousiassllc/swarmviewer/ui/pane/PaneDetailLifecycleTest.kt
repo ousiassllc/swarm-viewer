@@ -1,6 +1,7 @@
 package com.ousiassllc.swarmviewer.ui.pane
 
 import app.cash.turbine.test
+import com.ousiassllc.swarmviewer.domain.AskCard
 import com.ousiassllc.swarmviewer.domain.ErrKind
 import com.ousiassllc.swarmviewer.domain.FetchException
 import com.ousiassllc.swarmviewer.domain.PaneState
@@ -58,7 +59,8 @@ internal class PaneDetailLifecycleTest : PaneFixture() {
             state = PaneState.Asking
             val viewModel = opened(OPS_ID)
             assertTrue(viewModel.state.value.controls.showCardButtons)
-            api.cardGate = CompletableDeferred() // 再取得が終わらない間
+            val refetch = CompletableDeferred<Unit>()
+            api.cardGate = refetch // 再取得が終わらない間
 
             viewModel.pick(1)
             runCurrent()
@@ -67,7 +69,7 @@ internal class PaneDetailLifecycleTest : PaneFixture() {
             assertFalse(viewModel.state.value.controls.showCardButtons)
             assertFalse(viewModel.state.value.busy) // 操作は終わっている
 
-            api.cardGate?.complete(Unit)
+            refetch.complete(Unit)
             runCurrent()
             assertTrue(viewModel.state.value.controls.showCardButtons) // 取り直した質問が出る
         }
@@ -124,5 +126,52 @@ internal class PaneDetailLifecycleTest : PaneFixture() {
             closeIdlePane(viewModel)
             runCurrent()
             assertFalse(viewModel.state.value.retryClose)
+        }
+
+    @Test
+    fun aFetchStartedBeforeTheAnswerCannotBringTheClosedCardBack() =
+        runPaneTest {
+            state = PaneState.Asking
+            val viewModel = opened(OPS_ID)
+            val stale = CompletableDeferred<Unit>()
+            api.cardGate = stale
+            viewModel.refresh() // 答える前の ask_card を読んだまま、応答を待っている取得
+            runCurrent()
+            assertTrue(viewModel.state.value.controls.showCardButtons)
+
+            api.card = AskCard(asking = false) // ホストでは答えた質問が閉じる
+            viewModel.pick(1)
+            runCurrent()
+            stale.complete(Unit) // 古い取得が、答える前のカードを返そうとする
+            runCurrent()
+
+            assertFalse(
+                viewModel.state.value.card
+                    ?.asking ?: false,
+            ) // 古いカードは戻らない
+            assertFalse(viewModel.state.value.controls.showCardButtons)
+            viewModel.pick(2) // ボタンが出ていないので、閉じた質問には送れない
+            runCurrent()
+            assertEquals(1, api.calls.count { it.startsWith("ask_pick") })
+        }
+
+    @Test
+    fun theFetchAfterAnOperationIsAFreshOneEvenWhenAnotherIsRunning() =
+        runPaneTest {
+            state = PaneState.Idle
+            val viewModel = opened(OPS_ID)
+            val slow = CompletableDeferred<Unit>()
+            api.tailGate = slow
+            viewModel.refresh()
+            runCurrent()
+            val before = api.calls.count { it.startsWith("pane_tail") }
+
+            viewModel.onSendTextChange("go")
+            viewModel.send()
+            runCurrent()
+
+            assertTrue(api.calls.count { it.startsWith("pane_tail") } > before) // 実行中の取得に相乗りせず、取り直している
+            slow.complete(Unit)
+            runCurrent()
         }
 }
