@@ -4,6 +4,7 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
 	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
 	"slices"
 )
 
@@ -15,6 +16,11 @@ type PaneGridProps struct {
 	Panes []domain.Pane
 	// Attention は attention[]。asking / stalled のペインを強調表示するために使う。
 	Attention []domain.Attention
+	// ConnectionID・Session はペイン詳細（カードのクリック先）の URL に使う。
+	ConnectionID string
+	Session      string
+	// Kind が操作のとき、shell のペインのカードに「＋ 始める」を出す。
+	Kind domain.ConnectionKind
 }
 
 // gridRows は Layout.Cols に従ってペインを段に分ける。Layout が不成立なら nil。
@@ -63,7 +69,7 @@ templ PaneGrid(p PaneGridProps) {
 				<div class="flex gap-3">
 					for _, pane := range row {
 						<div class="min-w-0 flex-1">
-							@molecules.PaneCard(cardProps(p, pane))
+							@paneCell(p, pane)
 						</div>
 					}
 				</div>
@@ -73,9 +79,39 @@ templ PaneGrid(p PaneGridProps) {
 		<ul class="flex flex-col gap-3" data-layout="list">
 			for _, pane := range p.Panes {
 				<li>
-					@molecules.PaneCard(cardProps(p, pane))
+					@paneCell(p, pane)
 				</li>
 			}
 		</ul>
 	}
+}
+
+// paneCell はペインカードと、その導線。カード全体がペイン詳細へのリンク（カード自体は読み取り専用のまま）。
+// 操作の接続の shell のペインには、カードの下に「＋ 始める」（新しいセッション）を添える。リンクの入れ子を避けるため、カードの外に置く。
+templ paneCell(p PaneGridProps, pane domain.Pane) {
+	<div class="flex min-w-0 flex-col gap-2">
+		if pane.Pos != "" {
+			<a
+				href={ templ.SafeURL(paths.Pane(p.ConnectionID, p.Session, pane.Pos)) }
+				hx-get={ paths.Pane(p.ConnectionID, p.Session, pane.Pos) }
+				hx-target="#main"
+				aria-label={ "ペイン " + pane.Pos + " の詳細を開く" }
+				data-pane-link
+				class="hover-fade block min-w-0 rounded-lg hover:bg-accent-soft/40"
+			>
+				@molecules.PaneCard(cardProps(p, pane))
+			</a>
+			if p.Kind == domain.KindOps && pane.State == domain.StateShell {
+				<a
+					href={ templ.SafeURL(paths.PaneStart(p.ConnectionID, p.Session, pane.Pos)) }
+					hx-get={ paths.PaneStart(p.ConnectionID, p.Session, pane.Pos) }
+					hx-target="#main"
+					data-pane-start
+					class="hover-fade inline-flex h-8 w-fit items-center rounded-md border border-border px-3 text-sm font-semibold text-ink hover:bg-accent-soft"
+				>＋ 始める</a>
+			}
+		} else {
+			@molecules.PaneCard(cardProps(p, pane))
+		}
+	</div>
 }

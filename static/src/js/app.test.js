@@ -245,6 +245,41 @@ describe("非表示中のポーリング", () => {
     expect(request(env, "/connections/1/sessions")).toBe(false);
   });
 
+  test("非表示のあいだ、ペイン詳細の live（自動更新）も取り消し、操作（POST の宛先）は取り消さない", () => {
+    const env = load("");
+    Object.defineProperty(env.document, "visibilityState", {
+      value: "hidden",
+    });
+
+    expect(
+      request(env, "/connections/1/sessions/0/panes/T1/live?lines=30"),
+    ).toBe(true);
+    expect(request(env, "/connections/1/sessions/0/panes/T1/pick")).toBe(false);
+    expect(request(env, "/connections/1/sessions/0/panes/T1")).toBe(false);
+  });
+
+  test("確認ダイアログが開いている間は live・snapshot の自動更新を取り消し、閉じたら再び通す", () => {
+    const env = load('<dialog id="confirm-dialog" data-modal></dialog>');
+    const dialog = env.document.getElementById("confirm-dialog");
+    const base = "/connections/1/sessions/0";
+    expect(request(env, `${base}/panes/T1/live`)).toBe(false);
+    dialog.setAttribute("open", "");
+    expect(request(env, `${base}/panes/T1/live`)).toBe(true);
+    expect(request(env, `${base}/snapshot`)).toBe(true);
+    expect(request(env, `${base}/panes/T1/escape`)).toBe(false); // 操作は止めない
+    dialog.removeAttribute("open");
+    expect(request(env, `${base}/panes/T1/live`)).toBe(false);
+  });
+
+  test("表示中は live も取り消さない", () => {
+    const env = load("");
+    Object.defineProperty(env.document, "visibilityState", {
+      value: "visible",
+    });
+
+    expect(request(env, "/connections/1/sessions/0/panes/T1/live")).toBe(false);
+  });
+
   test("表示中は取り消さない", () => {
     const env = load("");
     Object.defineProperty(env.document, "visibilityState", {

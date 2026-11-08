@@ -1,0 +1,93 @@
+package panedetail
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"strconv"
+
+	"github.com/ousiassllc/swarm-viewer/internal/domain/ops"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+)
+
+// AskCardProps は AskCard の入力。
+type AskCardProps struct {
+	Ref   Ref
+	Card  ops.AskCard
+	Lines int
+	// Ops が true（操作の接続）のとき、選択肢を押せるボタンにする。false（見るだけ）は一覧と案内の 1 行だけで、ボタン・入力は描画しない。
+	Ops bool
+}
+
+// customAnswerID は「その他」の入力欄の id。ペイン位置と質問文から決め、同じ質問のあいだだけ同じ id になる。
+func customAnswerID(p AskCardProps) string {
+	sum := sha256.Sum256([]byte(p.Ref.Pos + "\x00" + p.Card.Question))
+	return "pane-custom-answer-" + hex.EncodeToString(sum[:6])
+}
+
+func pickAttrs(p AskCardProps, n int) map[string]string {
+	return map[string]string{FieldN: strconv.Itoa(n), FieldLines: strconv.Itoa(p.Lines)}
+}
+
+// AskCard は質問カード。質問文・選択肢・ラベルは信頼できない入力（ホストのペインの画面）で、文字列として描画する。
+// 操作の接続: 選択肢を大きなボタンで縦に並べ、押したらすぐ ask_pick を送る（確認なし。送信中は同じペインの全ボタンを無効にする）。
+// allows_custom なら「その他（自分で書く）」で自由入力を送れる。
+templ AskCard(p AskCardProps) {
+	<section class="flex min-w-0 flex-col gap-3 rounded-lg border border-warning bg-surface p-4" aria-label="質問" data-ask-card>
+		<p class="whitespace-pre-wrap break-words font-semibold text-ink" data-ask-question>{ p.Card.Question }</p>
+		if p.Ops {
+			<div class="flex flex-col gap-2">
+				for _, o := range p.Card.Options {
+					@atoms.ChoiceButton(actionAttrs(paths.PanePick(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos), pickAttrs(p, o.N))) {
+						<span class="shrink-0 font-mono text-sm text-mute">{ strconv.Itoa(o.N) }</span>
+						<span class="min-w-0 flex-1 break-words">{ o.Label }</span>
+						if o.Recommended {
+							@atoms.Badge(atoms.BadgeProps{Text: "おすすめ", Tone: format.ToneAccent})
+						}
+					}
+				}
+			</div>
+			if p.Card.AllowsCustom {
+				@customAnswer(p)
+			}
+		} else {
+			<ol class="flex flex-col gap-(--list-gap)" data-ask-options>
+				for _, o := range p.Card.Options {
+					<li class="flex min-w-0 items-baseline gap-2 text-sm text-ink">
+						<span class="shrink-0 font-mono text-mute">{ strconv.Itoa(o.N) }</span>
+						<span class="min-w-0 break-words">{ o.Label }</span>
+						if o.Recommended {
+							@atoms.Badge(atoms.BadgeProps{Text: "おすすめ", Tone: format.ToneAccent})
+						}
+					</li>
+				}
+			</ol>
+			<p class="text-sm text-mute">{ format.ViewOnlyAskNote }</p>
+		}
+	</section>
+}
+
+// customAnswer は「その他（自分で書く）」。開いて入力して送ると ask_pick の text になる。
+//
+// 5 秒ごとの自動更新でカードごと作り直されても、開いた状態と入力中の文字が消えないよう、<details> ごと hx-preserve にする
+// （id は質問ごとに変える。別の質問に変わったら、前の質問への入力を持ち越さず作り直す。送信が通ればカードが閉じて消える）。
+templ customAnswer(p AskCardProps) {
+	<details id={ customAnswerID(p) } hx-preserve class="acc text-sm text-ink">
+		<summary>その他（自分で書く）</summary>
+		<form
+			class="acc-body flex flex-col gap-2"
+			hx-post={ paths.PanePick(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos) }
+			hx-target={ "#" + LiveID }
+			hx-swap="outerHTML"
+			hx-sync={ PreemptPoll }
+			hx-disabled-elt={ "#" + LiveID + " button, #" + LiveID + " textarea" }
+		>
+			<input type="hidden" name={ FieldLines } value={ strconv.Itoa(p.Lines) }/>
+			@atoms.Textarea(atoms.TextareaProps{Name: FieldText, Label: "自由入力の回答"})
+			<div>
+				@atoms.Button(atoms.ButtonProps{Label: "送る", Type: "submit", Variant: atoms.ButtonPrimary, Size: atoms.ButtonSmall})
+			</div>
+		</form>
+	</details>
+}

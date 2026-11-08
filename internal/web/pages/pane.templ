@@ -1,0 +1,55 @@
+package pages
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/layout"
+	"github.com/ousiassllc/swarm-viewer/internal/web/organisms/panedetail"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+)
+
+// PaneDetailProps は PaneDetailPage / PaneDetailContent の入力。本文は /live が読み込む。
+type PaneDetailProps struct {
+	Ref  panedetail.Ref
+	Kind domain.ConnectionKind
+}
+
+// PaneDetailPage はペイン詳細のフルページ。
+templ PaneDetailPage(shell layout.BaseProps, p PaneDetailProps) {
+	@layout.Base(shell) {
+		@PaneDetailContent(p)
+	}
+}
+
+// PaneDetailContent はペイン詳細のフラグメント（#main に入る）。メイン画面へ戻るリンクと、本文（#pane-live）。
+// 本文は load で /live を取得し、以後は 5 秒ごとに読み直す。
+templ PaneDetailContent(p PaneDetailProps) {
+	<nav class="flex flex-wrap items-center gap-3" aria-label="ペイン詳細">
+		@navLink(paths.Session(p.Ref.ConnectionID, p.Ref.Session), "← メイン画面へ")
+	</nav>
+	@panedetail.Live(panedetail.LiveProps{Ref: p.Ref, Kind: p.Kind, Loading: true, Lines: 30})
+}
+
+// PaneStartProps は PaneStartPage / PaneStartContent の入力。
+type PaneStartProps struct {
+	Form panedetail.StartFormProps
+	// Blocked は新しいセッションを始められないとき（ペインが空きでない・取得失敗）の固定文言。空なら入力画面を出す。
+	Blocked string
+}
+
+// PaneStartPage は新しいセッションのフルページ。
+templ PaneStartPage(shell layout.BaseProps, p PaneStartProps) {
+	@layout.Base(shell) {
+		@PaneStartContent(p)
+	}
+}
+
+// PaneStartContent は新しいセッションのフラグメント。操作の接続で、ペインが空き（shell）のときだけ入力画面を出す。
+templ PaneStartContent(p PaneStartProps) {
+	@pageTitle("新しいセッション（" + p.Form.Ref.Pos + "）")
+	if p.Blocked != "" {
+		@blockedNotice(p.Blocked)
+		@navLink(paths.Pane(p.Form.Ref.ConnectionID, p.Form.Ref.Session, p.Form.Ref.Pos), "ペイン詳細へ戻る")
+	} else {
+		@panedetail.StartForm(p.Form)
+	}
+}

@@ -13,6 +13,8 @@ type AttentionItemProps struct {
 	Attention domain.Attention
 	// AuthExpiresAt は auth.agents[].expires_at。ログイン期限（auth_expired / auth_expiring）の併記用で、零値なら出さない。
 	AuthExpiresAt time.Time
+	// PaneHref はペイン詳細への URL。空でなければ、ペイン位置をそこへのリンクにする（要対応の項目からペイン詳細を開く）。
+	PaneHref string
 }
 
 // attentionDetail は kind ごとに表示する detail を返す。
@@ -29,7 +31,18 @@ templ AttentionItem(p AttentionItemProps) {
 	<li class="flex min-w-0 items-center gap-2 text-sm">
 		@atoms.Badge(atoms.BadgeProps{Text: format.AttentionLabel(p.Attention.Kind), Tone: format.AttentionTone(p.Attention.Kind), Marker: true})
 		if p.Attention.Pane != "" {
-			<span class="font-mono text-xs text-ink">{ p.Attention.Pane }</span>
+			if p.PaneHref != "" {
+				<a
+					href={ templ.SafeURL(p.PaneHref) }
+					hx-get={ p.PaneHref }
+					hx-target="#main"
+					data-attention-link
+					aria-label={ "ペイン " + p.Attention.Pane + " の詳細を開く" }
+					class="hover-fade font-mono text-xs text-ink underline underline-offset-2"
+				>{ p.Attention.Pane }</a>
+			} else {
+				<span class="font-mono text-xs text-ink">{ p.Attention.Pane }</span>
+			}
 		}
 		if d := attentionDetail(p.Attention); d != "" {
 			<span class="truncate text-ink" title={ d }>{ d }</span>

@@ -1,7 +1,8 @@
-// Package report は swarm-console の `/report` エンドポイント（MCP Streamable HTTP）のクライアント。
+// Package report は swarm-console の `/report`・`/ops` エンドポイント（MCP Streamable HTTP）のクライアント。
 //
-// 呼べるツールは sessions_list と report だけ（NFR-SEC-1）。token は secret.Store から接続 ID で解決し、
-// 戻り値・エラー・ログに出さない（NFR-SEC-2・11、NFR-LOG-3）。失敗は常に *domain.FetchError で返す。
+// 見るだけの接続（`/report`）は sessions_list・report・pane_tail・ask_card、操作の接続（`/ops`）はさらに ask_pick・send_text・
+// send_escape・pane_start・pane_close・dir_list を呼べる。接続の種類は接続先 URL の path で決まる（NFR-SEC-1）。token は
+// secret.Store から接続 ID で解決し、戻り値・エラー・ログに出さない（NFR-SEC-2・11、NFR-LOG-3）。失敗は常に *domain.FetchError で返す。
 //
 // swarm-console はステートレスな Streamable HTTP（POST のみ。GET・DELETE は 405）。公式 go-sdk を、
 // 呼び出しごとにセッションを開閉し、常駐 GET（DisableStandaloneSSE）と server/discover を使わない設定で使う。
@@ -18,6 +19,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/domain/ops"
 	"github.com/ousiassllc/swarm-viewer/internal/repository/secret"
 )
 
@@ -121,21 +123,23 @@ func (c *Client) fail(connID, tool string, fe *domain.FetchError) error {
 }
 
 // callTool はセッションを開き、ツールを 1 回呼び、閉じる。
+// 接続の種類は検証済みの接続先 URL の path から決め（`/report` は見るだけ、`/ops` は操作）、種類の許可リストにないツールは通信せずに拒否する。
 func (c *Client) callTool(ctx context.Context, rawURL string, token func() (string, error), tool string, args map[string]any) (string, *domain.FetchError) {
-	if !toolAllowed(tool) {
-		return "", &domain.FetchError{Kind: domain.ErrProtocol, Code: "tool_not_allowed"}
-	}
 	endpoint, err := domain.ValidateURL(rawURL)
 	if err != nil {
 		return "", &domain.FetchError{Kind: domain.ErrProtocol, Code: "invalid_url"}
 	}
-	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	if !toolAllowed(domain.KindOfURL(endpoint), tool) {
+		return "", &domain.FetchError{Kind: domain.ErrProtocol, Code: "tool_not_allowed"}
+	}
+	timeout := c.timeoutFor(tool)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	obs := &observation{}
 	hc := &http.Client{
 		Transport: &roundTripper{base: c.base, endpoint: endpoint, token: token, obs: obs},
-		Timeout:   c.timeout,
+		Timeout:   timeout,
 		// リダイレクトは追従しない。token を別の宛先へ送らない（3xx はそのまま応答として返る）。
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
@@ -172,11 +176,13 @@ func invoke(ctx context.Context, hc *http.Client, endpoint, tool string, args ma
 	if err != nil {
 		return "", err
 	}
-	return toolText(res)
+	return toolText(res, paneScoped(tool))
 }
 
 // toolText は結果の先頭のテキストを返す。isError のときは error.code を分類した *domain.FetchError を返す。
-func toolText(res *mcp.CallToolResult) (string, error) {
+// perPane（ペイン・入力を引数に取るツール）の invalid_args は、details.field が session のときだけ session_missing、
+// それ以外は operation にする。
+func toolText(res *mcp.CallToolResult, perPane bool) (string, error) {
 	text := ""
 	if res != nil {
 		for _, content := range res.Content {
@@ -187,7 +193,12 @@ func toolText(res *mcp.CallToolResult) (string, error) {
 		}
 	}
 	if res != nil && res.IsError {
-		if fe := domain.Classify(nil, http.StatusOK, errorCode([]byte(text))); fe != nil {
+		code, field := errorDetail([]byte(text))
+		fe := domain.Classify(nil, http.StatusOK, code)
+		if perPane {
+			fe = ops.Failure(code, field)
+		}
+		if fe != nil {
 			return "", fe
 		}
 		return "", &domain.FetchError{Kind: domain.ErrProtocol}

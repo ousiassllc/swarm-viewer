@@ -1,0 +1,38 @@
+{
+  "description": "操作モードの入力の検査（API 仕様 §5.2。通信前に弾く）。text_cases[] は send_text・ask_pick(text) の本文: text（repeat があれば char を count 回繰り返したもの）が want（問題なしは空文字、あればエラーコード）になること。title_cases[] は pane_start の title: input の前後の空白を除いた値が want（不正は null）になること。tail_lines_cases[] は pane_tail の lines を 1〜200 に収めた値。形式は README.md",
+  "text_cases": [
+    {"name": "通常", "text": "続けてください", "want": ""},
+    {"name": "改行とタブは可", "text": "a\nb\tc", "want": ""},
+    {"name": "空", "text": "", "want": "invalid_args"},
+    {"name": "CR は不可", "text": "a\r\nb", "want": "forbidden_control_char"},
+    {"name": "NUL は不可", "text": "a\u0000b", "want": "forbidden_control_char"},
+    {"name": "ESC は不可", "text": "a\u001bb", "want": "forbidden_control_char"},
+    {"name": "DEL は不可", "text": "a\u007fb", "want": "forbidden_control_char"},
+    {"name": "C1 制御文字は不可", "text": "a\u0085b", "want": "forbidden_control_char"},
+    {"name": "8000 字は可", "repeat": {"char": "あ", "count": 8000}, "want": ""},
+    {"name": "8001 字は長すぎる", "repeat": {"char": "あ", "count": 8001}, "want": "text_too_long"},
+    {"name": "サロゲートペアは 1 字と数える", "repeat": {"char": "😀", "count": 8000}, "want": ""},
+    {"name": "サロゲートペア 8001 字は長すぎる", "repeat": {"char": "😀", "count": 8001}, "want": "text_too_long"},
+    {"name": "長すぎて制御文字もあるなら長さが先", "repeat": {"char": "\u0001", "count": 8001}, "want": "text_too_long"}
+  ],
+  "title_cases": [
+    {"name": "通常", "input": "funid #982", "want": "funid #982"},
+    {"name": "前後の空白を除く", "input": "  \tfunid  \n", "want": "funid"},
+    {"name": "全角空白も除く", "input": "\u3000funid\u3000", "want": "funid"},
+    {"name": "空", "input": "", "want": null},
+    {"name": "空白のみ", "input": "   ", "want": null},
+    {"name": "80 字は可", "input": "ああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああ", "want": "ああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああ"},
+    {"name": "81 字は長すぎる", "input": "あああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああ", "want": null},
+    {"name": "途中の改行は不可", "input": "a\nb", "want": null},
+    {"name": "途中のタブは不可", "input": "a\tb", "want": null},
+    {"name": "制御文字は不可", "input": "a\u001bb", "want": null}
+  ],
+  "tail_lines_cases": [
+    {"name": "既定", "lines": 0, "want": 30},
+    {"name": "負は既定", "lines": -5, "want": 30},
+    {"name": "1", "lines": 1, "want": 1},
+    {"name": "100", "lines": 100, "want": 100},
+    {"name": "200", "lines": 200, "want": 200},
+    {"name": "201 は 200 に収める", "lines": 201, "want": 200}
+  ]
+}

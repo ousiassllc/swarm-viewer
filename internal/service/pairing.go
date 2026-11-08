@@ -21,8 +21,9 @@ type DraftID string
 // DraftView は確認画面の表示用。token を含まない。
 type DraftView struct {
 	Name         string
-	Host         string   // URL の host のみ
-	SessionsHint []string // ホストが申告した許可セッション（表示のヒントのみ）
+	Host         string                // URL の host のみ
+	Kind         domain.ConnectionKind // 接続の種類（URL の path から。操作のときは確認画面に警告を出す）
+	SessionsHint []string              // ホストが申告した許可セッション（表示のヒントのみ）
 	ExpiresAt    time.Time
 }
 
@@ -126,6 +127,7 @@ func (s *PairingService) Draft(id DraftID) (DraftView, error) {
 	return DraftView{
 		Name:         d.payload.Name,
 		Host:         domain.HostOf(d.payload.URL),
+		Kind:         domain.KindOfURL(d.payload.URL),
 		SessionsHint: append([]string(nil), d.payload.SessionsHint...),
 		ExpiresAt:    d.expires,
 	}, nil

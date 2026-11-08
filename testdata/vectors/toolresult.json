@@ -1,0 +1,80 @@
+{
+  "description": "操作モードのツール結果の解析（API 仕様 §5.1・§5.2）。input は content[0].text（JSON 文字列）、want は解析後の値（キーは snake_case。ask_pick の picked は picked_n・picked_label に平らにする）。未知のキーは無視、欠落・null の項目は零値。invalid[] は tool・input_raw（本文そのまま）で、解析が ErrInvalidResponse / InvalidResponseException で失敗し、エラーに本文が含まれないこと。形式は README.md",
+  "pane_tail": [
+    {"name": "通常", "input": "{\"pane\":\"B4\",\"lines\":30,\"text\":\"line1\\nline2\",\"truncated\":false}", "want": {"text": "line1\nline2", "truncated": false}},
+    {"name": "切り詰め", "input": "{\"pane\":\"B4\",\"lines\":30,\"text\":\"x\",\"truncated\":true}", "want": {"text": "x", "truncated": true}},
+    {"name": "HTML 風の本文もそのまま", "input": "{\"text\":\"<script>alert(1)</script> & \\\"q\\\"\",\"truncated\":false}", "want": {"text": "<script>alert(1)</script> & \"q\"", "truncated": false}},
+    {"name": "欠落と null は零値", "input": "{\"text\":null}", "want": {"text": "", "truncated": false}},
+    {"name": "未知のキーは無視", "input": "{\"text\":\"a\",\"future\":{\"x\":1}}", "want": {"text": "a", "truncated": false}}
+  ],
+  "ask_card": [
+    {"name": "質問あり", "input": "{\"asking\":true,\"question\":\"どうしますか？\",\"options\":[{\"n\":1,\"label\":\"TS 仕様どおり\",\"recommended\":true},{\"n\":2,\"label\":\"拡張\"}],\"cursor\":1,\"allows_custom\":true}", "want": {"asking": true, "question": "どうしますか？", "options": [{"n": 1, "label": "TS 仕様どおり", "recommended": true}, {"n": 2, "label": "拡張", "recommended": false}], "cursor": 1, "allows_custom": true}},
+    {"name": "質問なし", "input": "{\"asking\":false}", "want": {"asking": false, "question": "", "options": [], "cursor": 0, "allows_custom": false}},
+    {"name": "asking が false なら残りは捨てる", "input": "{\"asking\":false,\"question\":\"q\",\"options\":[{\"n\":1,\"label\":\"a\"}],\"cursor\":2,\"allows_custom\":true}", "want": {"asking": false, "question": "", "options": [], "cursor": 0, "allows_custom": false}},
+    {"name": "options 欠落", "input": "{\"asking\":true,\"question\":\"q\"}", "want": {"asking": true, "question": "q", "options": [], "cursor": 0, "allows_custom": false}},
+    {"name": "未知のキーは無視", "input": "{\"asking\":true,\"question\":\"q\",\"options\":[{\"n\":3,\"label\":\"c\",\"future\":1}],\"x\":1}", "want": {"asking": true, "question": "q", "options": [{"n": 3, "label": "c", "recommended": false}], "cursor": 0, "allows_custom": false}}
+  ],
+  "ask_pick": [
+    {"name": "確定", "input": "{\"ok\":true,\"state\":\"working\",\"picked\":{\"n\":1,\"label\":\"TS 仕様どおり\"},\"card_closed\":true}", "want": {"ok": true, "state": "working", "picked_n": 1, "picked_label": "TS 仕様どおり", "card_closed": true}},
+    {"name": "カードが閉じない", "input": "{\"ok\":false,\"state\":\"asking\",\"card_closed\":false}", "want": {"ok": false, "state": "asking", "picked_n": 0, "picked_label": "", "card_closed": false}},
+    {"name": "text を送った（picked なし）", "input": "{\"ok\":true,\"state\":\"working\",\"card_closed\":true}", "want": {"ok": true, "state": "working", "picked_n": 0, "picked_label": "", "card_closed": true}},
+    {"name": "picked が null", "input": "{\"ok\":true,\"state\":\"working\",\"picked\":null,\"card_closed\":true}", "want": {"ok": true, "state": "working", "picked_n": 0, "picked_label": "", "card_closed": true}}
+  ],
+  "send_text": [
+    {"name": "受理", "input": "{\"ok\":true,\"state\":\"working\",\"accepted\":true,\"chars\":412}", "want": {"ok": true, "state": "working", "accepted": true, "chars": 412}},
+    {"name": "受理されない", "input": "{\"ok\":false,\"accepted\":false,\"state\":\"idle\"}", "want": {"ok": false, "state": "idle", "accepted": false, "chars": 0}}
+  ],
+  "send_escape": [
+    {"name": "中断", "input": "{\"ok\":true,\"state\":\"idle\",\"interrupted\":true}", "want": {"ok": true, "state": "idle", "interrupted": true}},
+    {"name": "変わらない", "input": "{\"ok\":false,\"state\":\"working\"}", "want": {"ok": false, "state": "working", "interrupted": false}}
+  ],
+  "pane_start": [
+    {"name": "起動", "input": "{\"ok\":true,\"state\":\"idle\",\"agent\":\"omp\",\"cwd\":\"/mnt/nvme/work/funid\",\"title\":\"agent: funid #982\"}", "want": {"ok": true, "state": "idle", "agent": "omp", "cwd": "/mnt/nvme/work/funid", "title": "agent: funid #982"}},
+    {"name": "起動できない", "input": "{\"ok\":false,\"state\":\"shell\"}", "want": {"ok": false, "state": "shell", "agent": "", "cwd": "", "title": ""}}
+  ],
+  "pane_close": [
+    {"name": "終了", "input": "{\"ok\":true,\"state\":\"shell\",\"steps\":[\"/exit\",\"cd ~\",\"clear\",\"title\"],\"note_archived\":true}", "want": {"ok": true, "state": "shell", "note_archived": true}},
+    {"name": "片付いていない", "input": "{\"ok\":false,\"state\":\"idle\"}", "want": {"ok": false, "state": "idle", "note_archived": false}}
+  ],
+  "dir_list": [
+    {"name": "一覧", "input": "{\"path\":\"/mnt/nvme/ousiassllc\",\"entries\":[{\"name\":\"funid\",\"path\":\"/mnt/nvme/ousiassllc/funid\",\"git\":true},{\"name\":\"docs\",\"path\":\"/mnt/nvme/ousiassllc/docs\",\"git\":false}],\"truncated\":false}", "want": {"path": "/mnt/nvme/ousiassllc", "entries": [{"name": "funid", "path": "/mnt/nvme/ousiassllc/funid", "git": true}, {"name": "docs", "path": "/mnt/nvme/ousiassllc/docs", "git": false}], "truncated": false}},
+    {"name": "根（path なし）・一部のみ", "input": "{\"entries\":[{\"name\":\"a\",\"path\":\"/a\"}],\"truncated\":true}", "want": {"path": "", "entries": [{"name": "a", "path": "/a", "git": false}], "truncated": true}},
+    {"name": "空の一覧", "input": "{\"path\":\"/x\",\"entries\":[],\"truncated\":false}", "want": {"path": "/x", "entries": [], "truncated": false}},
+    {"name": "entries 欠落", "input": "{\"path\":\"/x\"}", "want": {"path": "/x", "entries": [], "truncated": false}},
+    {"name": "name か path が空の項目は捨てる", "input": "{\"entries\":[{\"name\":\"\",\"path\":\"/a\"},{\"name\":\"b\",\"path\":\"\"},{\"name\":\"c\",\"path\":\"/c\",\"git\":true}]}", "want": {"path": "", "entries": [{"name": "c", "path": "/c", "git": true}], "truncated": false}}
+  ],
+  "invalid": [
+    {"name": "pane_tail: JSON ではない", "tool": "pane_tail", "input_raw": "not json"},
+    {"name": "pane_tail: 空文字", "tool": "pane_tail", "input_raw": ""},
+    {"name": "pane_tail: 配列", "tool": "pane_tail", "input_raw": "[1,2]"},
+    {"name": "pane_tail: 文字列", "tool": "pane_tail", "input_raw": "\"ok\""},
+    {"name": "ask_card: JSON ではない", "tool": "ask_card", "input_raw": "not json"},
+    {"name": "ask_card: 空文字", "tool": "ask_card", "input_raw": ""},
+    {"name": "ask_card: 配列", "tool": "ask_card", "input_raw": "[1,2]"},
+    {"name": "ask_card: 文字列", "tool": "ask_card", "input_raw": "\"ok\""},
+    {"name": "ask_pick: JSON ではない", "tool": "ask_pick", "input_raw": "not json"},
+    {"name": "ask_pick: 空文字", "tool": "ask_pick", "input_raw": ""},
+    {"name": "ask_pick: 配列", "tool": "ask_pick", "input_raw": "[1,2]"},
+    {"name": "ask_pick: 文字列", "tool": "ask_pick", "input_raw": "\"ok\""},
+    {"name": "send_text: JSON ではない", "tool": "send_text", "input_raw": "not json"},
+    {"name": "send_text: 空文字", "tool": "send_text", "input_raw": ""},
+    {"name": "send_text: 配列", "tool": "send_text", "input_raw": "[1,2]"},
+    {"name": "send_text: 文字列", "tool": "send_text", "input_raw": "\"ok\""},
+    {"name": "send_escape: JSON ではない", "tool": "send_escape", "input_raw": "not json"},
+    {"name": "send_escape: 空文字", "tool": "send_escape", "input_raw": ""},
+    {"name": "send_escape: 配列", "tool": "send_escape", "input_raw": "[1,2]"},
+    {"name": "send_escape: 文字列", "tool": "send_escape", "input_raw": "\"ok\""},
+    {"name": "pane_start: JSON ではない", "tool": "pane_start", "input_raw": "not json"},
+    {"name": "pane_start: 空文字", "tool": "pane_start", "input_raw": ""},
+    {"name": "pane_start: 配列", "tool": "pane_start", "input_raw": "[1,2]"},
+    {"name": "pane_start: 文字列", "tool": "pane_start", "input_raw": "\"ok\""},
+    {"name": "pane_close: JSON ではない", "tool": "pane_close", "input_raw": "not json"},
+    {"name": "pane_close: 空文字", "tool": "pane_close", "input_raw": ""},
+    {"name": "pane_close: 配列", "tool": "pane_close", "input_raw": "[1,2]"},
+    {"name": "pane_close: 文字列", "tool": "pane_close", "input_raw": "\"ok\""},
+    {"name": "dir_list: JSON ではない", "tool": "dir_list", "input_raw": "not json"},
+    {"name": "dir_list: 空文字", "tool": "dir_list", "input_raw": ""},
+    {"name": "dir_list: 配列", "tool": "dir_list", "input_raw": "[1,2]"},
+    {"name": "dir_list: 文字列", "tool": "dir_list", "input_raw": "\"ok\""}
+  ]
+}

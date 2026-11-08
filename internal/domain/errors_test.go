@@ -93,7 +93,7 @@ func TestFetchErrorText(t *testing.T) {
 	for kind, name := range map[ErrKind]string{
 		ErrUnreachable: "unreachable", ErrUnauthorized: "unauthorized", ErrForbiddenScope: "forbidden_scope",
 		ErrSessionRequired: "session_required", ErrSessionForbidden: "session_forbidden",
-		ErrSessionMissing: "session_missing", ErrHostError: "host_error", ErrProtocol: "protocol",
+		ErrSessionMissing: "session_missing", ErrHostError: "host_error", ErrProtocol: "protocol", ErrOperation: "operation",
 	} {
 		if kind.String() != name {
 			t.Errorf("%d.String() = %q; want %q", kind, kind.String(), name)
@@ -111,7 +111,7 @@ func TestFetchErrorText(t *testing.T) {
 		t.Error("範囲外は unknown")
 	}
 	// iota の並びは仕様どおり
-	if ErrUnreachable != 0 || ErrProtocol != 7 {
+	if ErrUnreachable != 0 || ErrProtocol != 7 || ErrOperation != 8 {
 		t.Error("ErrKind の並びが仕様と違う")
 	}
 }

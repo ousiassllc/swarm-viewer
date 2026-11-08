@@ -29,7 +29,7 @@ var (
 )
 
 // 送ってよい JSON-RPC メソッド（NFR-SEC-1）。`tools/list` など他のメソッドは通さない。
-// `tools/call` は更にツール名を allowedTools で絞る。
+// `tools/call` は更にツール名を、接続先 URL の path が決める種類の許可リスト（tools.go）で絞る。
 var allowedRPCMethods = map[string]struct{}{
 	"initialize":                {},
 	"notifications/initialized": {},
@@ -136,7 +136,7 @@ func (t *roundTripper) prepare(req *http.Request) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := checkRPC(body); err != nil {
+	if err := checkRPC(domain.KindOfURL(req.URL.String()), body); err != nil {
 		return nil, err
 	}
 	out := req.Clone(req.Context())
@@ -161,9 +161,10 @@ func readRequestBody(req *http.Request) ([]byte, error) {
 	return body, nil
 }
 
-// checkRPC は JSON-RPC リクエストが許可されたメソッド（`tools/call` は許可リストのツール）かを確かめる。
+// checkRPC は JSON-RPC リクエストが許可されたメソッド（`tools/call` は kind の許可リストのツール）かを確かめる。
+// kind は送信先 URL の path（`/report` なら見るだけの 4 つ、`/ops` なら 10 個）。
 // バッチ・応答メッセージ・不明なメソッドは通さない。
-func checkRPC(body []byte) error {
+func checkRPC(kind domain.ConnectionKind, body []byte) error {
 	var msg struct {
 		Method string `json:"method"`
 		Params struct {
@@ -176,7 +177,7 @@ func checkRPC(body []byte) error {
 	if _, ok := allowedRPCMethods[msg.Method]; !ok {
 		return errRPCNotAllowed
 	}
-	if msg.Method == "tools/call" && !toolAllowed(msg.Params.Name) {
+	if msg.Method == "tools/call" && !toolAllowed(kind, msg.Params.Name) {
 		return errToolNotAllowed
 	}
 	return nil
@@ -195,19 +196,30 @@ func (t *roundTripper) observe(resp *http.Response) {
 
 // errorCode は `{"error": {"code": "<code>"}}` の code を返す。形が違えば空文字。
 func errorCode(body []byte) string {
+	code, _ := errorDetail(body)
+	return code
+}
+
+// errorDetail は `{"error": {"code": "<code>", "details": {"field": "<name>"}}}` の code と details.field を返す。
+// 形が違う項目は空文字。どちらも応答由来の信頼できない値で、分類の判定にだけ使い、画面・ログには出さない。
+func errorDetail(body []byte) (code, field string) {
 	var e struct {
 		Error struct {
-			Code json.RawMessage `json:"code"`
+			Code    json.RawMessage `json:"code"`
+			Details json.RawMessage `json:"details"` // 型が想定外でも code は読む
 		} `json:"error"`
 	}
 	if json.Unmarshal(body, &e) != nil {
-		return ""
+		return "", ""
 	}
-	var code string
-	if json.Unmarshal(e.Error.Code, &code) != nil {
-		return ""
+	_ = json.Unmarshal(e.Error.Code, &code)
+	var d struct {
+		Field string `json:"field"`
 	}
-	return code
+	if json.Unmarshal(e.Error.Details, &d) == nil {
+		field = d.Field
+	}
+	return code, field
 }
 
 type limitedBody struct {

@@ -1,0 +1,36 @@
+package molecules
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
+)
+
+// PaneHeaderProps は PaneHeader の入力。
+type PaneHeaderProps struct {
+	// Pane は report のペイン。title・cwd・note は信頼できない入力で、Templ のエスケープで文字列として描画する（NFR-SEC-10）。
+	Pane domain.Pane
+	// Kind は接続の種類（バッジに出す）。
+	Kind domain.ConnectionKind
+}
+
+// PaneHeader はペイン詳細のヘッダ（位置・状態・エージェント・タイトル・cwd・メモの repo と items）。操作部品は持たない。
+templ PaneHeader(p PaneHeaderProps) {
+	<header class="flex min-w-0 flex-col gap-2" data-pane-header data-pane-pos={ p.Pane.Pos }>
+		<div class="flex flex-wrap items-center gap-2">
+			<h1 class="font-mono text-lg font-semibold text-ink">{ p.Pane.Pos }</h1>
+			@atoms.Badge(atoms.BadgeProps{Text: format.StateLabel(p.Pane.State), Tone: format.StateTone(p.Pane.State), Marker: true})
+			if name := agentName(p.Pane.Agent); name != "" {
+				@atoms.Badge(atoms.BadgeProps{Text: name, Tone: format.ToneMuted})
+			}
+			@KindBadge(p.Kind)
+		</div>
+		if p.Pane.Title != "" {
+			<p class="break-words text-ink">{ p.Pane.Title }</p>
+		}
+		if p.Pane.CWD != "" {
+			<p class="break-all font-mono text-xs text-mute">{ p.Pane.CWD }</p>
+		}
+		@paneNote(p.Pane.Note)
+	</header>
+}

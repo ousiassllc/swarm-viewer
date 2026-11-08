@@ -88,6 +88,7 @@ linters:
         web-handler:
           files:
             - "**/internal/web/handler/**"
+            - "**/internal/web/panehandler/**"
           deny:
             - pkg: github.com/ousiassllc/swarm-viewer/internal/repository
               desc: handler は repository を直接使わず service を経由する

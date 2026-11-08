@@ -53,6 +53,7 @@ func (h *Handler) snapshot(c *gin.Context) {
 		ConnectionID: conn.ID,
 		Session:      sid,
 		Now:          h.clock.Now(),
+		Kind:         conn.Kind(),
 	}
 	if tabsOK {
 		p.Tabs = tabs

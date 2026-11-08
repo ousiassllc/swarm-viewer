@@ -17,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/ousiassllc/swarm-viewer/internal/service"
+	"github.com/ousiassllc/swarm-viewer/internal/service/paneservice"
 	"github.com/ousiassllc/swarm-viewer/internal/web/handler"
 	"github.com/ousiassllc/swarm-viewer/internal/web/middleware"
 	"github.com/ousiassllc/swarm-viewer/internal/web/pages"
@@ -33,6 +34,7 @@ type Deps struct {
 	Connections *service.ConnectionService
 	Snapshots   *service.SnapshotService
 	Pairing     *service.PairingService
+	Panes       *paneservice.PaneService
 	Notifier    service.Notifier // 設定画面の通知許可状態（Permitted）にだけ使う
 	Clock       service.Clock
 	Static      fs.FS // static.FS()
@@ -68,6 +70,7 @@ func New(d Deps) (http.Handler, error) {
 		Connections: d.Connections,
 		Snapshots:   d.Snapshots,
 		Pairing:     d.Pairing,
+		Panes:       d.Panes,
 		Notifier:    d.Notifier,
 		Clock:       d.Clock,
 		CSRFToken:   token,

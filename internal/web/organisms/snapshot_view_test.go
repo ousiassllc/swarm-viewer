@@ -95,11 +95,12 @@ func TestSnapshotView_RepairHasNoPollingAttributes(t *testing.T) {
 	p := baseProps()
 	p.Repair = true
 	html := webtest.Render(t, organisms.SnapshotView(p))
-	webtest.MustNotContain(t, html, "hx-get=\"/connections", "hx-trigger", "hx-sync", "every ")
+	// ペイン詳細へのリンク（hx-get）は取得の導線ではないので残る。ポーリングの属性だけを確かめる。
+	webtest.MustNotContain(t, html, `hx-get="/connections/01CONN/sessions/0/snapshot"`, "hx-trigger", "hx-sync", "every ")
 	// Initial でも出さない。
 	p.Initial = true
 	html = webtest.Render(t, organisms.SnapshotRegion(p))
-	webtest.MustNotContain(t, html, "hx-get", "hx-trigger", "load")
+	webtest.MustNotContain(t, html, `/snapshot"`, "hx-trigger", "load")
 }
 
 func TestSnapshotView_UnauthorizedStopsPollingAndOffersRepair(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
 	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/format"
+	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
 	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
 )
 
@@ -42,7 +43,10 @@ templ ConnectionList(p ConnectionListProps) {
 				for _, c := range p.Connections {
 					<li class="flex items-center gap-3 px-4 py-3">
 						<div class="flex min-w-0 flex-1 flex-col gap-(--list-title-caption-gap)">
-							<p class="truncate text-sm text-ink" title={ c.Name }>{ c.Name }</p>
+							<div class="flex min-w-0 items-center gap-2">
+								<p class="truncate text-sm text-ink" title={ c.Name }>{ c.Name }</p>
+								@molecules.KindBadge(c.Kind())
+							</div>
 							<p class="truncate font-mono text-xs text-mute">{ c.Host() }</p>
 						</div>
 						<div class="flex items-center gap-2">
