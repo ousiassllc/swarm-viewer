@@ -19,6 +19,9 @@ const BannerID = "pane-banner"
 // SendInputID は指示の入力欄の id。ポーリングの再描画でも入力中の文字を残す（hx-preserve）ために必要。
 const SendInputID = "pane-send-text"
 
+// CustomLinesID は「その他」の入力が送る表示行数の hidden の id（保持される <details> の外に置く）。
+const CustomLinesID = "pane-custom-lines"
+
 // PreemptPoll は押した操作（ボタン・フォーム）の hx-sync。コンテナ #pane-live は自動更新を this:drop で守るが、子の操作まで
 // 黙って捨てられないよう、操作の側が飛行中の自動更新（GET）を中断して自分を通す。逆に操作の実行中に来た自動更新は、
 // コンテナの drop で捨てられる。

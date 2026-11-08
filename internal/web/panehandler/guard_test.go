@@ -105,6 +105,15 @@ func TestOperationSourcesPreemptPollWhileContainerDropsOverlappingPolls(t *testi
 			t.Errorf("%s のボタンに %s が無い", label, preempt)
 		}
 	}
+	// shell のペイン（T4）の「＋ 始める」リンク。
+	html = live(t, s, "T4")
+	i := strings.Index(html, "＋ 始める")
+	if i < 0 {
+		t.Fatal("＋ 始める が無い")
+	}
+	if !strings.Contains(html[strings.LastIndex(html[:i], "<a"):i], preempt) {
+		t.Errorf("＋ 始める のリンクに %s が無い", preempt)
+	}
 	// 質問カード（T2）の中: 選択肢ボタンと「その他」のフォームのどちらにも付く。
 	html = live(t, s, "T2")
 	card := html[strings.Index(html, "data-ask-card"):]
@@ -143,4 +152,23 @@ func TestCloseButtonSendsConfirmationValueThroughDialog(t *testing.T) {
 	i := strings.Index(html, ">終了<")
 	btn := html[strings.LastIndex(html[:i], "<button"):i]
 	mustContain(t, btn, "hx-confirm=", `&#34;confirm&#34;:&#34;true&#34;`)
+}
+
+// 「その他」は保持される <details> の中に lines の入力を持たない（古い値が残るため）。最新の lines は外の hidden を hx-include で送る。
+func TestCustomAnswerSendsCurrentLinesNotPreservedStaleValue(t *testing.T) {
+	s := opsconsole.NewStack(t, pathOps)
+	for _, lines := range []string{"30", "100"} {
+		html := body(t, s.Get(opsconsole.PanePath("T2", "/live")+"?lines="+lines), 200)
+		a := strings.Index(html, "<details id=\"pane-custom-answer-")
+		b := a + strings.Index(html[a:], "</details>")
+		if a < strings.Index(html, "<details") || strings.Contains(html[a:b], `name="lines"`) {
+			t.Errorf("lines=%s: 保持される <details> の中に name=\"lines\" がある\n%s", lines, html[a:b])
+		}
+		mustContain(t, html,
+			`<input type="hidden" id="pane-custom-lines" name="lines" value="`+lines+`"`,
+			`hx-include="#pane-custom-lines"`)
+		if strings.Index(html, `id="pane-custom-lines"`) > a {
+			t.Error("lines の hidden が <details> の外（前）に無い")
+		}
+	}
 }

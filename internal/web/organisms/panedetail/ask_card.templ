@@ -72,7 +72,9 @@ templ AskCard(p AskCardProps) {
 //
 // 5 秒ごとの自動更新でカードごと作り直されても、開いた状態と入力中の文字が消えないよう、<details> ごと hx-preserve にする
 // （id は質問ごとに変える。別の質問に変わったら、前の質問への入力を持ち越さず作り直す。送信が通ればカードが閉じて消える）。
+// 保持した要素の中身は古いままなので、表示行数（lines）の hidden は <details> の外に置き、フォームは hx-include で毎回その最新の値を拾う。
 templ customAnswer(p AskCardProps) {
+	<input type="hidden" id={ CustomLinesID } name={ FieldLines } value={ strconv.Itoa(p.Lines) }/>
 	<details id={ customAnswerID(p) } hx-preserve class="acc text-sm text-ink">
 		<summary>その他（自分で書く）</summary>
 		<form
@@ -81,9 +83,9 @@ templ customAnswer(p AskCardProps) {
 			hx-target={ "#" + LiveID }
 			hx-swap="outerHTML"
 			hx-sync={ PreemptPoll }
+			hx-include={ "#" + CustomLinesID }
 			hx-disabled-elt={ "#" + LiveID + " button, #" + LiveID + " textarea" }
 		>
-			<input type="hidden" name={ FieldLines } value={ strconv.Itoa(p.Lines) }/>
 			@atoms.Textarea(atoms.TextareaProps{Name: FieldText, Label: "自由入力の回答"})
 			<div>
 				@atoms.Button(atoms.ButtonProps{Label: "送る", Type: "submit", Variant: atoms.ButtonPrimary, Size: atoms.ButtonSmall})

@@ -168,6 +168,7 @@ templ paneDanger(p LiveProps) {
 					href={ templ.SafeURL(paths.PaneStart(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos)) }
 					hx-get={ paths.PaneStart(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos) }
 					hx-target="#main"
+					hx-sync={ PreemptPoll }
 					class="text-link hover-fade text-sm text-ink"
 				>＋ 始める</a>
 			}
