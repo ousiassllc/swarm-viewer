@@ -3,6 +3,7 @@ package com.ousiassllc.swarmviewer.data.report
 import com.ousiassllc.swarmviewer.domain.ErrKind
 import com.ousiassllc.swarmviewer.domain.FetchException
 import com.ousiassllc.swarmviewer.domain.classify
+import com.ousiassllc.swarmviewer.domain.classifyPaneToolFailure
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -73,7 +74,13 @@ internal class McpExchange(
         val text = firstText(result)
         if (result.booleanOrFalse("isError")) {
             // ツールの失敗は `{"error": {"code": ...}}`（HTTP 200）。コードを分類する。本文は使わない。
-            throw classify(null, HTTP_OK, errorCode(text)) ?: FetchException(ErrKind.Protocol)
+            val failure =
+                if (tool == ReportTools.SESSIONS_LIST || tool == ReportTools.REPORT) {
+                    classify(null, HTTP_OK, errorCode(text))
+                } else {
+                    classifyPaneToolFailure(errorCode(text), errorField(text)) // invalid_args は details.field で session_missing と分ける
+                }
+            throw failure ?: FetchException(ErrKind.Protocol)
         }
         if (text.isEmpty()) throw FetchException(ErrKind.Protocol)
         return text

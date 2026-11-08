@@ -1,6 +1,8 @@
 package com.ousiassllc.swarmviewer.ui.navigation
 
+import com.ousiassllc.swarmviewer.service.PaneTarget
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class NavigationViewModelTest {
@@ -42,6 +44,49 @@ class NavigationViewModelTest {
         navigation.push(Route.Pairing)
         navigation.showMain()
         assertEquals(Route.Main, navigation.current.value)
+        navigation.pop()
+        assertEquals(Route.Main, navigation.current.value)
+    }
+
+    @Test
+    fun openingAPaneDetailKeepsItsTargetAndBackReturnsToTheMainScreen() {
+        val navigation = NavigationViewModel()
+        val target = PaneTarget("c1", "s0", "T1")
+
+        navigation.showPaneDetail(target)
+        assertEquals(Route.PaneDetail, navigation.current.value)
+        assertEquals(target, navigation.target.value)
+
+        navigation.pop()
+        assertEquals(Route.Main, navigation.current.value)
+        assertNull(navigation.target.value)
+    }
+
+    @Test
+    fun startingASessionReplacesTheStartScreenWithThePaneDetail() {
+        val navigation = NavigationViewModel()
+        val shell = PaneTarget("c1", "s0", "B1")
+
+        navigation.showStartSession(shell)
+        assertEquals(Route.StartSession, navigation.current.value)
+        navigation.finishStart(shell)
+
+        assertEquals(Route.PaneDetail, navigation.current.value)
+        assertEquals(shell, navigation.target.value)
+        navigation.pop()
+        assertEquals(Route.Main, navigation.current.value) // 新規セッションの画面には戻らない
+    }
+
+    @Test
+    fun startingFromAPaneDetailReturnsToThatDetailWithoutStackingAnother() {
+        val navigation = NavigationViewModel()
+        val shell = PaneTarget("c1", "s0", "B1")
+        navigation.showPaneDetail(shell)
+        navigation.showStartSession(shell)
+
+        navigation.finishStart(shell)
+
+        assertEquals(Route.PaneDetail, navigation.current.value)
         navigation.pop()
         assertEquals(Route.Main, navigation.current.value)
     }

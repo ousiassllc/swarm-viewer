@@ -3,11 +3,13 @@ package com.ousiassllc.swarmviewer.ui.main
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ousiassllc.swarmviewer.data.store.Snapshot
+import com.ousiassllc.swarmviewer.domain.ConnectionKind
 import com.ousiassllc.swarmviewer.domain.ErrKind
 import com.ousiassllc.swarmviewer.domain.FetchException
 import com.ousiassllc.swarmviewer.service.ConnectionGoneException
 import com.ousiassllc.swarmviewer.service.ConnectionItem
 import com.ousiassllc.swarmviewer.service.ConnectionService
+import com.ousiassllc.swarmviewer.service.PaneTarget
 import com.ousiassllc.swarmviewer.service.SettingsService
 import com.ousiassllc.swarmviewer.service.SnapshotService
 import com.ousiassllc.swarmviewer.ui.UNEXPECTED_ERROR_MESSAGE
@@ -53,6 +55,12 @@ data class MainUiState(
 
     /** 「前回取得 HH:MM」を出す（保存済みの前回の内容、または失敗して直前の内容を残しているとき）。 */
     val showsPreviousFetch: Boolean get() = snapshot != null && (!live || stale)
+
+    /** 選択中の接続の種類（操作 UI を出すかの判定に使う）。未読み込みは見るだけ。 */
+    val kind: ConnectionKind get() = connections?.firstOrNull { it.selected }?.kind ?: ConnectionKind.View
+
+    /** 選択中の接続・セッションの [pos] のペイン。接続かセッションが無ければ null。 */
+    fun target(pos: String): PaneTarget? = if (connectionId != null && session != null) PaneTarget(connectionId, session, pos) else null
 }
 
 /**

@@ -23,6 +23,7 @@ import com.ousiassllc.swarmviewer.service.ConnectionItem
 import com.ousiassllc.swarmviewer.ui.NEEDS_REPAIR_LABEL
 import com.ousiassllc.swarmviewer.ui.main.Badge
 import com.ousiassllc.swarmviewer.ui.main.DisplayTone
+import com.ousiassllc.swarmviewer.ui.main.KindBadge
 import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppCard
@@ -106,7 +107,10 @@ private fun ConnectionCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (item.selected) Badge("表示中", DisplayTone.Accent, marker = true)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                KindBadge(item.kind)
+                if (item.selected) Badge("表示中", DisplayTone.Accent, marker = true)
+            }
             if (item.needsRepair) AppAlert(NEEDS_REPAIR_LABEL)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (!item.selected) AppOutlinedButton(onClick = onSelect) { Text("切り替える") }

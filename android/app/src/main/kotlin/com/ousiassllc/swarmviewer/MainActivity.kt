@@ -26,6 +26,8 @@ import com.ousiassllc.swarmviewer.ui.main.MainViewModel
 import com.ousiassllc.swarmviewer.ui.navigation.AppNavigation
 import com.ousiassllc.swarmviewer.ui.navigation.NavigationViewModel
 import com.ousiassllc.swarmviewer.ui.pairing.PairingViewModel
+import com.ousiassllc.swarmviewer.ui.pane.PaneDetailViewModel
+import com.ousiassllc.swarmviewer.ui.pane.StartSessionViewModel
 import com.ousiassllc.swarmviewer.ui.settings.SettingsViewModel
 import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
 import com.ousiassllc.swarmviewer.ui.theme.SwarmViewerTheme
@@ -44,6 +46,12 @@ class MainActivity : ComponentActivity() {
     }
     private val main: MainViewModel by viewModels {
         viewModelFactory { initializer { MainViewModel(container.snapshots, container.connections, container.settings) } }
+    }
+    private val paneDetail: PaneDetailViewModel by viewModels {
+        viewModelFactory { initializer { PaneDetailViewModel(container.snapshots, container.panes, container.connections) } }
+    }
+    private val startSession: StartSessionViewModel by viewModels {
+        viewModelFactory { initializer { StartSessionViewModel(container.panes, container.snapshots) } }
     }
     private val settings: SettingsViewModel by viewModels {
         viewModelFactory { initializer { SettingsViewModel(container.settings, container.permission::isAllowed) } }
@@ -75,6 +83,8 @@ class MainActivity : ComponentActivity() {
                             settings = settings,
                             connections = connections,
                             pairing = pairing,
+                            paneDetail = paneDetail,
+                            startSession = startSession,
                             widthClass = widthClass,
                         )
                     }

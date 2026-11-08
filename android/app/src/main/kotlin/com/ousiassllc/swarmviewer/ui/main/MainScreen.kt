@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -39,6 +40,7 @@ import com.ousiassllc.swarmviewer.R
 import com.ousiassllc.swarmviewer.data.store.Snapshot
 import com.ousiassllc.swarmviewer.domain.Report
 import com.ousiassllc.swarmviewer.service.ConnectionItem
+import com.ousiassllc.swarmviewer.service.PaneTarget
 import com.ousiassllc.swarmviewer.ui.NEEDS_REPAIR_LABEL
 import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
@@ -50,7 +52,7 @@ import java.time.Instant
 
 /**
  * メイン画面（A2。機能要件 §12.2）。接続名（複数あるときは切替）と設定、セッションのタブ、要対応・警告、ペイン、利用上限、ホスト負荷。
- * 操作系のコントロール（ペインへの送信・選択・起動・終了）を持たない。
+ * この画面自体には操作のコントロールを持たない（ペインカードのタップでペイン詳細へ、操作の接続の `shell` カードの「＋ 始める」で新規セッションへ進むだけ）。
  *
  * [widthClass] が Compact なら縦 1 列のリスト（1 つのスクロール）、Medium / Expanded なら左に `layout` のグリッド、右に利用上限・ホスト負荷。
  * 選択中のセッション・取得済みの表示は [MainViewModel] に、スクロール位置は `rememberScrollState`（`rememberSaveable`）に置き、
@@ -64,6 +66,8 @@ fun MainScreen(
     onManageConnections: () -> Unit,
     onSettings: () -> Unit,
     onRepair: () -> Unit,
+    onOpenPane: (PaneTarget) -> Unit,
+    onStartSession: (PaneTarget) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // 画面が見えている間（STARTED 以上）だけポーリングする。戻ったとき・画面に入ったときに即時取得する。
@@ -75,7 +79,12 @@ fun MainScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { ConnectionTitle(state.connections, viewModel::selectConnection) },
+                title = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        ConnectionTitle(state.connections, viewModel::selectConnection)
+                        if (state.connections?.isNotEmpty() == true) KindBadge(state.kind)
+                    }
+                },
                 actions = {
                     AppNavTextButton("接続", onManageConnections)
                     AppNavTextButton("設定", onSettings)
@@ -98,7 +107,7 @@ fun MainScreen(
                         // 既定のインジケーターは影を付ける（ガイド S3: 影はモーダルだけ）ので、影なしの自前の部品に置き換える。
                         indicator = { AppPullToRefreshIndicator(state = pullState, isRefreshing = state.refreshing) },
                     ) {
-                        MainContent(state, widthClass != WindowWidthSizeClass.Compact, onRepair)
+                        MainContent(state, widthClass != WindowWidthSizeClass.Compact, onRepair, onOpenPane, onStartSession)
                     }
                 }
             }
@@ -180,6 +189,8 @@ private fun MainContent(
     state: MainUiState,
     wide: Boolean,
     onRepair: () -> Unit,
+    onOpenPane: (PaneTarget) -> Unit,
+    onStartSession: (PaneTarget) -> Unit,
 ) {
     val snapshot = state.snapshot
     val report = snapshot?.report ?: Report()
@@ -194,8 +205,17 @@ private fun MainContent(
     val panes: @Composable () -> Unit = {
         when {
             snapshot != null -> {
-                AttentionBar(report.attention, report.warnings, report.auth, state.stale)
-                PaneSection(report.panes, report.layout, report.attention, state.stale, wide)
+                AttentionBar(report.attention, report.warnings, report.auth, state.stale) { pos -> state.target(pos)?.let(onOpenPane) }
+                PaneSection(
+                    panes = report.panes,
+                    layout = report.layout,
+                    attention = report.attention,
+                    stale = state.stale,
+                    wide = wide,
+                    kind = state.kind,
+                    onOpen = { pane -> state.target(pane.pos)?.let(onOpenPane) },
+                    onStart = { pane -> state.target(pane.pos)?.let(onStartSession) },
+                )
             }
             state.session == null && state.sessionsLoaded && state.failure == null -> AppEmptyState("許可されたセッションがありません")
             state.refreshing || state.failure == null -> NoticeText("取得中…")

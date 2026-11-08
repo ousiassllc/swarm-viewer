@@ -20,6 +20,7 @@ import com.ousiassllc.swarmviewer.notify.SystemNotifier
 import com.ousiassllc.swarmviewer.notify.WorkManagerJobs
 import com.ousiassllc.swarmviewer.service.ConnectionService
 import com.ousiassllc.swarmviewer.service.PairingService
+import com.ousiassllc.swarmviewer.service.PaneService
 import com.ousiassllc.swarmviewer.service.ReportFetcher
 import com.ousiassllc.swarmviewer.service.SessionLister
 import com.ousiassllc.swarmviewer.service.SettingsService
@@ -56,6 +57,7 @@ class AppContainer private constructor(
         )
 
     val settings = SettingsService(store, onSaved = scheduler::apply)
+    val panes = PaneService(api = report, store = store, connections = connections)
     val snapshots = SnapshotService(lister = sessionLister, reports = reportFetcher, store = store, attention = notifications)
 
     /** バックグラウンドの確認（周期ジョブが 1 回ごとに使う）。 */

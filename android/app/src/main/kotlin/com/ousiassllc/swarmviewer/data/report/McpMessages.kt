@@ -72,6 +72,16 @@ internal fun errorCode(body: String): String =
         ""
     }
 
+/** ツール失敗の本文 `{"error": {"details": {"field": "<name>"}}}` の `details.field`。形が違うときは空文字（判定にだけ使う）。 */
+internal fun errorField(body: String): String =
+    try {
+        (
+            (((parseJsonObject(body)["error"] as? JsonObject)?.get("details") as? JsonObject)?.get("field")) as? JsonPrimitive
+        )?.takeIf { it.isString }?.contentOrNull.orEmpty()
+    } catch (e: InvalidResponseException) {
+        ""
+    }
+
 /** HTTP エラー本文の先頭だけを読む（`error.code` 用）。 */
 internal fun Response.errorSnippet(): String {
     val source = body.source()

@@ -10,12 +10,15 @@ internal const val AWAIT_SECONDS = 10L
 
 internal abstract class ReportClientTestBase {
     protected lateinit var console: FakeConsole
+
+    /** 偽の swarm-console が待ち受ける path（`/report` か `/ops`）。 */
+    protected open val consolePath = "/report"
     protected val logged = mutableListOf<String>()
     protected val logger = FetchLogger { id, tool, kind, code -> logged += "$id $tool $kind $code" }
 
     @Before
     fun setUp() {
-        console = FakeConsole().start()
+        console = FakeConsole(path = consolePath).start()
         console.tools = okTools()
     }
 

@@ -30,9 +30,19 @@ fun fetchErrorMessage(kind: ErrKind): String =
         ErrKind.SessionMissing -> "セッションが存在しません"
         ErrKind.HostError -> "ホスト側でエラーが発生しました"
         ErrKind.Protocol -> "接続先がこのアプリと互換ではありません"
+        ErrKind.Operation -> OPERATION_FALLBACK_MESSAGE
     }
 
-fun fetchErrorMessage(e: FetchException): String = fetchErrorMessage(e.kind)
+/**
+ * 失敗の文言。操作ツールの失敗（[ErrKind.Operation]）は code ごとの固定文言（[operationErrorMessage]）、見るだけの接続への操作要求
+ * （`tool_not_allowed`）は [VIEW_ONLY_MESSAGE]。それ以外は種別の文言。swarm-console の `message` は使わない。
+ */
+fun fetchErrorMessage(e: FetchException): String =
+    when {
+        e.kind == ErrKind.Operation -> operationErrorMessage(e.code)
+        e.kind == ErrKind.Protocol && e.code == "tool_not_allowed" -> VIEW_ONLY_MESSAGE
+        else -> fetchErrorMessage(e.kind)
+    }
 
 const val DRAFT_EXPIRED_MESSAGE = "接続の確認の有効期限が切れました。もう一度、接続文字列を入力してください"
 const val SAVE_FAILED_MESSAGE = "接続を保存できませんでした。もう一度お試しください"
