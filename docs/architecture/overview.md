@@ -11,10 +11,10 @@ swarm-viewer の全体構成・技術選定・レイヤー構造・通信フロ�
 | 方針 | viewer での適用 |
 |------|----------------|
 | サーバーがUI制御を握る | 画面は Go（Gin + Templ）が HTML で返し、HTMX が差し替える。クライアント JS は HTMX 本体と、可視性制御・トースト消去の数行（`app.js`）、グローバルのエラーリスナーのみ |
-| HATEOAS | 利用可能なアクションだけを HTML に含める。viewer は読み取り専用のため、操作系のコントロール自体を持たない（ペインへの送信・選択ボタンは存在しない） |
+| HATEOAS | 利用可能なアクションだけを HTML に含める。見るだけの接続には操作系のコントロール（選択肢のボタン・送信欄・中断・終了・「＋ 始める」）を HTML に含めない。操作の接続でも、ペインの状態（`working`・`asking` など）で出せる操作だけを出す |
 | 「サーバー」はアプリ内 | HTTP は Wails のアセットハンドラ（`http.Handler`）経由で WebView と Go が話す。**TCP ポートは開かない**（token を WebView の JS に渡さない NFR-SEC-3 と、外部プロセスからの到達を避けるため） |
 | 疎結合 | swarm-console との通信（MCP）・SQLite・OS 秘密領域・OS 通知は、それぞれ interface の裏に置いて差し替え可能にする |
-| 読み取り専用 | swarm-console への呼び出しは許可リストのツールだけ。`/ops` のコードパスを持たない（NFR-SEC-1） |
+| 接続の種類ごとの許可リスト | swarm-console への呼び出しは、接続の種類（URL の path。見るだけ = `/report`、操作 = `/ops`）ごとの許可リストのツールだけ。見るだけの接続は `/ops` を呼ぶコードパスを通らない（NFR-SEC-1・NFR-SEC-14） |
 
 ## 2. 技術スタック
 
@@ -27,7 +27,7 @@ swarm-viewer の全体構成・技術選定・レイヤー構造・通信フロ�
 | インタラクション | HTMX（+ `response-targets` 拡張） | サーバー駆動の DOM 更新、ポーリング |
 | リッチ UI | Lit | **初版は使わない**（使用基準に該当する画面がない）。導入時の規約は §8 |
 | スタイリング | Tailwind CSS | ユーティリティクラス。ダークモードは CSS カスタム変数 + Tailwind |
-| MCP クライアント | 公式 Go SDK（`github.com/modelcontextprotocol/go-sdk/mcp`） | swarm-console `/report` へ `tools/call`。HTTP トランスポートに独自の `http.Client` を渡し、Bearer 付与とタイムアウトを制御する |
+| MCP クライアント | 公式 Go SDK（`github.com/modelcontextprotocol/go-sdk/mcp`） | swarm-console `/report`・`/ops` へ `tools/call`。HTTP トランスポートに独自の `http.Client` を渡し、Bearer 付与とタイムアウトを制御する |
 | 内部 DB | SQLite（`modernc.org/sqlite`、CGO 不要） | 接続・設定・直近スナップショット・通知済み記録（NFR-DAT-1・2。[ER](er.md)） |
 | 秘密領域 | OS キーストア（macOS Keychain / Windows Credential Manager）を `github.com/zalando/go-keyring` 経由で利用 | token の保存（NFR-SEC-2）。ライブラリ選定の理由は[コンポーネント設計 §1](../components/overview.md) |
 | ビルド | `wails3 build` + Tailwind CLI | HTMX は `node_modules` から配置。esbuild は Lit 導入時に追加する |
@@ -51,7 +51,7 @@ graph TD
         Keystore[(OS 秘密領域<br/>token)]
         OSN[OS 通知]
     end
-    Console[swarm-console<br/>tailnet IP:48120 /report]
+    Console[swarm-console<br/>tailnet IP:48120 /report・/ops]
 
     WV <-->|in-process HTTP<br/>HTML フラグメント| Asset
     Asset --> Svc
@@ -60,7 +60,7 @@ graph TD
     Svc --> Repo
     Repo --> SQLite
     Repo --> Keystore
-    Repo -->|MCP tools/call<br/>Bearer: report トークン| Console
+    Repo -->|MCP tools/call<br/>Bearer: report / ops トークン| Console
     Svc --> OSN
     OSN -.クリック.-> Tray
 ```
@@ -77,12 +77,13 @@ swarm-viewer/
 ├── build/config.yml             # Wails ビルド設定（URL スキーム swarm-viewer を宣言）
 ├── internal/
 │   ├── domain/                  # ドメインモデル・純粋ロジック（他層に依存しない）
+│   │   ├── ops/                 #   操作モードのツール結果・入力の検査・失敗の分類（`PaneTail`・`AskCard`・`Pick`・`StartRequest`・`Failure` ほか。linterly の 1 ディレクトリ 2,000 行の上限のためサブパッケージ）
 │   │   ├── report.go            #   Report / Pane / PaneState / Usage / Host / Attention / Warning
-│   │   ├── connection.go        #   Connection / PairingPayload / URL 検証（NFR-SEC-4・5）
+│   │   ├── connection.go        #   Connection / ConnectionKind（URL の path から導く）/ PairingPayload / URL 検証（NFR-SEC-4・5）
 │   │   ├── notify.go            #   状態遷移の検知・通知対象判定（純粋関数）
 │   │   └── settings.go          #   Settings とその許容値
 │   ├── repository/              # データアクセス層（domain のみに依存）
-│   │   ├── report/              #   swarm-console /report への MCP クライアント
+│   │   ├── report/              #   swarm-console /report・/ops への MCP クライアント（種類別の許可リスト）
 │   │   ├── store/               #   SQLite（マイグレーション付き）
 │   │   └── secret/              #   OS 秘密領域
 │   ├── service/                 # アプリケーションサービス層
@@ -90,6 +91,7 @@ swarm-viewer/
 │   │   ├── connection.go
 │   │   ├── snapshot.go          #   report 取得・single-flight・直近値キャッシュ
 │   │   ├── notification.go      #   通知スケジューラ・遷移検知・重複抑止
+│   │   ├── paneservice/         #   PaneService（別パッケージ。linterly の 1 ディレクトリ 2,000 行の上限のため）: ペイン詳細・質問・送信・中断・起動・終了（種類の確認・排他・ログ）。`paneservice.Client` が repository/report の操作メソッドを受ける interface
 │   │   └── settings.go
 │   ├── app/                     # Wails シェル（service を呼ぶ・UI 層ではない）
 │   │   ├── window.go            #   メインウィンドウ・SetURL による遷移（Navigator 実装）
@@ -111,11 +113,16 @@ swarm-viewer/
 │       │   ├── connection.go    #     接続の一覧・削除
 │       │   ├── pairing.go       #     ペアリング（貼り付け・下書き・確定）
 │       │   └── settings.go
+│       ├── panehandler/         #   ペイン詳細・操作の画面ハンドラ（別パッケージ。linterly の 1 ディレクトリ 2,000 行の上限のため）
+│       │   ├── panehandler.go   #     PaneHandler・ルート登録・対象の解決・見るだけの接続への操作は 403
+│       │   ├── live.go          #     ペイン詳細（`P`）・本文の部分描画（`P/live`）
+│       │   ├── actions.go       #     質問への回答・送信・中断・終了（`P/pick`・`P/send`・`P/escape`・`P/close`）
+│       │   └── start.go         #     新しいセッション（`P/start`・`P/start/dirs`）
 │       ├── middleware/          #   CSRF・NoStore・CSP・Recover・RequestLog
 │       ├── atoms/               #   badge / progress_bar / spinner / toast / button / input
-│       ├── molecules/           #   pane_card / usage_row / host_row / session_tab / attention_item
-│       ├── organisms/           #   session_tabs / pane_grid / usage_panel / host_panel / attention_bar / connection_list
-│       ├── pages/               #   main / connections / pairing / settings
+│       ├── molecules/           #   pane_card / usage_row / host_row / session_tab / attention_item / pane_tail / pane_header / kind_badge
+│       ├── organisms/           #   session_tabs / pane_grid / usage_panel / host_panel / attention_bar / connection_list、`panedetail/`（ペイン詳細の本文: `Live`・`AskCard`・`SendForm`・`StartForm`・`StartConfirm`・`DirPicker`）
+│       ├── pages/               #   main / connections / pairing / settings / pane（`PaneDetailPage`・`PaneStartPage`）
 │       └── layout/              #   base（head・htmx・CSP meta・CSRF meta）
 └── static/
     ├── src/css/app.css          # Tailwind エントリ（@font-face を含む）
@@ -141,9 +148,9 @@ handler → service → repository → domain
 - `domain/`: 他層に依存しない。Report の型、状態遷移の検知（`(前回の状態, 今回の状態) → 通知対象か`）、URL 検証などの純粋なロジック
 - `repository/`: `domain/` のみに依存。MCP・SQLite・キーストアという外部とのやり取りを、それぞれ domain の型で返す
 - `service/`: `domain/`・`repository/` に依存。ユースケースを実装する。OS 通知など Wails 依存の機能は **service 側に interface を定義**し、`app/` が実装する（service が Wails を import しない）
-- `web/handler/`: `service/`・`domain/` に依存。**`repository/` を直接使わない**
+- `web/handler/`・`web/panehandler/`: `service/`（`paneservice` を含む）・`domain/`（`domain/ops` を含む）に依存。**`repository/` を直接使わない**（`.golangci.yml` の depguard の規則 `web-handler` が `internal/web/handler/` と `internal/web/panehandler/` の両方に掛かる）
 - `app/`: Wails 依存。`service/` を呼び、`service/` が要求する interface（通知・ウィンドウ遷移）を実装する。`web/` には依存しない
-- `router/`: `handler/` を参照してルートを定義する
+- `router/`: `handler/`・`panehandler/` を参照してルートを定義する
 
 ### 4.3 Huma の位置付け
 
@@ -214,7 +221,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant Host as ホスト（swarm-console pair ※未実装）
+    participant Host as ホスト（swarm-console pair。report か ops）
     participant OS
     participant P as app/protocol.go
     participant S as PairingService
@@ -279,6 +286,47 @@ sequenceDiagram
 - 接続の新規ペアリング後、全許可セッションの一巡（`connections.baselined_at` が埋まるまで）は、通知せず現在の状態の記録だけを行う
 - 通知のクリックは `app/notifier.go` がウィンドウを前面に出し、`SetURL(/connections/{cid}/sessions/{sid})` で該当タブへ遷移する
 
+### 5.6 ペイン詳細と操作（操作モード）
+
+```mermaid
+sequenceDiagram
+    participant WV as WebView
+    participant H as Gin ハンドラ（web/panehandler）
+    participant S as PaneService / SnapshotService
+    participant C as swarm-console
+
+    WV->>H: GET /connections/{cid}/sessions/{sid}/panes/{pos}（見るだけも可）
+    H-->>WV: ヘッダ + 本文領域（hx-get=…/live, hx-trigger="load, every 5s, refresh from:body"）
+    loop 開いている間だけ 5 秒ごと / 更新ボタン
+        WV->>H: GET …/panes/{pos}/live?lines=30
+        H->>S: report（single-flight）で状態を取り直す
+        S->>C: tools/call report {format:json, session}
+        H->>S: pane_tail
+        S->>C: tools/call pane_tail {session, pane, lines}
+        opt 状態が asking
+            H->>S: ask_card
+            S->>C: tools/call ask_card {session, pane}
+        end
+        H-->>WV: フラグメント（状態ヘッダ・質問カード・pane_tail。操作の接続は送信欄・中断・終了も）
+    end
+    Note over WV,C: 以下は操作の接続（/ops）のみ。見るだけの接続は 403 で、コンソールには通信しない
+    WV->>H: POST …/pick {n}（押したらすぐ。確認なし）
+    H->>S: 種類の確認 → 同じペインの排他 → ask_pick
+    S->>C: tools/call ask_pick {session, pane, n}（POST /ops）
+    C-->>S: {ok, card_closed, …}
+    H-->>WV: 質問カードのフラグメント + トースト OOB
+    WV->>H: POST …/escape（確認ダイアログで確定したフォームだけ。confirm=true）
+    H->>S: 種類の確認 → 排他 → send_escape {confirm: true}
+    S->>C: tools/call send_escape
+```
+
+- 呼び出しの順序は常に「接続の種類の確認 → 同じ `(接続, ペイン)` の排他 → ツール呼び出し」。見るだけの接続、または実行中の操作がある場合は、**通信せず**に断る（`ErrOpsRequired` 相当・「前の操作がまだ終わっていません」）。排他は service が持つ（ハンドラ・UI の無効化と二重）
+- ペイン詳細の本文の自動更新は、確認ダイアログが開いている間は止まる（`app.js` が `dialog[data-modal][open]` の間、`…/live` へのリクエストを取り消す）。操作のボタン・送信は `hx-sync="#pane-live:replace"` で、進行中の自動更新より先に送る。「その他（自分で書く）」と指示の入力欄は `hx-preserve` で、自動更新の再描画で入力途中の文字が消えない
+- 中断（`POST P/escape`）・終了（`POST P/close`）は、確認ダイアログを経たフォームだけが付ける `confirm=true` が無ければ `send_escape`・`pane_close` を呼ばない（`confirm_required`）。`POST P/close`・`POST P/start` は、送る前にサーバー側でも最新の `report` のペイン状態を再検査する（`close` は `idle`・`shell` だけ、`start` は `shell` だけ。合わなければ通信せず `invalid_state`）
+- 401・403 は `ConnectionService` の `needs_repair` を立て、その接続のポーリングと操作を止める（[API 仕様 §1.5](../api/endpoints.md)）。操作の結果は固定文言で出し、ホストの `message` を画面に出さない（[機能要件 §10.1](../requirements/functional.md)）
+- 新しいセッションは `GET P/start`（入力画面。`shell` のペインだけ）→ `GET P/start/dirs?path=`（`dir_list` を 1 階層ずつ。`pick=1` は選択済みの表示）→ `POST P/start` の 2 段階（`confirm=1` が無ければ確認画面を返すだけで `pane_start` は呼ばない。`edit=1` で入力画面へ戻る。`confirm=1` で `pane_start`）。成功は `HX-Redirect` でペイン詳細へ（トーストは出さない。終了の成功も `HX-Redirect` でメイン画面へ）
+- 本文（`pane_tail`・質問文・送信本文）は Templ のエスケープで描画し、`templ.Raw` を使わない。ログには接続 ID・ツール名・種別・コード・ペイン位置だけを出す（NFR-SEC-10・11）
+
 ## 6. ウィンドウ・プロセスの挙動
 
 | 操作 | 挙動 |
@@ -300,13 +348,14 @@ graph LR
     Repo --> DB[(SQLite<br/>token なし)]
 ```
 
-- token は repository 層の中だけで扱い、ハンドラ・テンプレート・ログに値を渡さない。ドメイン型の `Connection` は token を持たない（秘密領域のキーだけを持つ）
+- token は repository 層の中だけで扱い、ハンドラ・テンプレート・ログに値を渡さない。ドメイン型の `Connection` は token を持たない（秘密領域のキーだけを持つ）。操作の接続（ops スコープ）の token も同じ扱いで、漏れたときはホストの `swarm-console token revoke <名前>` で失効する（NFR-SEC-13）
 - アセットハンドラは WebView のみから呼ばれる（TCP ポートなし）。それでも画面の状態変更ルート（POST/DELETE）には CSRF トークンを要求する（`<body hx-headers='{"X-CSRF-Token":"…"}'>` で配布。トークンはプロセス起動ごとに生成）
 - CSP: `default-src 'self'`、`connect-src 'self'`、`script-src 'self'`（`unsafe-eval`・`unsafe-inline` なし）、`style-src 'self'`、インラインスクリプトなし（NFR-SEC-9）。HTMX は `<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>` で eval とインラインスタイル注入を止める。外部ホストへは WebView から一切アクセスしない
 - フォント: Sora・Noto Sans JP（JIS X 0208 サブセット）・JetBrains Mono・Symbols Nerd Font Mono を同梱する（woff2。`static/src/fonts/` → generate で `static/dist/fonts/` → `/static/fonts/`）。`app.css` の `@font-face` で配り、Symbols Nerd Font だけ `unicode-range` を PUA に絞る。`font-sans` は Sora → Noto Sans JP → Symbols Nerd Font、`font-mono` は JetBrains Mono。CSP は変えない（`default-src 'self'`。NFR-SEC-9）
 - デザイントークン: 色・角丸・文字サイズ・フォント・影は `app.css` の `:root`（ライト）と `prefers-color-scheme: dark` で定義し、Tailwind の `@theme` から参照する（`bg-bone` `text-ink` `text-mute` `bg-surface` `border-border` `bg-accent` `bg-accent-soft` `text-danger` など）。Tailwind の既定色は無効。ペイン・使用率の状態色は `format/tone.go` が返すトークンのクラスが唯一の出所（NFR-DSG-1）
 - 画面に出す文字列はすべて Templ のエスケープに任せ、HTML として解釈しない（`templ.Raw` を使わない。NFR-SEC-10）
-- MCP の許可リスト: `sessions_list`・`report`（v1 で呼ぶのは 2 本）。リストは repository/report 内の定数で、それ以外のツール名は呼び出し時にエラーにする（NFR-SEC-1）
+- MCP の許可リスト: 接続の種類ごとに、見るだけ（`/report`）は `sessions_list`・`report`・`pane_tail`・`ask_card`、操作（`/ops`）はそれに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list` を足した 10 個。リストは repository/report 内の種類別の定数で、送信前（呼び出し口）と送信内容（`roundTripper`。URL の path が `/report` なら 4 つ、`/ops` なら 10 個）の二重で検査する。許可外のツール名は呼び出し時にエラーにし、見るだけの接続に操作系ツールを呼ぶと通信せずに `tool_not_allowed` で断る（NFR-SEC-1）
+- 操作の安全: 中断・終了は確認ダイアログを経ないと送らない（`confirm=true` が無ければ `send_escape` を呼ばない）。質問カードの選択肢は押したらすぐ送る代わりに、送信中の全ボタンの無効化とサーバー側の排他で二重送信を防ぐ（NFR-SEC-12）
 
 ## 8. Lit 導入時の規約（初版では未使用）
 
@@ -334,11 +383,11 @@ graph LR
 
 | レイヤー | 手法 | 検証内容 |
 |---------|------|---------|
-| domain | ユニットテスト | 状態遷移の検知・重複抑止（`asking`→`asking` は再通知しない、離脱→再突入は再通知）、URL 検証の境界値（NFR-QLT-2）、未知の `state`・`kind` の扱い |
-| repository/report | 固定サンプルの応答 + スタブ HTTP サーバー | report・sessions_list のパース、401/403/`isError` の変換、タイムアウト |
+| domain | ユニットテスト | 状態遷移の検知・重複抑止（`asking`→`asking` は再通知しない、離脱→再突入は再通知）、URL 検証の境界値（NFR-QLT-2。path は `/report`・`/ops` ちょうどだけ）、未知の `state`・`kind` の扱い、操作ツール結果のパーサ・`operation` の分類 |
+| repository/report | 固定サンプルの応答 + スタブ HTTP サーバー | report・sessions_list・`pane_tail`・`ask_card`・操作ツールのパース、401/403/`isError` の変換、タイムアウト、種類別の許可リスト（見るだけで操作系ツールは通信せずに拒否、送信内容の検査） |
 | repository/store | 一時ファイルの SQLite | マイグレーション、通知済み記録の上限（NFR-DAT-3） |
-| service | fake repository | ポーリングの single-flight、通知スケジューラ（フェイククロック。固定時間の待ちに頼らない。NFR-QLT-3） |
-| web/handler・Templ | `httptest` + HTML アサーション | フルページ/フラグメントの返し分け、エラー・古いデータ表示、token が HTML に含まれないこと |
+| service | fake repository | ポーリングの single-flight、通知スケジューラ（フェイククロック。固定時間の待ちに頼らない。NFR-QLT-3）、`PaneService` の種類の確認・同じペインの排他・`needs_repair` |
+| web/handler・Templ | `httptest` + HTML アサーション | フルページ/フラグメントの返し分け、エラー・古いデータ表示、token が HTML に含まれないこと、見るだけの接続で操作部品が出ないこと・操作ルートが 403 で偽コンソールへの通信が 0 件であること、確認なしの `escape` が `send_escape` を呼ばないこと、ログに本文が出ないこと（NFR-QLT-4） |
 | E2E | Playwright（ブラウザで Gin を直接叩くモード）+ 実機確認 | HTMX の更新・タブ切り替え。Wails 固有（トレイ・通知・URL スキーム）は実機で確認する |
 
 ## 11. 未確認事項（実装時に実機で確認して確定）
@@ -360,10 +409,11 @@ graph LR
 | 13 | Android: 通知権限（`POST_NOTIFICATIONS`）を拒否したとき | 拒否後も画面更新は動き、通知だけが出ないこと。設定画面にシステムの通知設定を開く案内が出て、許可後に通知が出ること（Android 13 以降）。通知チャンネルの重要度をシステム設定で変えたときの挙動 |
 | 14 | Android: 折りたたみ⇔展開の切替 | Galaxy Fold7 で折りたたみ時と展開時の WindowSizeClass がそれぞれ何になるか。切替で選択中のセッション・スクロール位置・表示内容が保たれること。切替中に `report` の取得が重複しないこと |
 | 15 | Android: 端末再起動後の通知ジョブの再開 | 再起動後、アプリを一度も開かなくても周期ジョブが再開して通知が出ること。通知オフの設定が再起動後も保たれ、ジョブが走らないこと |
+| 16 | 操作モード（`/ops`）の実機確認 | 実際の swarm-console の `/ops` に対し、ops スコープの token で `ask_pick`（`n`・`text`、`cursor_mismatch`）・`send_text`（`accepted: false`）・`send_escape`・`dir_list` → `pane_start`・`pane_close`（`exit_timeout`）が仕様どおり動くこと。`report` スコープの token で `/ops` に繋いだときの 403。デスクトップ（WebView の確認ダイアログ・5 秒ごとの自動更新・最小化中の停止）と Android（Galaxy Fold7 の閉じ / 開き・親指での操作）の使い勝手。自動テストは偽の swarm-console の範囲で、実機での確認は未実施 |
 
 ## 12. Android 版の構成
 
-Android 版は同じリポジトリの `android/` ディレクトリに置く（Kotlin + Jetpack Compose のネイティブアプリ）。デスクトップ版と同じ swarm-console の `POST /report` に接続する読み取り専用ビューアで、共通の仕様（接続先・ツール・接続文字列・検証規則・`report` の読み方・通知の規則）は変えない。固有の設計は [Android 版の設計](../android/overview.md)、要件は[機能要件 §12](../requirements/functional.md)・[非機能要件 §10](../requirements/non-functional.md)を参照する。
+Android 版は同じリポジトリの `android/` ディレクトリに置く（Kotlin + Jetpack Compose のネイティブアプリ）。デスクトップ版と同じ swarm-console の `POST /report`・`POST /ops` に接続し、見るだけの接続は閲覧だけ、操作の接続のときだけ質問への回答・送信・中断・起動・終了もできる。共通の仕様（接続先・種類別のツール・接続文字列・検証規則・`report` の読み方・通知の規則）は変えない。固有の設計は [Android 版の設計](../android/overview.md)、要件は[機能要件 §12](../requirements/functional.md)・[非機能要件 §10](../requirements/non-functional.md)を参照する。
 
 ### 12.1 技術選定（確定）
 
@@ -387,7 +437,7 @@ Android 版は同じリポジトリの `android/` ディレクトリに置く（
 | 役割 | 技術 | 備考 |
 |------|------|------|
 | UI | Jetpack Compose + Material 3 | WindowSizeClass でレイアウトを切り替える |
-| HTTP / MCP | OkHttp | `/report` への `POST`（JSON-RPC 2.0 の `tools/call`）。公式 Kotlin SDK は使わず、2 ツールだけを呼ぶ薄いクライアントを自前で持つ。ハンドシェイクの要否（ステートレス運用）はデスクトップと同じ未確認事項（§11 #1）に含む |
+| HTTP / MCP | OkHttp | `/report`・`/ops` への `POST`（JSON-RPC 2.0 の `tools/call`）。公式 Kotlin SDK は使わず、種類別の許可リスト（見るだけ 4 つ・操作 10 個）のツールだけを呼ぶ薄いクライアントを自前で持つ。ハンドシェイクの要否（ステートレス運用）はデスクトップと同じ未確認事項（§11 #1）に含む |
 | JSON | kotlinx.serialization | 未知のキーは無視、欠落は既定値（NFR-CMP-1・2） |
 | 永続化 | Room（SQLite） | 接続・設定・スナップショット・通知済み状態（[ER §7](er.md)） |
 | バックグラウンド | WorkManager | 周期ジョブ（[Android 版の設計 §3](../android/overview.md)） |
@@ -412,7 +462,7 @@ graph TD
         KS[(Android Keystore<br/>token の保護)]
         TS[Tailscale アプリ（VPN）<br/>tailnet 到達性]
     end
-    Console[swarm-console<br/>tailnet IP:48120 /report]
+    Console[swarm-console<br/>tailnet IP:48120 /report・/ops]
 
     UI --> Dom
     UI --> Data
@@ -422,7 +472,7 @@ graph TD
     Data --> Dom
     Data --> Room
     Data --> KS
-    Data -->|MCP tools/call<br/>Bearer: report トークン| TS
+    Data -->|MCP tools/call<br/>Bearer: report / ops トークン| TS
     TS --> Console
     Ntf -.タップ.-> UI
 ```
@@ -451,8 +501,9 @@ graph TD
 - **cleartext**: Android 9（API 28）以降は平文 HTTP が既定で禁止される。`http://<tailnet-ip>:48120` に繋ぐため、Network Security Config（`res/xml/network_security_config.xml`）でアプリ全体の cleartext を許可する。範囲指定ができない見込み（§11 #8）のため、宛先の制限は接続先 URL の検証（NFR-SEC-4・5。domain の `validateUrl`）が担う。この検証を通らない URL へは接続しない。tailnet（WireGuard）の暗号化を前提とする点はデスクトップと同じ（NFR-SEC-6）
 - **token**: Android Keystore で保護した領域だけに保存する。Room・ログ・画面・バックアップに出さない。`allowBackup="false"` とデータ抽出ルールで全データをバックアップ・端末間転送から除外する
 - **外部入力**: ディープリンク（Intent）と QR の中身は信頼できない入力として、接続文字列と同じ検証（`parsePairing`）を通し、確認画面で利用者が確定するまで保存しない
-- **許可リスト**: 呼ぶツールは `sessions_list` と `report` だけ（NFR-SEC-1）。許可リストは定数で、それ以外のツール名は呼べない
-- **表示**: ツール応答（`title`・`activity`・`note`）は常にテキストとして描画する（NFR-SEC-10 と同じ）
+- **許可リスト**: 呼ぶツールは接続の種類ごとの許可リストのものだけ（見るだけ = `sessions_list`・`report`・`pane_tail`・`ask_card`、操作 = それに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`。NFR-SEC-1・NFR-AND-SEC-5）。許可リストは `data/report` の定数で、送信前と送信内容（`GuardInterceptor` が URL の path で 4 つ / 10 個）の二重で検査する。それ以外のツール名は呼べず、見るだけの接続に操作系ツールを呼ぶと通信せずに断る
+- **操作の安全**: 見るだけの接続には操作の UI を出さない。中断・終了は確認ダイアログ（`AppDialog`）を経ないと送らず、送信中は `PaneDetailViewModel` の `busy` と `PaneService` の排他で同じペインの二重送信を防ぐ（NFR-AND-SEC-9）
+- **表示**: ツール応答（`title`・`activity`・`note`・`pane_tail`・`ask_card` の質問文・選択肢）は常にテキストとして描画する（NFR-SEC-10 と同じ）
 
 ### 12.7 テスト戦略（Android）
 
@@ -461,8 +512,8 @@ graph TD
 | domain | JUnit。`testdata/vectors/*.json` を読む表駆動 | `parsePairing`・`validateUrl`・`parseReport`・`parseSessions`・`detect`・`classify`・`usageTone`。token が `toString`・例外メッセージに出ない。ケース数の下限を検査 |
 | data | MockWebServer・Room のテスト | 401 / 403 / `isError` の変換、タイムアウト、許可リスト、マイグレーション、接続削除での連鎖削除 |
 | work / notify | `TestListenableWorkerBuilder`・フェイククロック | 順次取得、失敗の読み飛ばし、二重通知の防止、通知オフでのジョブ停止。固定時間の待ちに頼らない |
-| ui | Compose のテスト | WindowSizeClass によるリスト / グリッドの切替、操作系のコントロールが無いこと |
-| 実機 | 手動（§11 #8〜#15） | cleartext・Keystore・QR・Doze・Tailscale・折りたたみ・再起動後の再開 |
+| ui | Compose のテスト | WindowSizeClass によるリスト / グリッドの切替、見るだけの接続に操作系のコントロールが無いこと、操作の接続で確認ダイアログを経ないと `send_escape`・`pane_close` を送らないこと |
+| 実機 | 手動（§11 #8〜#16） | cleartext・Keystore・QR・Doze・Tailscale・折りたたみ・再起動後の再開・操作モード（`/ops`） |
 
 ## 改訂履歴
 
@@ -477,3 +528,5 @@ graph TD
 | 1.6 | 2026-11-05 | §7 にフォントの扱い（同梱の Symbols Nerd Font・PUA のみ・`static/dist/fonts/`）を追記 | Issue #9 |
 | 1.7 | 2026-11-05 | Android 版の構成（§12）を追加。§11 に Android の未確認事項（#8〜#15）を追加 | Issue #15（Android 版の仕様書への反映） |
 | 1.8 | 2026-11-05 | §7 のフォントをガイド指定の書体の同梱に改訂し、デザイントークンの置き場を追記 | Issue #30（Ousiass デザインガイド準拠） |
+| 1.9 | 2026-11-08 | 操作モード（Issue #97）。§1 の HATEOAS・許可リスト、§3・§12.3 の構成図（`/report`・`/ops`、ops トークン）、§4.1 に `PaneService`・ペイン詳細のハンドラ・部品、§5.6 ペイン詳細と操作の通信フロー、§7・§12.6 の許可リストを種類別に、§10・§12.7 のテスト、§11 に #16（`/ops` の実機確認）を追加 | Issue #97（操作モード） |
+| 2.0 | 2026-11-09 | 独立レビューの指摘とコード修正の反映。§4.1・§4.2 に `domain/ops`・`service/paneservice`・`web/panehandler`・`organisms/panedetail`・molecules の実在の名前（depguard の `web-handler` 規則が `panehandler` にも掛かる）、§5.6 に確認ダイアログ中の自動更新停止・`hx-sync`・`hx-preserve`・`P/close` の `confirm=true`・状態の再検査・`P/start` の 2 段階を追記 | Issue #97（独立レビュー ReviewDocs） |

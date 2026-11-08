@@ -1,9 +1,10 @@
 # swarm-viewer
 
-デスクトップから、[swarm-console](https://github.com/ousiassllc/swarm-console) が管理する tmux セッションの状態と、Claude Code・Codex の利用上限を一目で確認できる読み取り専用アプリです（Wails v3 / Go）。操作・送信・指示出しはしません。
+デスクトップ（Wails v3 / Go）から、[swarm-console](https://github.com/ousiassllc/swarm-console) が管理する tmux セッションの状態と、Claude Code・Codex の利用上限を一目で確認できるアプリです。既定は見るだけで、接続を「操作」として登録したときだけ、ペインの中身を見る・質問に答える・指示を送る・中断する・新しいセッションを始める・終了することもできます。Android 版は `android/` にあります。
 
-- tailnet 経由で swarm-console の `POST /report` にだけ接続し、読み取り専用トークン（scope=`report`）を使います
+- tailnet 経由で swarm-console の `POST /report`（見るだけ。読み取り専用トークン scope=`report`）か `POST /ops`（操作。scope=`ops` のトークン）に接続します。どちらかは接続文字列の `url` の path で決まり、呼ぶツールは接続の種類ごとの許可リストだけです
 - tmux セッションごとの上段タブ、ペイン一覧、利用上限、ホスト負荷、要対応（`asking`・`stalled`）の OS 通知
+- ペインをクリックすると詳細（`pane_tail` の中身。見るだけの接続でも見られます）。操作の接続では、質問カードへの回答、指示の送信、中断（確認あり）、新しいセッションの起動（エージェント → フォルダ → タイトル）、終了（確認あり）ができます。見るだけの接続には操作の UI を出しません
 - 設計は [docs/overview.md](docs/overview.md) 以下を参照してください
 
 ## インストール
@@ -42,10 +43,12 @@ task lint        # golangci-lint・templ fmt・Biome・linterly
 
 ## ペアリング
 
-swarm-console が発行する接続文字列（`swarm-viewer://pair?v=1&url=…&token=…`）を、アプリの貼り付け欄に入れるか、ディープリンクで開いて接続を追加します。
+swarm-console が発行する接続文字列（`swarm-viewer://pair?v=1&url=…&token=…`。見るだけは `swarm-console pair`、操作は `swarm-console pair --scope ops`）を、アプリの貼り付け欄に入れるか、ディープリンクで開いて接続を追加します。
 
 - **発行した接続文字列は再利用しないでください。** 接続文字列とディープリンクには token が含まれ、ディープリンクは OS のプロセス引数や履歴に残ることがあります。ペアリングに使った文字列はチャットやメモに残さず、再度ペアリングするときは新しく発行した文字列を使ってください
 - token は OS の秘密領域（macOS Keychain / Windows Credential Manager）にだけ保存し、SQLite・ログ・画面には出しません
+- **操作の接続（`/ops`）の token は、ペインへの送信・中断・起動・終了ができます。** ペアリング確認の画面には、操作の接続のときだけ警告が出ます。token が漏れた・端末をなくしたときは、ホストで `swarm-console token revoke <名前>` を実行して失効し（名前は `swarm-console token list` で確かめられます。`pair --scope ops` は `viewer-ops-<ホスト名>-<yyyymmdd>` を付けます）、新しく発行し直してください。失効した接続は 401 になり、アプリは再ペアリングを案内します
+- 送信した本文・ペインの中身（`pane_tail`・質問）は保存せず、ログにも出しません（ログに残るのは接続 ID・ツール名・種別・コード・ペイン位置まで）
 
 ## データと注意点
 

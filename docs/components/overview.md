@@ -12,7 +12,7 @@ Go モジュールパスは `github.com/ousiassllc/swarm-viewer`。
 | ルーティング | `github.com/gin-gonic/gin` | router, web | HALT 標準。`http.Handler` として Wails のアセットハンドラに渡す |
 | OpenAPI | `github.com/danielgtaylor/huma/v2` | router | HALT 標準（v1 は JSON オペレーション 0 本） |
 | テンプレート | `github.com/a-h/templ` | web | 型安全な HTML |
-| MCP クライアント | `github.com/modelcontextprotocol/go-sdk` | repository/report | 公式 SDK |
+| MCP クライアント | `github.com/modelcontextprotocol/go-sdk` | repository/report | 公式 SDK（`/report`・`/ops` の `tools/call`） |
 | SQLite | `modernc.org/sqlite` | repository/store | CGO 不要 |
 | 秘密領域 | `github.com/zalando/go-keyring` | repository/secret | Keychain / Credential Manager を `Set`/`Get`/`Delete` で扱う。エントリ一覧は取れないため孤立エントリの掃除は行わない（[ER §4](../architecture/er.md)）。サイズ上限内の token を前提とする。**採用版は `go.mod` 固定前に、macOS 実装が token を `security` コマンドの引数（argv）ではなく stdin（`security -i`）で渡すことを確認する**。argv 渡しだと保存の瞬間に `ps` で token が見え、NFR-SEC-2・7 に反する |
 | ID | `github.com/oklog/ulid/v2` | repository/store（ID 発行は service が `IDGenerator` 経由） | ULID |
@@ -48,6 +48,7 @@ graph TD
         Snap[SnapshotService]
         Notif[NotificationService]
         Settings[SettingsService]
+        PaneSvc[PaneService]
     end
     subgraph repo[repository: 外部とのやり取り]
         ReportC[report.Client]
@@ -61,15 +62,16 @@ graph TD
     end
 
     Main --> Router
-    Main --> Pairing & Conn & Snap & Notif & Settings
+    Main --> Pairing & Conn & Snap & Notif & Settings & PaneSvc
     Router --> Handler --> Tpl
-    Handler --> Pairing & Conn & Snap & Settings
+    Handler --> Pairing & Conn & Snap & Settings & PaneSvc
     Proto --> Pairing
     Tray --> Window
     Window --> Handler
     Pairing --> ReportC & Store & Secret
     Conn --> ReportC & Store & Secret
     Snap --> ReportC & Store & Notif
+    PaneSvc --> ReportC & Conn
     Notif --> ReportC & Store
     Notif -.Notifier.-> NotifierImpl
     Notif -.Navigator.-> Window
@@ -102,7 +104,10 @@ graph TD
 | `Host` | `CPU`・`Mem`・`Swap`・`Disk []Disk`（各 `Available` と率。`Mem` は `Swap` と同じ形で、`host.mem` が無ければ零値） |
 | `Report` | `At`・`Layout`・`Panes`・`Attention`・`Usage`・`Host`・`Warnings`・`Auth`（`auth.agents` の `agent`・`status`・`expires_at`） |
 | `Session` | `ID string`・`Allowed bool` |
-| `Connection` | `ID`・`Name`・`URL`・`LastSession`・`BaselinedAt`・`CreatedAt`・`UpdatedAt`。**token を持たない** |
+| `ConnectionKind` | `string` 型。`KindView`（見るだけ。`/report`）・`KindOps`（操作。`/ops`）。DB に列は持たず、`KindOfURL(url)`（path が `/ops` ちょうどなら `KindOps`、それ以外は判定できない URL を含めて `KindView`）から導く |
+| `Connection` | `ID`・`Name`・`URL`・`LastSession`・`BaselinedAt`・`CreatedAt`・`UpdatedAt`。`Kind()` は `URL` の path から種類を返す。**token を持たない** |
+| `PaneTail`・`AskCard`・`PickResult`・`SendResult`・`EscapeResult`・`StartResult`・`CloseResult`・`DirList`（`domain/ops`） | 操作モードのツール結果（[API 仕様 §1.5.2](../api/endpoints.md)）。`AskCard` は `Options []AskOption{N, Label, Recommended}`・`Cursor`・`AllowsCustom`、`DirList` は `Entries []DirEntry{Name, Path, Git}`・`Truncated`。未知のキーは無視し、形が想定外なら `ErrInvalidResponse`（`protocol`）。linterly の 1 ディレクトリ 2,000 行の上限のため、`internal/domain` 直下ではなくサブパッケージ `internal/domain/ops` に置く |
+| `Pick`・`StartRequest`（`domain/ops`） | 操作の入力。`Pick` は `N` か `Text`（同時指定は不可。`Check()` が検査）。`StartRequest` は `Agent`・`Cwd`・`Title`（`Normalize()` が前後の空白除去・`agent` が `omp`・`claude`・`codex`・1〜80 字・制御文字なしを検査）。`CheckText` が `send_text`・`ask_pick` の `text`（8000 字まで、`\n`・`\t` 以外の制御文字は不可）を検査する。`NormalizeTailLines` が `pane_tail` の `lines` を 1〜200（既定 30）に収める |
 | `Settings` | `NotificationsEnabled`・`ScreenPollSeconds`・`NotifyPollMinutes`・`DebugLog`・`LastConnectionID` |
 | `PairingPayload` | `Version`・`URL`（検証・正規化済み）・`Token`・`Name`・`SessionsHint`。`Token` を持つ唯一の domain 型で、`String()`/`GoString()`/`MarshalJSON`/`LogValue` で token を伏せる |
 | `Snapshot` | `Report`・`FetchedAt`・`Stale bool` |
@@ -113,10 +118,12 @@ graph TD
 |------|------|-----------|
 | `ParseReport(json []byte) (Report, error)` | `report` 応答を domain 型へ。未知キーは無視、欠落は零値、未知の `state` は `StateUnknown` | 欠落・`null`・未知値・`available: false` |
 | `ParseSessions(json []byte) ([]Session, error)` | `sessions_list` 応答を `allowed` のみに絞る | `allowed: false` のスタブ |
+| `ops.ParsePaneTail`・`ParseAskCard`・`ParsePick`・`ParseSend`・`ParseEscape`・`ParseStart`・`ParseClose`・`ParseDirList` | 操作モードのツール結果を型へ（`content[0].text` の JSON） | `ok: false`・`accepted: false`・`card_closed: false`・`asking: false`・欠落・未知のキー・形の不正 |
 | `ParsePairing(raw string) (PairingPayload, error)` | [API 仕様 §2.1](../api/endpoints.md) の検証をすべて行う | 重複キー・サイズ超過・未知の `v`・未知パラメータ |
-| `ValidateURL(raw string) (string, error)` | NFR-SEC-4・5。tailnet 範囲（`100.64.0.0/10`、`fd7a:115c:a1e0::/48`）またはループバックの IP リテラル、scheme `http`、port `48120`（ループバックは任意）、path `/report` | 範囲の境界値、ホスト名、`0.0.0.0`、userinfo・クエリ付き |
+| `ValidateURL(raw string) (string, error)` | NFR-SEC-4・5。tailnet 範囲（`100.64.0.0/10`、`fd7a:115c:a1e0::/48`）またはループバックの IP リテラル、scheme `http`、port `48120`（ループバックは任意）、path `/report` または `/ops` ちょうど | 範囲の境界値、ホスト名、`0.0.0.0`、userinfo・クエリ付き、`/ops` の許可、末尾スラッシュ・別表記（`/OPS`・`/ops/`・`%2Fops`）の拒否 |
 | `Detect(known []NotifiedKey, panes []Pane, baselining bool) Diff` | 通知判定（[ER §3.4 の更新規則](../architecture/er.md)） | `asking`→`asking` は再通知なし、離脱→再突入は再通知、`asking`→`stalled` は通知、`baselining` のときは通知なし |
-| `Classify(err error, httpStatus int, toolCode string) *FetchError` | swarm-console の失敗を `ErrKind` に分類（[API 仕様 §1.5](../api/endpoints.md)） | 各 HTTP/コード |
+| `Classify(err error, httpStatus int, toolCode string) *FetchError` | swarm-console の失敗を `ErrKind` に分類（[API 仕様 §1.5](../api/endpoints.md)）。操作ツールの失敗コード（allow-list）は `ErrOperation` | 各 HTTP/コード、`operation` の対象コード、未知コードは `protocol` |
+| `ops.Failure(toolCode, detailsField string) *FetchError` | `session` を取る操作系ツールの `isError` を分類する。`invalid_args` は `details.field` が `"session"` のときだけ `ErrSessionMissing`、それ以外は `ErrOperation`。ほかは `Classify` と同じ。`ops.Error(code)` は送る前の検査で断るときの `ErrOperation`（通信しない） | `invalid_args` の `field` による分岐 |
 | `UsageTone(slot Slot) Tone` | しきい値（80 / 95）と `exhausted` の色判定。`unit != percent` はしきい値なし | 境界値 79.9 / 80 / 94.9 / 95 |
 
 `Diff` は `Notify []NotifyEvent`（`Pane` と `State` を持つ）、`Insert []NotifiedKey`、`Delete []NotifiedKey`。`NotifiedKey` は `(PaneID, State)`。接続・セッションの軸は呼び出し側（service）が持つ。
@@ -134,6 +141,7 @@ const (
     ErrSessionMissing
     ErrHostError
     ErrProtocol
+    ErrOperation // 操作ツールの失敗（invalid_state・not_asking など。HTTP 200 の isError）。Code で理由を区別する
 )
 type FetchError struct{ Kind ErrKind; Code string } // Code は swarm-console のエラーコード。message・details は持たない
 ```
@@ -148,11 +156,11 @@ domain のみに依存する。外部（ネットワーク・ファイル・OS�
 
 | 項目 | 内容 |
 |------|------|
-| 責務 | `sessions_list` と `report` の呼び出し、HTTP/MCP の失敗の分類、タイムアウト（10 秒）、Bearer 付与 |
+| 責務 | `sessions_list`・`report`・`pane_tail`・`ask_card`（見るだけ）と、`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`（操作）の呼び出し、HTTP/MCP の失敗の分類、**ツール別のタイムアウト**（基準 10 秒。`tools.go` の `toolTimeoutScale` で `ask_pick`・`send_text`・`send_escape` は 3 倍、`pane_start`・`pane_close` は 5 倍、ほかは 1 倍。swarm-console の `accept_timeout`（既定 10 秒）・`start_timeout`（既定 30 秒）に待つ余地を残すため。`timeoutFor(tool)`）、Bearer 付与 |
 | 依存 | go-sdk、`secret.Store`（token を内部で解決）、domain |
-| 許可リスト | `var allowedTools = map[string]struct{}{"sessions_list": {}, "report": {}}`。他のツール名を渡す経路は公開しない（メソッドが 2 本だけで、ツール名は定数） |
+| 許可リスト | `tools.go` の種類別の定数 `viewTools`（`sessions_list`・`report`・`pane_tail`・`ask_card`）と `opsTools`（上の 4 つ ＋ `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`）。`toolAllowed(kind, name)` が接続の種類（`Connection.Kind()`）で引く。他のツール名を渡す経路は公開しない（メソッドごとにツール名は定数）。見るだけの接続に操作系ツールを呼ぶと、**通信せずに** `FetchError{Kind: ErrProtocol, Code: "tool_not_allowed"}` |
 | token の扱い | `Connection.ID` から `secret.Store` を引いて Authorization ヘッダを組み立てる。token を戻り値・エラー・ログに出さない |
-| Transport | 独自 `http.RoundTripper`。Bearer 付与・URL の再検証（`ValidateURL` を毎回通す）・リダイレクト追従の禁止（`CheckRedirect` が `ErrUseLastResponse`） |
+| Transport | 独自 `http.RoundTripper`。Bearer 付与・URL の再検証（`ValidateURL` を毎回通す）・**送信内容の検査**（リクエストの URL の path が `/report` なら見るだけの 4 つ、`/ops` なら 10 個だけを通す。呼び出し口の検査との二重）・リダイレクト追従の禁止（`CheckRedirect` が `ErrUseLastResponse`） |
 | 接続の生成 | 呼び出しごとに SDK のクライアント・セッションを開き閉じる。ステートレス運用のため接続を保持しない（再利用は実機確認後に判断。[アーキテクチャ設計 §11](../architecture/overview.md)） |
 | SDK の差し替え | service は `ReportClient` interface（§5.1）にだけ依存する。go-sdk がステートレスな swarm-console（POST のみ、GET・DELETE は 405）と合わない場合は、`tools/call` を POST するだけの自前クライアントに `report.Client` の内部を差し替える（service・handler は変更しない） |
 
@@ -163,7 +171,20 @@ func (c *Client) Sessions(ctx context.Context, conn domain.Connection) ([]domain
 func (c *Client) Report(ctx context.Context, conn domain.Connection, session string) (domain.Report, error)
 // ペアリングの疎通確認。保存前なので token を直接受け取る。成功したらタブ用の一覧を返す
 func (c *Client) Probe(ctx context.Context, url, token string) ([]domain.Session, error)
+// ペインの閲覧（見るだけの接続でも呼べる）。session は常に明示。pane は report の panes[].pos
+func (c *Client) PaneTail(ctx context.Context, conn domain.Connection, session, pane string, lines int) (ops.PaneTail, error)
+func (c *Client) AskCard(ctx context.Context, conn domain.Connection, session, pane string) (ops.AskCard, error)
+// 操作（操作の接続だけ。見るだけの接続は通信せず tool_not_allowed）
+func (c *Client) AskPick(ctx context.Context, conn domain.Connection, session, pane string, pick ops.Pick) (ops.PickResult, error)
+func (c *Client) SendText(ctx context.Context, conn domain.Connection, session, pane, text string) (ops.SendResult, error)
+func (c *Client) SendEscape(ctx context.Context, conn domain.Connection, session, pane string, confirmed bool) (ops.EscapeResult, error)
+func (c *Client) PaneStart(ctx context.Context, conn domain.Connection, session, pane string, req ops.StartRequest) (ops.StartResult, error)
+func (c *Client) PaneClose(ctx context.Context, conn domain.Connection, session, pane string) (ops.CloseResult, error)
+func (c *Client) DirList(ctx context.Context, conn domain.Connection, path string) (ops.DirList, error) // session は取らない
 ```
+
+- 入力は通信前に検査する（`Pick.Check`・`CheckText`・`StartRequest.Normalize`・`session`・`pane` が空でないこと）。`SendEscape` は `confirmed` が `false` なら通信せずに `confirm_required`（`ErrOperation`）で断る（`confirm: true` を無条件に付けない。NFR-SEC-12）
+- 操作ツールの `isError` は `ops.Failure` で分類する。`pane_tail`・`ask_card` の本文・送信本文は、戻り値のほかには保持せず、ログにもエラーにも出さない
 
 ### 4.2 `repository/store`（SQLite）
 
@@ -242,6 +263,11 @@ type ReportClient interface {                            // repository/report.Cl
     Report(ctx context.Context, conn domain.Connection, session string) (domain.Report, error)
     Probe(ctx context.Context, url, token string) ([]domain.Session, error)
 }
+```
+
+操作モードの service は、`ReportClient` とは別の小さな interface `paneservice.Client`（`PaneTail`・`AskCard`・`AskPick`・`SendText`・`SendEscape`・`PaneStart`・`PaneClose`・`DirList`。引数・戻り値は §4.1 のとおり。`report.Client` が満たす）にだけ依存する。取得だけの既存のフェイクを壊さないため、`ReportClient` には足さない。`PaneService`（§5.8）だけが使う。
+
+```go
 type SecretStore interface { /* secret.Store の 3 メソッド */ }
 type Store interface { /* store.Store の公開メソッド */ }
 ```
@@ -362,11 +388,38 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 | `ValidationError` | `Update`・`Parse` | 422 でフォーム再描画 |
 | `store.ErrCorrupt` / `ErrSchemaTooNew` | 起動時に app へ | 起動は止めず、初期化導線の画面を出す |
 
+### 5.8 PaneService（操作モード。`internal/service/paneservice`）
+
+linterly の 1 ディレクトリ 2,000 行の上限のため、`internal/service` 直下ではなくサブパッケージ `internal/service/paneservice` に置く（`service.ConnectionService` に依存する）。
+
+| 項目 | 内容 |
+|------|------|
+| 責務 | ペイン詳細の取得（`Tail`・`Card`）と操作（`Pick`・`Send`・`Escape`・`Start`・`Close`・`Dirs`）。接続の種類の確認、同じペインへの操作の排他、401/403 の `needs_repair`、ログ |
+| 依存 | `paneservice.Client`（§5.1。`report.Client` が満たす）、`service.ConnectionService`（接続の解決・`needs_repair`）、`*slog.Logger` |
+| 状態 | 実行中のペインの集合（キー `接続 ID + "\x00" + session + "\x00" + pane`）。mutex で保護 |
+| エラー | `ErrOpsRequired`（見るだけの接続で操作を求められた）・`ErrBusy`（同じペインの操作が実行中）。どちらも通信しない |
+
+```go
+func (s *PaneService) Tail(ctx context.Context, connID, session, pane string, lines int) (ops.PaneTail, error)
+func (s *PaneService) Card(ctx context.Context, connID, session, pane string) (ops.AskCard, error)
+func (s *PaneService) Pick(ctx context.Context, connID, session, pane string, pick ops.Pick) (ops.PickResult, error)
+func (s *PaneService) Send(ctx context.Context, connID, session, pane, text string) (ops.SendResult, error)
+func (s *PaneService) Escape(ctx context.Context, connID, session, pane string, confirmed bool) (ops.EscapeResult, error)
+func (s *PaneService) Start(ctx context.Context, connID, session, pane string, req ops.StartRequest) (ops.StartResult, error)
+func (s *PaneService) Close(ctx context.Context, connID, session, pane string, confirmed bool) (ops.CloseResult, error)
+func (s *PaneService) Dirs(ctx context.Context, connID, path string) (ops.DirList, error)
+```
+
+- 順序は「接続の解決 → 種類の確認（`Tail`・`Card` 以外の操作は `Kind() == KindOps` が必要。見るだけは通信せず `ErrOpsRequired`）→ `needs_repair` なら通信せず `ErrUnauthorized`（`needs_repair`）→ 排他の取得（ペインへ送信する操作だけ。取れなければ通信せず `ErrBusy`）→ `paneservice.Client` の呼び出し」。入力の検査（`Pick.Check`・`CheckText`・`StartRequest.Normalize`・`confirmed`）は通信前に `report.Client` の呼び出し口で行う
+- `Tail`・`Card`・`Dirs` は排他に入らない（ペインに何も送らない読み取り。5 秒ごとの自動更新と操作が互いを止めない）。`Dirs` は操作の接続だけ
+- 401・403 は `needs_repair` を立てる（`SnapshotService` と同じ。その接続の自動更新・操作を止め、再ペアリングへ誘導する）
+- ログは接続 ID・ツール名・種別・コード・ペイン位置まで。`text`・`pane_tail` の本文は出さない（NFR-SEC-11）
+
 ## 6. web 層
 
-### 6.1 handler（`internal/web/handler`）
+### 6.1 handler（`internal/web/handler`・`internal/web/panehandler`）
 
-`service/`・`domain/` にだけ依存し、`repository/` を直接使わない。
+`service/`・`domain/` にだけ依存し、`repository/` を直接使わない（depguard の `web-handler` 規則が両方のパッケージに掛かる）。ペイン詳細・操作のルートは、linterly の 1 ディレクトリ 2,000 行の上限のため別パッケージ `panehandler` に置く。
 
 | ファイル | ルート（[API 仕様 §4.2](../api/endpoints.md)） | 主な呼び出し |
 |---------|---------------------------------------------|-------------|
@@ -374,6 +427,7 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 | `connection.go` | `GET /connections`、`DELETE /connections/{cid}` | `ConnectionService.List/Delete` |
 | `pairing.go` | `GET/POST /pairing`、`GET /pairing/drafts/{did}`、`POST …/confirm`、`POST …/discard` | `PairingService` |
 | `settings.go` | `GET /settings`、`PUT /settings` | `SettingsService` |
+| `panehandler/panehandler.go`・`live.go`・`actions.go`・`start.go` | `GET …/panes/{pos}`・`GET …/panes/{pos}/live`（`live.go`）、`POST …/pick`・`…/send`・`…/escape`・`…/close`（`actions.go`）、`GET …/start`・`…/start/dirs`、`POST …/start`（`start.go`）、ルート登録・対象の解決・見るだけの接続への 403（`panehandler.go`）（[API 仕様 §4.2・§4.6](../api/endpoints.md)） | `paneservice.PaneService`、`SnapshotService`（状態の取り直し）。見るだけの接続は操作ルートで通信せず 403 を返す |
 
 - ページルートは `HX-Request` でフルページ / フラグメントを分岐する（[API 仕様 §4.1](../api/endpoints.md)）
 - 通常モードのルートは 3xx を返さない（WebKit の WebView が `http.Redirect` を扱えないため）。フルページはその場に描画し、HX の移動は `HX-Redirect`（[API 仕様 §4.1](../api/endpoints.md)、[アーキテクチャ設計 §11](../architecture/overview.md) #7）
@@ -405,7 +459,8 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 | atoms | `ConfirmDialog` | なし | 確認・破壊的操作の中央モーダル。レイアウトに 1 つだけ置き、`modal.js` が `htmx:confirm`（`hx-confirm`）で開く。見出し・ラベルは要素の `data-confirm-title`・`data-confirm-label` |
 | atoms | `ModalHeader` | `ID`・`Title`・`Attrs` | モーダルのヘッダー（ガイドの見本の `header`）。見出し（h2）と閉じる × のアイコンボタン（`data-modal-close`・32px・Iconoir の `xmark`）を左右に置き、下に 1px の `--border`。本文・フッターのクラスは定数 `ModalBodyClass`・`ModalFooterClass`（フッターは右寄せ・ボタン間 8px・上に 1px の `--border`）。`ModalClass` は余白なし・幅は最大 420px で、`ConfirmDialog` とペアリング確認が使う |
 | atoms | `Button` / `Input` | `Button`: `Label`・`Type`・`Variant`・`Size`（標準 / `ButtonSmall`）・`Attrs`。`Input`: 通常の属性 | `Input`・select・textarea は `FieldClass`（高さ 40・文字 16px）。検証に失敗した入力欄は `FieldInvalidClass` を重ねる（`--danger` の枠・`--ring-danger` のリング）。select は `SelectClass`（`FieldClass` に OS の矢印を消して `--mute` のシェブロンを足したもの）。`Button` は `cursor-pointer`、無効（処理中の `hx-disabled-elt` を含む）は `cursor-not-allowed` |
-| molecules | `PaneCard` | `Pane`・`Highlight`・`ReportWaiting` | 状態ラベル・activity・note 要約。`ReportWaiting` は state バッジの隣に「報告待ち」を出す。操作ボタンは**持たない** |
+| molecules | `PaneCard` | `Pane`・`Highlight`・`ReportWaiting` | 状態ラベル・activity・note 要約。`ReportWaiting` は state バッジの隣に「報告待ち」を出す。カード全体がペイン詳細へのリンク（`organisms.PaneGrid` が `<a>` で包む）。ペインへの送信ボタンは**持たない**。「＋ 始める」は `PaneGrid` が操作の接続（`PaneGridProps.Kind`）の `shell` のカードにだけ出す（見るだけの接続には出さない） |
+| molecules | `PaneTail`・`PaneHeader`・`KindBadge` | `PaneTail`: `PaneTailProps`（本文・行数）。`PaneHeader`: `PaneHeaderProps`（位置・状態・タイトル・cwd・メモ・エージェント）。`KindBadge`: `domain.ConnectionKind` | `pane_tail` の本文（`<pre>` で等幅・テキストとして）、ペイン詳細のヘッダ、接続の種類のバッジ（「操作」「見るだけ」。文言を併記し色だけに頼らない）。質問の選択肢の型 `AskOption` は `domain/ops` |
 | molecules | `UsageRow` | `Label`・`Slot` | `unit` で percent / usd を出し分け。`available: false` は「—」 |
 | molecules | `HostRow` | `Label`・`Percent`・`Detail` | |
 | molecules | `SessionTab` | `ConnectionID`・`Session`・`Selected` | `hx-get` |
@@ -416,9 +471,11 @@ func (s *SettingsService) Subscribe() <-chan domain.Settings                    
 | organisms | `HostPanel` | `Host` | |
 | organisms | `AttentionBar` | `[]Attention`・`[]Warning`・`Auth` | ペイン関連とログイン関連の 2 グループに分け、グループ間とエージェントごとに区切り線を入れる（[機能要件 §7](../requirements/functional.md)） |
 | organisms | `SnapshotView` | `SnapshotResult`・`PollSeconds`・`Repair` | ポーリング属性（`hx-trigger`）を出す／出さないの判断を含む |
-| organisms | `ConnectionList` | `[]Connection`・`Error` | `Error` があれば一覧の上に `Alert`（`danger`）を出す（削除失敗） |
-| pages | `MainPage` | 接続・タブ・スナップショット | |
-| pages | `PairingPage` / `PairingDraftPage`（貼り付け画面の上に確認モーダル。`DraftProps.HasConnections` は背面の画面用） / `ConnectionsPage` / `SettingsPage` / `NoSessionsPage` / `DraftExpiredPage` / `RecoveryPage`（DB 破損時） | | |
+| organisms | `ConnectionList` | `[]Connection`・`Error` | `Error` があれば一覧の上に `Alert`（`danger`）を出す（削除失敗）。各接続に種類のバッジ（「操作」「見るだけ」）を出す |
+| organisms | `panedetail`（サブパッケージ）: `Live`・`AskCard`・`SendForm`・`StartForm`・`StartConfirm`・`DirPicker` | `LiveProps`: `Ref`・`Kind`・`Pane`・`Tail`・`Lines`・`Card`・`Banner`・`Repair`・`Notice`・`RetryClose`・`ClearInput`。`AskCardProps`: `Ref`・`Card`・`Lines`・`Ops`。`StartFormProps`・`StartConfirmProps`・`DirPickerProps`（`Ref`・`Dir`・`Recent`・`Error`） | ペイン詳細の本文（`Live`。状態ヘッダ・質問カード・`pane_tail`・状態に応じた送信欄・中断・終了）、質問カード、送信欄（状態で無効と理由を出す）、中断・終了（確認ダイアログ付き。詳細の最下部）、新しいセッションの入力画面・確認画面とフォルダピッカー。`SendForm`・`DirPicker`・中断・終了と質問カードのボタンは、操作の接続のときだけ描画する（見るだけの `AskCard` は一覧と案内だけ） |
+| pages | `MainPage` | 接続・タブ・スナップショット（ヘッダに種類のバッジ） | |
+| pages | `PaneDetailPage`・`PaneStartPage`（`pages/pane.templ`） | `PaneDetailProps`: `Ref`・`Kind`。`PaneStartProps`: `Form`・`Blocked` | ペイン詳細（S4）と新しいセッション（S5。操作の接続だけ） |
+| pages | `PairingPage` / `PairingDraftPage`・`PairingDraftContent`（貼り付け画面の上に確認モーダル。`DraftProps.HasConnections` は背面の画面用。操作の接続の警告を含む） / `ConnectionsPage` / `SettingsPage` / `NoSessionsPage` / `DraftExpiredPage` / `RecoveryPage`（DB 破損時） | | |
 | layout | `Base` | `Title`・`CSRFToken` | `<head>`（CSP は HTTP ヘッダで付与。`htmx-config` の meta を含む）、`<body hx-headers='{"X-CSRF-Token":"…"}'>`、`htmx.min.js`・`app.js`・`modal.js`・`app.css` を読み込む |
 
 - 状態の表示ラベル・色（`StateLabel`・`StateTone`、`UsageTone` の結果から Tailwind クラスへの対応）は **web 層**に置く（presentation。domain は意味だけを持つ）。ラベルは[機能要件 §3](../requirements/functional.md)の表に一致させる
@@ -443,7 +500,8 @@ Wails に依存する唯一の層。`service/` を呼び、service の interface
 | `app/notice`・`app/navpath`・`app/swap` | 通知の本文組み立てとクリック時の遷移先復元、遷移先パスの検証（同一オリジンの絶対パスのみ）、atomic に差し替えられる `http.Handler` |
 
 - ウィンドウを閉じて非表示のとき、WebView が `visibilityState === 'hidden'` になるかは実機で確認する（[アーキテクチャ設計 §11](../architecture/overview.md) の未確認事項 5）。`hidden` にならない場合、非表示中の画面更新ポーリングを止めるため、`window.go` が非表示/表示の遷移時に `refresh`/停止用のイベントを発行する設計に変更する
-- **可視性制御**: 非表示中のポーリング停止と復帰時の即時取得は、静的 `static/src/js/app.js`（`htmx:beforeRequest` で `…/snapshot` を取り消し、`visibilitychange` で `refresh` を発火）が行う。`SnapshotView` の `hx-trigger` にフィルタ式 `[…]` は使わない（CSP が `unsafe-eval` を許さず、htmx の `allowEval:false` と矛盾するため）
+- **可視性制御**: 非表示中のポーリング停止と復帰時の即時取得は、静的 `static/src/js/app.js`（`htmx:beforeRequest` で `…/snapshot` と `…/live` を取り消し、`visibilitychange` で `refresh` を発火）が行う。`SnapshotView`・ペイン詳細の本文の `hx-trigger` にフィルタ式 `[…]` は使わない（CSP が `unsafe-eval` を許さず、htmx の `allowEval:false` と矛盾するため）
+- **確認ダイアログ**: 中断・終了のボタンは `hx-confirm` と `data-confirm-title`・`data-confirm-label` を持ち、`modal.js` の `htmx:confirm` が共通の `atoms.ConfirmDialog`（取り消しのボタンは「キャンセル」）を開く。確定したフォームだけが `POST …/escape`・`POST …/close` に `confirm=true` を付け、ハンドラは `confirm=true` が無ければ `PaneService.Escape(confirmed=false)`・`PaneService.Close(confirmed=false)` を呼び、通信せずに `confirm_required` で拒否する。確認ダイアログが開いている間、`app.js` は `…/live` の自動更新を取り消す（`dialog[data-modal][open]`）。操作のボタン・送信は `hx-sync="#pane-live:replace"` で自動更新に先んじて送り、「その他」・指示の入力欄は `hx-preserve` で再描画から守る
 
 ## 8. 配線（main.go）
 
@@ -472,6 +530,7 @@ func main() {
 | 通知スケジューラ | goroutine 1 本。接続・セッションを順次 | `NotificationService.Observe` が接続ごとの mutex で直列化 |
 | `Observe` の呼び出し元 | 画面更新（Gin の goroutine）と通知用ポーリング（スケジューラ）の 2 系統 | 接続ごとの mutex + DB の主キー制約（`ApplyNotified`） |
 | ペアリング下書き | 1 件 | `PairingService` の mutex |
+| ペインへの操作 | HTMX のリクエスト 1 本ごとに goroutine（Gin） | `PaneService` の `(接続, セッション, ペイン)` ごとの排他（取れなければ通信せず `ErrBusy`）。`Tail`・`Card`・`Dirs` は排他に入らない |
 | `needs_repair`・タブキャッシュ | 読み書きあり | `ConnectionService` の `RWMutex` |
 | SQLite | `database/sql` のプール。WAL + `busy_timeout=5000` | 書き込みは SQLite が直列化 |
 
@@ -482,10 +541,10 @@ func main() {
 | `domain.ParsePairing`・`ValidateURL` | テーブルテスト | NFR-QLT-2 の境界値すべて |
 | `domain.Detect` | テーブルテスト | [ER §3.4](../architecture/er.md) の更新規則の全行 |
 | `domain.ParseReport` | 固定サンプル（swarm-console `docs/api/endpoints-report.md` の JSON と、欠落・未知値・`available:false` を足したもの） | NFR-QLT-1 |
-| `repository/report` | `httptest.Server`（Streamable HTTP を模擬） | 401・403・405・ツール `isError`（`session_required`・`session_forbidden`・`invalid_args`）・タイムアウト・リダイレクト拒否・許可リスト |
+| `repository/report` | `httptest.Server`（Streamable HTTP を模擬） | 401・403・405・ツール `isError`（`session_required`・`session_forbidden`・`invalid_args`・操作ツールのコード）・タイムアウト・リダイレクト拒否・種類別の許可リスト（見るだけで操作系は通信なし、送信内容の検査）・操作ツールの引数（`session` 明示・`/ops` path・Bearer）・ツール結果の解析 |
 | `repository/store` | 一時ファイルの SQLite | マイグレーション、`ErrSchemaTooNew`、`ApplyNotified` の二重挿入、1,000 件上限、`ON DELETE CASCADE` |
-| `service`（Pairing・Connection・Snapshot・Notification・Settings） | fake `ReportClient`/`Store`/`SecretStore`/`Notifier`/`Clock` | single-flight、`needs_repair` による停止、`Observe` の二重通知防止、一巡後の `MarkBaselined`、`Delete` 時の順序（秘密領域 → SQLite。どちらの失敗でも接続が残り再試行できる）、下書きの期限（フェイク `Clock`。固定時間の待ちを使わない） |
-| `web/handler`・Templ | `httptest` + HTML アサーション | フルページ/フラグメント、CSRF 拒否、token が HTML に含まれない、グレーアウト・バナー、`needs_repair` でポーリング属性なし、`PaneCard` に操作系の要素がない |
+| `service`（Pairing・Connection・Snapshot・Notification・Settings・Pane） | fake `ReportClient`/`paneservice.Client`/`Store`/`SecretStore`/`Notifier`/`Clock` | single-flight、`needs_repair` による停止、`Observe` の二重通知防止、一巡後の `MarkBaselined`、`Delete` 時の順序（秘密領域 → SQLite。どちらの失敗でも接続が残り再試行できる）、下書きの期限（フェイク `Clock`。固定時間の待ちを使わない）、`PaneService` の種類の確認・同じペインの排他（2 つ目は通信なし）・確認なしの `Escape`・`Close` の拒否・ログに本文が出ないこと |
+| `web/handler`・`web/panehandler`・Templ | `httptest` + HTML アサーション | フルページ/フラグメント、CSRF 拒否、token が HTML に含まれない、グレーアウト・バナー、`needs_repair` でポーリング属性なし、見るだけの接続のペイン詳細に操作部品（`pick`・`send`・`escape`・`close`・`start`）が無く偽コンソールへの `/ops` が 0 件、操作ルートの直接呼び出しは 403 で通信 0 件、操作の接続で期待どおりのツール・引数が届く（NFR-QLT-4）、`P/close`・`P/start` のサーバー側の状態の再検査 |
 | `app` | 実機 | トレイ・通知・URL スキーム・単一インスタンス（自動テスト対象外。確認手順は実装 Issue に記載） |
 
 ## 11. 要件との対応
@@ -501,8 +560,17 @@ func main() {
 | FR-NTF-1〜3 | `NotificationService`、`domain.Detect`、`store.ApplyNotified`、`app/notifier.go` |
 | FR-SET-1 | `SettingsService`、`handler/settings.go`、`app/logging.go`（デバッグログ） |
 | FR-ERR-1 | `domain.Classify`、`organisms.SnapshotView` のバナー |
+| FR-OPS-1・2 | `domain.ConnectionKind`・`Connection.Kind()`、`organisms.ConnectionList`・`pages.MainPage`・`pages.PairingDraftContent`・`molecules.KindBadge` の種類のバッジと警告 |
+| FR-OPS-3 | `panehandler`（`P`・`P/live`）、`molecules.PaneTail`・`PaneHeader`、`panedetail.Live`、`PaneService.Tail` |
+| FR-OPS-4 | `panedetail.AskCard`（`domain/ops.AskOption`）、`PaneService.Card/Pick` |
+| FR-OPS-5・6・8 | `panedetail.SendForm`・`Live` の中断・終了、`PaneService.Send/Escape/Close`、`modal.js`（確認） |
+| FR-OPS-7 | `pages.PaneStartPage`・`panedetail.StartForm`・`StartConfirm`・`DirPicker`、`PaneService.Dirs/Start` |
+| FR-OPS-9 | `PaneService` の排他（取れなければ `ErrBusy`）、`hx-disabled-elt` |
+| FR-OPS-10 | `ops.Failure`・`domain.Classify`、`web/format` の固定文言 |
 | FR-APP-1・2 | `app/tray.go`、`app/window.go`、単一インスタンス設定（`main.go`） |
-| NFR-SEC-1 | `report.Client` の許可リスト |
+| NFR-SEC-1・NFR-SEC-14 | `report.Client` の種類別の許可リスト（`viewTools`・`opsTools`・`roundTripper` の送信内容の検査）、`PaneService` の種類の確認、`panehandler` の 403 |
+| NFR-SEC-12 | `modal.js` の確認、`PaneService.Escape(confirmed)`・`Close(confirmed)`、`panehandler` の `confirm=true` の検査 |
+| NFR-SEC-13 | `pages.PairingDraftContent` の警告（操作の接続のみ）、README の token 失効の案内 |
 | NFR-SEC-2・3 | `secret.Store`、token を持つ domain 型の限定（`PairingPayload`）、`report.Client` 内でのみ token 解決 |
 | NFR-LOG-1〜4 | `app/logging.go` |
 
@@ -529,3 +597,5 @@ func main() {
 | 2.6 | 2026-11-05 | props の表を実装に合わせて修正: `Badge` に `Marker`、`Button` に `Size`（標準 / `ButtonSmall`）を追加。`PaneCard` から存在しない `Stale` を外し、`UsagePanel` を `Usage`・`RegionGrayed`・`Now` に直した | 独立レビューの指摘（docs と実装の乖離） |
 | 2.7 | 2026-11-05 | `Checkbox` の行の定数 `CheckboxRowClass`（箱→文言 10px）を追加。`EmptyState` の padding を縦 48・横 24 に変更 | Issue #72（デザインガイド S2・S4） |
 | 2.8 | 2026-11-05 | 定数 `FieldInvalidClass` を追加し、ペアリングの検証失敗で入力欄の枠を `--danger` に。`Toast` に幅の上限（`min(92vw, 420px)`）を追加 | Issue #73（デザインガイド O3・O7） |
+| 2.9 | 2026-11-08 | 操作モード（Issue #97）。domain に `ConnectionKind`・`ErrOperation`、サブパッケージ `domain/ops`（ツール結果型・パーサ・入力の検査・`Failure`）、repository/report に種類別の許可リストと操作メソッド・送信内容の検査（path 別）、サブパッケージ `service/paneservice` に `PaneService`（種類の確認・排他・`needs_repair`）、web にペイン詳細・質問カード・送信欄・中断・終了・新しいセッションの部品とルート、確認ダイアログの流れ、要件との対応を追加 | Issue #97（操作モード） |
+| 3.0 | 2026-11-09 | 独立レビューの指摘とコード修正の反映。§4.1 の責務にツール別のタイムアウト（`toolTimeoutScale`）、§5.1・§10 の interface 名を `paneservice.Client` に、§5.8 の `Close` に `confirmed`、§6.1・§6.2・§11 の web 層の名前を実在の構成（`panehandler`・`molecules.PaneTail`/`PaneHeader`/`KindBadge`・`organisms/panedetail`・`pages.PaneDetailPage`/`PaneStartPage`・`PairingDraftContent`）に訂正、確認ダイアログの動作（`ConfirmDialog` の「キャンセル」・`confirm=true`・自動更新の停止）を追記 | Issue #97（独立レビュー ReviewDocs） |
