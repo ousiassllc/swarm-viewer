@@ -107,7 +107,7 @@ internal class StartSessionViewModelTest : PaneFixture() {
             viewModel.started.test {
                 viewModel.requestConfirm()
                 assertTrue(viewModel.state.value.confirming)
-                assertEquals(listOf("dir_list ", "dir_list /work"), api.calls) // 確認だけでは起動しない
+                assertEquals(listOf("dir_list ", "skill_list claude", "dir_list /work"), api.calls) // 確認だけでは起動しない
                 viewModel.start()
                 runCurrent()
                 assertEquals("pane_start s0 B1 claude /work 新機能", api.calls.last()) // タイトルは前後の空白を除く

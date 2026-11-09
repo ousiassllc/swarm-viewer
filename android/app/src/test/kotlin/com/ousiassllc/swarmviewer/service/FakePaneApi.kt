@@ -12,17 +12,21 @@ import com.ousiassllc.swarmviewer.domain.FetchException
 import com.ousiassllc.swarmviewer.domain.PaneTail
 import com.ousiassllc.swarmviewer.domain.PickResult
 import com.ousiassllc.swarmviewer.domain.SendResult
+import com.ousiassllc.swarmviewer.domain.Skill
+import com.ousiassllc.swarmviewer.domain.SkillList
 import com.ousiassllc.swarmviewer.domain.StartResult
 import kotlinx.coroutines.CompletableDeferred
 
 /**
- * 呼び出しを記録する [PaneApi]（JVM のテスト用）。[calls] は「ツール名 引数…」の行。[gate] があれば、それが開くまで操作ツールは応答しない。
- * [failure] があれば、操作ツールはそれを投げる。結果は差し替えられる。
+ * 呼び出しを記録する [PaneApi]（JVM のテスト用）。[calls] は「ツール名 引数…」の行。[gate] があれば、それが開くまで操作ツール（`skill_list` を除く）は応答しない。
+ * [failure] があれば、操作ツールはそれを投げる（[sendFailure] は `send_text` だけ、[skillFailure] は `skill_list` だけ）。結果は差し替えられる。
  */
 internal class FakePaneApi : PaneApi {
     val calls = ArrayList<String>()
     var gate: CompletableDeferred<Unit>? = null
     var failure: FetchException? = null
+    var sendFailure: FetchException? = null
+    var skillFailure: FetchException? = null
 
     /**
      * あれば、次の `ask_card` 1 回だけ、それが開くまで応答しない（質問カードの再取得が終わる前の表示の検査用）。
@@ -39,6 +43,12 @@ internal class FakePaneApi : PaneApi {
     var start = StartResult(ok = true, state = "idle", agent = "omp", cwd = "/work/app", title = "t")
     var close = CloseResult(ok = true, state = "shell", noteArchived = true)
     var dirs = DirList(path = "/work", entries = listOf(DirEntry("app", "/work/app", git = true)), truncated = false)
+    var skills =
+        SkillList(
+            agent = "omp",
+            skills = listOf(Skill("impl", "実装する", "/impl"), Skill("bug-fix", "バグを直す", "/bug-fix")),
+            truncated = false,
+        )
     var tail = PaneTail(text = "tail-body", truncated = false)
 
     private suspend fun <T> operation(
@@ -97,7 +107,11 @@ internal class FakePaneApi : PaneApi {
         session: String,
         pane: String,
         text: String,
-    ): SendResult = operation("send_text $session $pane $text") { send }
+    ): SendResult =
+        operation("send_text $session $pane $text") {
+            sendFailure?.let { throw it }
+            send
+        }
 
     override suspend fun sendEscape(
         conn: Connection,
@@ -125,4 +139,13 @@ internal class FakePaneApi : PaneApi {
         conn: Connection,
         path: String?,
     ): DirList = operation("dir_list ${path.orEmpty()}") { dirs }
+
+    override suspend fun skillList(
+        conn: Connection,
+        agent: String,
+    ): SkillList {
+        calls += "skill_list $agent" // 読み取りなので [gate] では止めない
+        skillFailure?.let { throw it }
+        return skills.copy(agent = agent)
+    }
 }

@@ -24,7 +24,7 @@ private const val MAX_REQUEST_BYTES = 64L * 1024
  *  - URL は毎回 [validateUrl] を通し、呼び出し開始時の [endpoint]（検証済み・正規化済み）と一致するものだけ送る
  *  - メソッドは POST（JSON-RPC）と DELETE（セッション終了。応答は見ない）だけ。GET（常駐 SSE）は開かない
  *  - POST の本文は許可リストの JSON-RPC メソッド（`tools/call` は許可リストのツール）だけ。バッチ・不明なメソッドは通さない。
- *    ツールの許可リストは URL の path で決める（`/report` は見るだけの 4 つ、`/ops` は 10 個。[ReportTools.allowedFor]）
+ *    ツールの許可リストは URL の path で決める（`/report` は見るだけの 4 つ、`/ops` は 11 個。[ReportTools.allowedFor]）
  */
 internal class GuardInterceptor(
     private val endpoint: String,

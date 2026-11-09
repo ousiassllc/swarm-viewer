@@ -19,20 +19,21 @@ internal object ReportTools {
     const val PANE_START = "pane_start"
     const val PANE_CLOSE = "pane_close"
     const val DIR_LIST = "dir_list"
+    const val SKILL_LIST = "skill_list"
 
     /** 見るだけ（`/report`）の接続で呼べるツール。 */
     val view: Set<String> = setOf(SESSIONS_LIST, REPORT, PANE_TAIL, ASK_CARD)
 
     /** 操作専用（`/ops` の接続だけで呼べる）ツール。 */
-    val opsOnly: Set<String> = setOf(ASK_PICK, SEND_TEXT, SEND_ESCAPE, PANE_START, PANE_CLOSE, DIR_LIST)
+    val opsOnly: Set<String> = setOf(ASK_PICK, SEND_TEXT, SEND_ESCAPE, PANE_START, PANE_CLOSE, DIR_LIST, SKILL_LIST)
 
-    /** 操作（`/ops`）の接続で呼べるツール（見るだけの 4 つ + 操作専用の 6 つ）。 */
+    /** 操作（`/ops`）の接続で呼べるツール（見るだけの 4 つ + 操作専用の 7 つ。計 11 個）。 */
     val ops: Set<String> = view + opsOnly
 
     /**
      * 1 回の呼び出しの上限（`REQUEST_TIMEOUT_MILLIS`）に掛ける倍率。操作ツールは画面の確認を待つため長い
      * （swarm-console の既定: accept_timeout 10 秒・start_timeout 30 秒。pane_start・pane_close は複数の手順を踏む）。
-     * 載っていないツール（読み取り）は 1 倍。デスクトップ版の `toolTimeoutScale` と同じ。
+     * 載っていないツール（読み取り。`dir_list`・`skill_list` を含む）は 1 倍。デスクトップ版の `toolTimeoutScale` と同じ。
      */
     fun timeoutScale(tool: String): Int =
         when (tool) {

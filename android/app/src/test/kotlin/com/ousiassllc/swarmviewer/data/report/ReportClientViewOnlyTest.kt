@@ -38,6 +38,7 @@ internal class ReportClientViewOnlyTest : ReportClientTestBase() {
                     { c.paneStart(conn, "s0", "T1", "omp", "/work", "t") },
                     { c.paneClose(conn, "s0", "T1") },
                     { c.dirList(conn) },
+                    { c.skillList(conn, "omp") },
                 )
             for ((index, call) in calls.withIndex()) {
                 val e = failure(call)
@@ -51,13 +52,13 @@ internal class ReportClientViewOnlyTest : ReportClientTestBase() {
         }
 
     @Test
-    fun theViewOnlyToolsAreExactlyTheFourAndTheOpsToolsAreTenWithNothingOutOfScope() {
+    fun theViewOnlyToolsAreExactlyTheFourAndTheOpsToolsAreElevenWithNothingOutOfScope() {
         assertEquals(setOf("sessions_list", "report", "pane_tail", "ask_card"), ReportTools.view)
         assertEquals(
-            setOf("ask_pick", "send_text", "send_escape", "pane_start", "pane_close", "dir_list"),
+            setOf("ask_pick", "send_text", "send_escape", "pane_start", "pane_close", "dir_list", "skill_list"),
             ReportTools.opsOnly,
         )
-        assertEquals(10, ReportTools.ops.size)
+        assertEquals(11, ReportTools.ops.size)
         assertEquals(ReportTools.view + ReportTools.opsOnly, ReportTools.ops)
         val outOfScope = listOf("dispatch", "note_set", "note_log", "file_get", "panes_status", "host_status", "report_read", "tools/list")
         assertTrue(outOfScope.none { it in ReportTools.ops })
