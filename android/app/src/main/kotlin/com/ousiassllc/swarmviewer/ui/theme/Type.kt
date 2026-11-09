@@ -21,14 +21,18 @@ import android.graphics.fonts.FontStyle as PlatformFontStyle
 /**
  * UI の書体は Sora（欧文）と Noto Sans JP（和文）。Compose の [FontFamily] は 1 つの書体しか選べず、グリフごとの代替を持てない。
  * Sora には日本語のグリフが無いので、Android の [Typeface.CustomFallbackBuilder]（API 29 以上。minSdk は 29）で
- * 「Sora → 同梱の Noto Sans JP → システムのフォント」の順に代替する書体を作り、ウェイトごとに [AndroidFont] として [FontFamily] に並べる。
+ * 「Sora → 同梱の Noto Sans JP → 同梱の Symbols Nerd Font Mono → システムのフォント」の順に代替する書体を作り、
+ * ウェイトごとに [AndroidFont] として [FontFamily] に並べる（デスクトップの `font-sans` と同じ順）。
  * これで日本語は同梱の Noto Sans JP（JIS X 0208 の部分集合）で描かれ、含まれない字だけシステムのフォントになる。
+ * Symbols Nerd Font Mono（Symbols Only。アイコンだけで、日本語・欧文のグリフは持たない）は、omp のペインタイトルに入る
+ * Nerd Font のアイコン（私用領域 PUA）を □ にしないための代替で、PUA の字だけがここに落ちる。ウェイトに依らず Regular 1 本。
  * ウェイトは Regular（400）と SemiBold（600）だけ。SemiBold は見出しとボタンにだけ使う。
  */
 private class UiFont(
     override val weight: FontWeight,
     private val latinRes: Int,
     private val japaneseRes: Int,
+    private val symbolsRes: Int = R.font.symbols_nerd_font_mono_regular,
 ) : AndroidFont(FontLoadingStrategy.Blocking, UiFontLoader, FontVariation.Settings()) {
     override val style = FontStyle.Normal
 
@@ -40,6 +44,7 @@ private class UiFont(
             Typeface
                 .CustomFallbackBuilder(family(latinRes))
                 .addCustomFallback(family(japaneseRes))
+                .addCustomFallback(family(symbolsRes))
                 .setSystemFallback("sans-serif")
                 .setStyle(PlatformFontStyle(weight.weight, PlatformFontStyle.FONT_SLANT_UPRIGHT))
                 .build()
@@ -61,7 +66,7 @@ private object UiFontLoader : AndroidFont.TypefaceLoader {
     ): Typeface = loadBlocking(context, font)
 }
 
-/** UI の本文・見出し・ボタン（Sora + Noto Sans JP）。 */
+/** UI の本文・見出し・ボタン（Sora + Noto Sans JP。ペインタイトルの Nerd Font アイコンは Symbols Nerd Font Mono）。 */
 val UiFontFamily =
     FontFamily(
         UiFont(FontWeight.Normal, R.font.sora_regular, R.font.noto_sans_jp_regular),
