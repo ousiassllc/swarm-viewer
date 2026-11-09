@@ -244,7 +244,7 @@ templ DirPicker(p DirPickerProps) {
 			}
 		}
 		if p.Path == "" && len(p.Recent) > 0 {
-			<h3 class="mt-2 text-sm font-semibold text-ink">最近使ったフォルダ</h3>
+			<h3 class="mt-2 text-sm text-ink">最近使ったフォルダ</h3>
 			<ul class="flex flex-col gap-2" data-recent-folders>
 				for _, r := range p.Recent {
 					<li>

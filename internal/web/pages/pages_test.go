@@ -90,6 +90,42 @@ func TestMainPage_NavLinksAreTextLinks(t *testing.T) {
 	webtest.MustNotContain(t, html, "underline-offset-2", "decoration-mute", `text-ink underline`)
 }
 
+// 接続切替チップ（NFR-DSG-22・Issue #80）: nav の中のリンクで、枠 1px --border・角丸 --r-md・14px。ホバーと現在の接続は --accent-soft の地。
+func TestMainContent_ConnectionSwitcherChips(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, pages.MainContent(mainProps()))
+	webtest.MustContain(t, html, `<nav class="flex flex-wrap gap-1" aria-label="接続の切替">`)
+	var checked int
+	for _, a := range webtest.Elements(t, html, "a") {
+		href, _ := webtest.Attr(a, "href")
+		if href != "/connections/01A" && href != "/connections/01B" {
+			continue
+		}
+		class, _ := webtest.Attr(a, "class")
+		if want := "hover-fade rounded-md border border-border px-2 py-1 text-sm text-ink hover:bg-accent-soft aria-[current=true]:bg-accent-soft"; class != want {
+			t.Errorf("接続切替チップの class = %q; want %q", class, want)
+		}
+		current, has := webtest.Attr(a, "aria-current")
+		if want := href == "/connections/01A"; has != want || (has && current != "true") {
+			t.Errorf("%s の aria-current = %q（あり: %v）; 現在の接続（01A）だけ true のはず", href, current, has)
+		}
+		checked++
+	}
+	if checked != 2 {
+		t.Errorf("接続切替チップが 2 本のはず（%d 本）:\n%s", checked, html)
+	}
+}
+
+// 見出しのサイズ階層（NFR-DSG-21・Issue #79）: メイン画面の h1 は 16px、ほかの画面の h1 は 18px（どちらも SemiBold）。
+func TestHeadingHierarchy_PageH1(t *testing.T) {
+	t.Parallel()
+	main := webtest.Render(t, pages.MainContent(mainProps()))
+	webtest.MustContain(t, main, `<h1 class="text-base font-semibold"`)
+	webtest.MustNotContain(t, main, `<h1 class="text-lg`)
+	conns := webtest.Render(t, pages.ConnectionsPage(shell, pages.ConnectionsProps{}))
+	webtest.MustContain(t, conns, `<h1 class="text-lg font-semibold text-ink">接続管理</h1>`)
+}
+
 func TestMainContent_SingleConnectionHasNoSwitcher(t *testing.T) {
 	t.Parallel()
 	p := mainProps()

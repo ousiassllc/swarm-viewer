@@ -71,6 +71,7 @@ func TestStartScreen_ShowsRecentFoldersFromAgentPanesWithoutDuplicates(t *testin
 
 	// agent があるペインの cwd（/work/one は T1・T3 で重複 → 1 件）。agent の無い shell の /home/x は出さない。
 	mustContain(t, html, "最近使ったフォルダ", "data-recent-folders", "/work/one", "/work/two", "/work/five")
+	mustContain(t, html, `<h3 class="mt-2 text-sm text-ink">最近使ったフォルダ</h3>`) // h3 は 14px Regular（NFR-DSG-21）
 	mustNotContain(t, html, "/home/x")
 	if n := strings.Count(html, "%2Fwork%2Fone"); n != 1 {
 		t.Errorf("/work/one の候補 = %d 件; want 重複なしの 1 件", n)
