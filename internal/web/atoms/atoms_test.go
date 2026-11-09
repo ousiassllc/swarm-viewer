@@ -149,6 +149,14 @@ func TestButton_HoverFade(t *testing.T) {
 	}
 }
 
+// 主ボタンのホバーは文字を薄くせず、地を --accent の 85% にする（opacity は使わない。NFR-DSG §11 の承認済みの逸脱・Issue #93）。
+func TestButton_PrimaryHover(t *testing.T) {
+	t.Parallel()
+	html := webtest.Render(t, atoms.Button(atoms.ButtonProps{Label: "保存", Variant: atoms.ButtonPrimary}))
+	webtest.MustContain(t, html, "bg-accent", "text-bone", "hover:bg-accent/85")
+	webtest.MustNotContain(t, html, "hover:opacity-")
+}
+
 // ConfirmDialog は確認・破壊的操作の中央モーダル（ネイティブ dialog・--r-xl・--shadow-modal）。確定は危険ボタン。
 // 文言・見出し・ラベルは app.js が htmx:confirm で textContent に差し込むので、描画時は空・既定値で、インライン script を持たない（O2・NFR-SEC-9）。
 func TestConfirmDialog(t *testing.T) {
