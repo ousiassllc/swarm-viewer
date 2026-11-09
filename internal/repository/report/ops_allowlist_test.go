@@ -12,7 +12,7 @@ import (
 
 var (
 	viewToolNames = []string{"ask_card", "pane_tail", "report", "sessions_list"}
-	opsToolNames  = []string{"ask_card", "ask_pick", "dir_list", "pane_close", "pane_start", "pane_tail", "report", "send_escape", "send_text", "sessions_list"}
+	opsToolNames  = []string{"ask_card", "ask_pick", "dir_list", "pane_close", "pane_start", "pane_tail", "report", "send_escape", "send_text", "sessions_list", "skill_list"}
 	// 範囲外（どちらの接続でも呼ばない）。
 	outOfScope = []string{"", "dispatch", "note_set", "note_log", "file_get", "panes_status", "host_status", "report_read", "tools/list", "Report", "send_text "}
 )
@@ -73,6 +73,7 @@ func TestViewConnection_OperationToolsAreRejectedWithoutCommunicating(t *testing
 		},
 		"pane_close": func() error { _, err := c.PaneClose(t.Context(), conn, "0", "T1"); return err },
 		"dir_list":   func() error { _, err := c.DirList(t.Context(), conn, ""); return err },
+		"skill_list": func() error { _, err := c.SkillList(t.Context(), conn, "omp"); return err },
 	}
 	for name, call := range calls {
 		fe := assertFetchError(t, call(), domain.ErrProtocol)

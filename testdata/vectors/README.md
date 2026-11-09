@@ -10,8 +10,8 @@ swarm-viewer のデスクトップ版（Go）と Android 版（Kotlin）が**同
 | `detect.json` | `Detect` / `detect` | ER §3.4、機能要件 §8.2 |
 | `classify.json` | `Classify` / `classify`（操作ツールのエラーコードは `operation`） | API 仕様 §1.5・§1.5.1 |
 | `usage_tone.json` | `UsageTone`・`PercentTone` / `usageTone`・`percentTone` | 機能要件 §5.3 |
-| `toolresult.json` | 操作モードのツール結果の解析（`ops.ParsePaneTail` ほか / `parsePaneTail` ほか） | API 仕様 §1.5.2 |
-| `opsinput.json` | 操作モードの入力の検査（`ops.CheckText`・`StartRequest.Normalize`・`NormalizeTailLines` / `sendTextProblem`・`normalizeTitle` ほか） | API 仕様 §1.2、機能要件 §4.7・§4.8 |
+| `toolresult.json` | 操作モードのツール結果の解析（`ops.ParsePaneTail` ほか、`skill_list` の `ops.ParseSkillList` を含む / `parsePaneTail` ほか） | API 仕様 §1.5.2 |
+| `opsinput.json` | 操作モードの入力の検査（`ops.CheckText`・`StartRequest.Normalize`・`FirstTask.Empty`・`FirstTask.Text`・`NormalizeTailLines` / `sendTextProblem`・`normalizeTitle`・最初のタスクの組み立て ほか） | API 仕様 §1.2、機能要件 §4.7・§4.8 |
 
 ## 読むテスト
 
@@ -90,12 +90,13 @@ auth{agents[]{agent, status, expires_at}}
 
 ### `toolresult.json`
 
-操作モードの結果の解析（`content[0].text` の JSON）。ツールごとの配列 `pane_tail`・`ask_card`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`（各ケースは `name`・`input`・`want`）と、`invalid[]`。
+操作モードの結果の解析（`content[0].text` の JSON）。ツールごとの配列 `pane_tail`・`ask_card`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list`（各ケースは `name`・`input`・`want`）と、`invalid[]`。
 
-- `input`: `content[0].text`（JSON 文字列）。`want`: 解析後の値。キーは snake_case で、ドメインの項目名と同じ（`ask_pick` の `picked` は `picked_n`・`picked_label` に平らにする）。`ask_card` の `options[]` は `{n, label, recommended}`、`dir_list` の `entries[]` は `{name, path, git}`
+- `input`: `content[0].text`（JSON 文字列）。`want`: 解析後の値。キーは snake_case で、ドメインの項目名と同じ（`ask_pick` の `picked` は `picked_n`・`picked_label` に平らにする）。`ask_card` の `options[]` は `{n, label, recommended}`、`dir_list` の `entries[]` は `{name, path, git}`、`skill_list` は `{agent, skills[]{name, description, invoke}, truncated}`
 - 未知のキーは無視し、欠落・null の項目は零値（`false`・空文字・0・空配列）
 - `ask_card` で `asking` が false なら、`question`・`options`・`cursor`・`allows_custom` は応答にあっても零値にする
 - `dir_list` の `entries[]` は、`name` か `path` が空の項目を捨てる
+- `skill_list` の `skills[]` は、`name` か `invoke` が空の項目を捨てる（`description` の欠落・null は空文字）。`skill_list` は仮称で、swarm-console 側の実装後にツール名・引数・返り値・`invoke` を確定する（アーキテクチャ設計 §11 #17）
 - `invalid[]`: `name`・`tool`・`input_raw`（本文そのまま）。JSON のオブジェクトでないとき、解析が `ErrInvalidResponse` / `InvalidResponseException` で失敗し、エラーに本文が含まれないこと
 
 ### `opsinput.json`
@@ -105,6 +106,11 @@ auth{agents[]{agent, status, expires_at}}
 - `text_cases[]`: `name`・`text`（または `repeat: {char, count}` で `char` を `count` 回繰り返した文字列）・`want`。`send_text`・`ask_pick`（text）の本文を検査した結果で、問題なしは空文字、あればエラーコード（`invalid_args`・`text_too_long`・`forbidden_control_char`）。文字数は Unicode のコードポイント（サロゲートペアは 1 字）。長さの検査が制御文字より先
 - `title_cases[]`: `name`・`input`・`want`。`pane_start` の `title` を、前後の空白（Go の `strings.TrimSpace` と同じ範囲）を除いて検査した値。不正は `null`（1〜80 字、制御文字なし）
 - `tail_lines_cases[]`: `name`・`lines`・`want`。`pane_tail` の `lines` を 1〜200 に収めた値（0 以下は既定の 30）
+
+- `first_task_cases[]`: `name`・`skill`・`task`（`task_repeat: {char, count}` があれば `char` を `count` 回繰り返したものを `task` にする）・`want`。新しいセッションの最初のタスク（機能要件 FR-OPS-11・§4.8）の組み立てと検査で、`want` は `{empty, text または text_length, code}`
+  - `empty`: スキル・本文を前後の空白（Go の `strings.TrimSpace` と同じ範囲）を除いてどちらも空なら `true`（最初のタスクなし。今までどおり起動だけ）。このとき `text` は空文字・`code` は空文字
+  - `text`: 送る文字列。スキルと本文の両方は `<invoke> <本文>`（半角スペース 1 つ）、スキルだけは `<invoke>`、本文だけは `<本文>`（どれも前後の空白を除いた値）。`text_length` があるときは文字数（Unicode のコードポイント）だけを比べる
+  - `code`: 送る文字列を `text_cases[]` と同じ規則で検査した結果（問題なしは空文字、`text_too_long`・`forbidden_control_char`）。違反は送る前に拒否し、`pane_start` も呼ばない。CR は不可（呼び出し側が改行を `\n` に揃えてから渡す）
 
 ### `usage_tone.json`
 

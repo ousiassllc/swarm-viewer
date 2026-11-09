@@ -1,7 +1,7 @@
 // Package report は swarm-console の `/report`・`/ops` エンドポイント（MCP Streamable HTTP）のクライアント。
 //
 // 見るだけの接続（`/report`）は sessions_list・report・pane_tail・ask_card、操作の接続（`/ops`）はさらに ask_pick・send_text・
-// send_escape・pane_start・pane_close・dir_list を呼べる。接続の種類は接続先 URL の path で決まる（NFR-SEC-1）。token は
+// send_escape・pane_start・pane_close・dir_list・skill_list を呼べる。接続の種類は接続先 URL の path で決まる（NFR-SEC-1）。token は
 // secret.Store から接続 ID で解決し、戻り値・エラー・ログに出さない（NFR-SEC-2・11、NFR-LOG-3）。失敗は常に *domain.FetchError で返す。
 //
 // swarm-console はステートレスな Streamable HTTP（POST のみ。GET・DELETE は 405）。公式 go-sdk を、

@@ -71,6 +71,7 @@ func (h *PaneHandler) Register(r gin.IRoutes) {
 	r.POST(p+"/close", h.closePane)
 	r.GET(p+"/start", h.startPage)
 	r.GET(p+"/start/dirs", h.startDirs)
+	r.GET(p+"/start/skills", h.startSkills)
 	r.POST(p+"/start", h.startSubmit)
 }
 

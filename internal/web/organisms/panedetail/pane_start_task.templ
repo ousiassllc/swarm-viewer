@@ -1,0 +1,156 @@
+package panedetail
+
+import (
+	"encoding/json"
+	"unicode/utf8"
+
+	"github.com/ousiassllc/swarm-viewer/internal/domain/ops"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+)
+
+// 新しいセッションの最初のタスク（FR-OPS-11）の部品: スキルの選択（skill_list）と、起動後の結果の表示。
+// スキル名・description・invoke・本文はホスト由来・利用者入力の信頼できない文字列で、常にテキストとして描画する
+// （templ.Raw を使わない。NFR-SEC-10）。
+
+// taskPreviewRunes は確認画面に出す本文の先頭の文字数。
+const taskPreviewRunes = 120
+
+// taskPreview は本文の先頭（taskPreviewRunes 字まで）。超えたら末尾に「…」を付ける。
+func taskPreview(task string) string {
+	if utf8.RuneCountInString(task) <= taskPreviewRunes {
+		return task
+	}
+	return string([]rune(task)[:taskPreviewRunes]) + "…"
+}
+
+// skillsGet はスキルの選択部品を取る hx-get 属性。agent は hx-vals で渡す（クエリの組み立てを属性値に混ぜない）。
+// trigger は "change"（エージェントのラジオ）・"load"（読み込み中の表示）・"click"（再読み込み・変更）。
+func skillsGet(ref Ref, agent, trigger string) templ.Attributes {
+	b, err := json.Marshal(map[string]string{FieldAgent: agent})
+	if err != nil { // map[string]string の Marshal は失敗しない
+		b = []byte("{}")
+	}
+	return templ.Attributes{
+		"hx-get":     paths.PaneStartSkills(ref.ConnectionID, ref.Session, ref.Pos),
+		"hx-vals":    string(b),
+		"hx-trigger": trigger,
+		"hx-target":  "#" + SkillPickerID,
+		"hx-swap":    "innerHTML",
+	}
+}
+
+// SkillPickerLoad はスキルの選択部品の最初の読み込み（エージェントを選んだとき・戻って直したとき）。
+templ SkillPickerLoad(ref Ref, agent string) {
+	<div class="flex items-center gap-2 text-sm text-ink" { skillsGet(ref, agent, "load")... }>
+		@atoms.Spinner(atoms.SpinnerProps{})
+		<span role="status">スキルを読み込み中…</span>
+	</div>
+}
+
+// SkillSelected は選択済みのスキル。invoke を hidden で持ち、「変更」で一覧を取り直す。
+templ SkillSelected(ref Ref, agent, invoke string) {
+	<div class="flex flex-wrap items-center gap-2 rounded-md border border-border bg-surface p-3" data-skill-selected>
+		<input type="hidden" name={ FieldSkill } value={ invoke }/>
+		<span class="min-w-0 flex-1 break-all font-mono text-sm text-ink">{ invoke }</span>
+		@atoms.Button(atoms.ButtonProps{Label: "変更", Size: atoms.ButtonSmall, Attrs: skillsGet(ref, agent, "click")})
+	</div>
+}
+
+// SkillPickerProps はスキルの選択部品の入力。
+type SkillPickerProps struct {
+	Ref   Ref
+	Agent string
+	// Skills は skill_list の結果。Error が空のときだけ出す。
+	Skills ops.SkillList
+	// Error は skill_list の失敗の固定文言。空なら一覧を出す。
+	Error string
+	// Reload が true のとき「再読み込み」を付ける（unknown_tool は再読み込みしても変わらないので付けない）。
+	Reload bool
+}
+
+// SkillPicker はスキルの選択部品（ラジオ。先頭は「スキルなし」）。name と description を出し、invoke は選択値（確認画面で出す）。
+// 取得できなくても「スキルなし」で起動は続けられる（Error のときは選択肢を出さず、skill は送られない＝空）。
+templ SkillPicker(p SkillPickerProps) {
+	<div class="flex min-w-0 flex-col gap-2" data-skill-picker>
+		if p.Error != "" {
+			@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertWarning, Message: p.Error})
+			<p class="text-xs text-mute">スキルなしで、本文だけ・タスクなしでも起動できます</p>
+			if p.Reload {
+				<div>
+					@atoms.Button(atoms.ButtonProps{Label: "再読み込み", Size: atoms.ButtonSmall, Attrs: skillsGet(p.Ref, p.Agent, "click")})
+				</div>
+			}
+		} else {
+			<label class="flex min-h-12 cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2 text-base text-ink has-checked:border-accent has-checked:bg-accent-soft has-focus-visible:ring-2 has-focus-visible:ring-(color:--ring)">
+				<input type="radio" name={ FieldSkill } value="" checked class="size-4 accent-(--accent)"/>
+				<span>スキルなし</span>
+			</label>
+			<ul class="flex flex-col gap-2" data-skill-list>
+				for _, s := range p.Skills.Skills {
+					<li>
+						<label class="flex min-h-12 cursor-pointer items-start gap-2 rounded-md border border-border px-4 py-2 text-base text-ink has-checked:border-accent has-checked:bg-accent-soft has-focus-visible:ring-2 has-focus-visible:ring-(color:--ring)">
+							<input type="radio" name={ FieldSkill } value={ s.Invoke } class="mt-1 size-4 accent-(--accent)"/>
+							<span class="flex min-w-0 flex-1 flex-col">
+								<span class="break-all font-semibold">{ s.Name }</span>
+								if s.Description != "" {
+									<span class="break-words text-sm text-mute">{ s.Description }</span>
+								}
+							</span>
+						</label>
+					</li>
+				}
+			</ul>
+			if len(p.Skills.Skills) == 0 {
+				<p class="text-sm text-mute">選べるスキルがありません</p>
+			}
+			if p.Skills.Truncated {
+				<p class="text-xs text-mute">一部のみ表示</p>
+			}
+		}
+	</div>
+}
+
+// StartTaskResultProps は起動には成功したが、最初のタスクを送っていない（または送れなかった）ときの結果の表示の入力。
+type StartTaskResultProps struct {
+	Ref Ref
+	// Title は見出し（固定文言）。Reason は理由（固定文言。空なら出さない）。
+	Title  string
+	Reason string
+	// Resend が true のとき「もう一度送る」を出す（send_text が失敗したときだけ。idle 以外で送らなかったときは出さない）。
+	Resend bool
+	// Skill・Task は「もう一度送る」で送り直す最初のタスク。この表示の間だけ hidden で持つ（保存しない）。
+	Skill, Task string
+}
+
+// StartTaskResult は起動に成功したが、最初のタスクを送っていない・送れなかったときの結果の表示。起動は取り消さない。
+// 「ペイン詳細を開く」と、送れなかったときだけ「もう一度送る」（send_text だけを送り直す。pane_start は呼ばない）を出す。
+templ StartTaskResult(p StartTaskResultProps) {
+	<div id={ StartID } class="flex min-w-0 flex-col gap-4" data-start-task-result>
+		@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertWarning, Title: p.Title, Message: p.Reason})
+		<div class="flex flex-wrap items-center gap-3">
+			if p.Resend {
+				<form
+					hx-post={ paths.PaneStart(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos) }
+					hx-target={ "#" + StartID }
+					hx-swap="outerHTML"
+					hx-disabled-elt="find button"
+					hx-indicator="#pane-start-spinner"
+					class="flex flex-wrap items-center gap-3"
+				>
+					<input type="hidden" name={ FieldResend } value="1"/>
+					<input type="hidden" name={ FieldSkill } value={ p.Skill }/>
+					<input type="hidden" name={ FieldTask } value={ p.Task }/>
+					@atoms.Spinner(atoms.SpinnerProps{ID: "pane-start-spinner"})
+					@atoms.Button(atoms.ButtonProps{Label: "もう一度送る", Type: "submit", Variant: atoms.ButtonPrimary})
+				</form>
+			}
+			<a
+				href={ templ.SafeURL(paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos)) }
+				hx-get={ paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos) }
+				hx-target="#main"
+				class="text-link hover-fade inline-flex min-h-10 items-center text-sm text-ink"
+			>ペイン詳細を開く</a>
+		</div>
+	</div>
+}

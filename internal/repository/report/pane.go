@@ -112,6 +112,16 @@ func (c *Client) DirList(ctx context.Context, conn domain.Connection, path strin
 	return callParsed(ctx, c, conn, toolDirList, args, ops.ParseDirList)
 }
 
+// SkillList は新しいセッションの最初のタスクに選べるスキルを返す（`skill_list`。仮称で swarm-console 側は未実装。
+// 未実装のホストは unknown_tool を返す）。session は取らず、cwd も渡さない。agent は omp・claude・codex のどれか（通信前に検査）。
+// スキル名・description・invoke はログにもエラーにも出さない。
+func (c *Client) SkillList(ctx context.Context, conn domain.Connection, agent string) (ops.SkillList, error) {
+	if !ops.IsAgent(agent) {
+		return ops.SkillList{}, c.fail(conn.ID, toolSkillList, ops.Error("invalid_args"))
+	}
+	return callParsed(ctx, c, conn, toolSkillList, map[string]any{"agent": agent}, ops.ParseSkillList)
+}
+
 // paneArgs は session・pane を必須にした引数。空なら通信せずに失敗させる（session は常に明示する）。
 func paneArgs(session, pane string) (map[string]any, *domain.FetchError) {
 	if session == "" {
