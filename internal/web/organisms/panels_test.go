@@ -179,6 +179,15 @@ func TestUsagePanel_CursorNullWindow(t *testing.T) {
 	webtest.MustContain(t, html, "モデル", "—")
 }
 
+// 見出しのサイズ階層（NFR-DSG-21・Issue #79）: パネルの見出し（h2）は 14px SemiBold。
+func TestPanels_HeadingsAre14pxSemibold(t *testing.T) {
+	t.Parallel()
+	host := webtest.Render(t, organisms.HostPanel(organisms.HostPanelProps{Host: domain.Host{CPU: domain.CPU{Available: true, UsedPercent: 10}}}))
+	webtest.MustContain(t, host, `<h2 id="host-heading" class="text-sm font-semibold text-ink">ホスト</h2>`)
+	usage := webtest.Render(t, organisms.UsagePanel(organisms.UsagePanelProps{Usage: usageWith(domain.UsageOK, domain.Slot{}), Now: now}))
+	webtest.MustContain(t, usage, `<h2 id="usage-heading" class="text-sm font-semibold text-ink">利用上限</h2>`)
+}
+
 func TestHostPanel(t *testing.T) {
 	t.Parallel()
 	h := domain.Host{
