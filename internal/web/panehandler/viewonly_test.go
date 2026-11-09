@@ -27,6 +27,8 @@ func TestViewOnlyConnection_PaneDetailHasNoOperationControls_AndNeverCallsOps(t 
 
 		html := live(t, s, pos)
 		mustContain(t, html, "見るだけ", `data-pane-header`, `data-pane-tail`, "TAIL-BODY-MARKER")
+		// 入力欄が無い理由と、出すための方法を 1 行で示す（Issue #101。操作の部品ではない）。
+		mustContain(t, html, `data-view-only-prompt-note`, "操作の接続（/ops）で登録すると入力できます")
 		mustNotContain(t, html, operationMarkers...)
 		// 読み取りだけの hx-get（更新・もっと見る）のほかに、hx-* の操作を持たない。
 		mustNotContain(t, html, "hx-delete", "hx-put", "hx-patch", "hx-vals", "hx-disabled-elt")

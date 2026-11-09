@@ -27,6 +27,9 @@ const val PANE_BUSY_MESSAGE = "前の操作がまだ終わっていません"
 /** 質問が閉じていて、見るだけの接続でできること（見るだけの質問カードの 1 行）。 */
 const val ASK_VIEW_ONLY_HINT = "この質問には、操作できる接続から答えられます"
 
+/** 見るだけの接続のペイン詳細の 1 行（指示の入力欄が無い理由と、出すための方法）。 */
+const val PROMPT_VIEW_ONLY_HINT = "この接続は見るだけです。ペインへの指示は、操作の接続（/ops）で登録すると入力できます"
+
 /** 中断の確認ダイアログ（`send_escape` の前に必ず出す）。 */
 const val ESCAPE_CONFIRM_TITLE = "作業中のエージェントを止めます"
 const val ESCAPE_CONFIRM_BODY = "ペインに Esc を送って、実行中の作業を中断します。"

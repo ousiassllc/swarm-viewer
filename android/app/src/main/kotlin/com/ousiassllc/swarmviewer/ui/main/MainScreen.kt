@@ -199,7 +199,7 @@ private fun MainContent(
     val secondaryScroll = rememberScrollState()
     val gap = Arrangement.spacedBy(12.dp)
     val gutter = LocalGutter.current
-    val padding = Modifier.padding(horizontal = gutter, vertical = 8.dp)
+    val padding = Modifier.padding(gutter)
 
     val status: @Composable () -> Unit = { StatusLine(state, onRepair) }
     val panes: @Composable () -> Unit = {

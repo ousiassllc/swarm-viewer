@@ -50,7 +50,7 @@ func StateTone(s domain.PaneState) Tone {
 	}
 }
 
-// PercentTone は使用率（%）の表示色を返す。しきい値は domain.PercentTone（80 / 95）に従う。
+// PercentTone は使用率（%）の表示色を返す。しきい値は domain.PercentTone（80 で warning・95 で error）に従う（NFR-DSG-20）。
 func PercentTone(percent float64) Tone {
 	return FromDomainTone(domain.PercentTone(percent))
 }

@@ -117,8 +117,12 @@
 }
 
 @theme {
+  /* 幅の区分（Android の WindowWidthSizeClass と同じ境目）。画面のガターを切り替える: Compact 16・medium: 24・expanded: 32（NFR-DSG-10）。 */
+  --breakpoint-medium: 600px;
+  --breakpoint-expanded: 840px;
+
   --font-sans: Sora, "Noto Sans JP", "Symbols Nerd Font", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-mono: "JetBrains Mono", "Symbols Nerd Font", ui-monospace, monospace;
 
   --text-xs: 0.75rem;
   --text-xs--line-height: 1.6;

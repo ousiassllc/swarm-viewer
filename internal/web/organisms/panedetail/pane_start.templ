@@ -103,7 +103,7 @@ templ StartForm(p StartFormProps) {
 			</div>
 			<div class="flex flex-wrap items-center gap-3">
 				@atoms.Button(atoms.ButtonProps{Label: "確認へ", Type: "submit", Variant: atoms.ButtonPrimary})
-				<a href={ templ.SafeURL(paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos)) } hx-get={ paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos) } hx-target="#main" class="text-link hover-fade text-sm text-ink">やめる</a>
+				<a href={ templ.SafeURL(paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos)) } hx-get={ paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos) } hx-target="#main" hx-swap="innerHTML" class="text-link hover-fade text-sm text-ink">やめる</a>
 			</div>
 		</form>
 	</div>
@@ -244,7 +244,7 @@ templ DirPicker(p DirPickerProps) {
 			}
 		}
 		if p.Path == "" && len(p.Recent) > 0 {
-			<h3 class="mt-2 text-sm font-semibold text-ink">最近使ったフォルダ</h3>
+			<h3 class="mt-2 text-sm text-ink">最近使ったフォルダ</h3>
 			<ul class="flex flex-col gap-2" data-recent-folders>
 				for _, r := range p.Recent {
 					<li>
