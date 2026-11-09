@@ -29,6 +29,7 @@
 - 10 秒（設定可能）の `report` ポーリングと手動更新。前回取得分の表示（SQLite に最新 1 件を保存）
 - `asking`（答え待ち）・`stalled`（止まってるかも）への遷移の OS 通知。通知は全接続・全許可セッションが対象（既定 10 分ごとの別ポーリング）、同じ状態の再通知はしない。通知のオン/オフは設定画面で切り替える
 - ペイン詳細（`pane_tail`・`ask_card`）の閲覧（見るだけの接続でも）。操作の接続では質問への回答（`ask_pick`）・指示の送信（`send_text`）・中断（`send_escape`）・新しいセッションの起動（`dir_list` → `pane_start`）・終了（`pane_close`）。中断・終了は確認ダイアログを経る（FR-OPS-1〜10）
+- 操作の接続の新しいセッションに、任意の最初のタスク（スキル・本文）を入れる（`skill_list` → `pane_start` → `send_text`。FR-OPS-11）
 - ウィンドウを閉じてもトレイ（macOS はメニューバー）に常駐し、通知を継続する。単一インスタンス
 - 接続・認証・セッション許可のエラー表示
 - Windows / macOS ネイティブアプリ（Wails v3、フロントは HALT: Gin + Templ + HTMX）
@@ -49,7 +50,7 @@
 - Ctrl-C など任意のキーの送信
 - インターネット公開・クラウド経由の中継
 - Google Play での公開、プッシュ通知（FCM）、iOS 版
-- swarm-console 本体の機能追加の実装（本リポの範囲外。`pair`・`dir_list` は swarm-console 側で実装済み）、接続文字列・QR の生成
+- swarm-console 本体の機能追加の実装（本リポの範囲外。`pair`・`dir_list` は swarm-console 側で実装済み。`skill_list` は viewer が前提とする要望で、swarm-console 側は未実装）、接続文字列・QR の生成
 - 自動更新、コード署名・公証（デスクトップ版は初版は手動入れ替え・unsigned。Android 版は署名済み APK を手動で入れ替える。自動更新はしない）
 
 ## ステークホルダー / 想定ユーザー
@@ -57,7 +58,7 @@
 | 区分 | 役割 | 備考 |
 |------|------|------|
 | swarm-console 運用者（開発者本人） | デスクトップ・スマートフォンから tmux・エージェント状態と利用上限を確認し、外出先からも質問への回答・指示ができる | tailnet 参加端末の Windows / macOS / Android（Galaxy Fold7）。1 人〜少人数 |
-| swarm-console（接続先） | `/report` で読み取り専用データ、`/ops` で操作を提供 | v0.1.11 以降。`pair [--scope report\|ops]`・`dir_list` は実装済み |
+| swarm-console（接続先） | `/report` で読み取り専用データ、`/ops` で操作を提供 | v0.1.11 以降。`pair [--scope report\|ops]`・`dir_list` は実装済み。`skill_list` は未実装（要望。実装後にツール名・引数・返り値を確定する） |
 
 ## システム全体像
 
@@ -83,7 +84,7 @@ graph TD
 
 | ドキュメント | パス | 概要 |
 |------------|------|------|
-| 機能要件 | `docs/requirements/functional.md` | ユースケース、機能一覧（ペアリング・セッション切替・ペイン表示・利用上限・通知・設定・操作モード FR-OPS）、ペイン `state` の表示ラベル、画面（ペイン詳細・質問カード・新しいセッション）、エラー表示 |
+| 機能要件 | `docs/requirements/functional.md` | ユースケース、機能一覧（ペアリング・セッション切替・ペイン表示・利用上限・通知・設定・操作モード FR-OPS）、ペイン `state` の表示ラベル、画面（ペイン詳細・質問カード・新しいセッション・最初のタスク）、エラー表示 |
 | 非機能要件 | `docs/requirements/non-functional.md` | 対応環境、性能・リソース目標、セキュリティ（種類別の許可リスト・tailnet 範囲の URL 検証・token 保護・操作の確認）、可用性、ストレージ、ログ、配布 |
 | アーキテクチャ設計 | `docs/architecture/overview.md` | HALT（Gin + Huma + Templ + HTMX）× Wails v3 の構成、レイヤー構造、通信フロー（ペイン詳細・操作を含む）、トレイ常駐、セキュリティ境界、未確認事項 |
 | ER / データモデル | `docs/architecture/er.md` | SQLite 4 テーブル（connections・settings・snapshots・notified_states）、接続の種類は `url` の path から導出、秘密領域（token）、マイグレーション |
@@ -99,7 +100,7 @@ graph TD
 | swarm-console | tmux 上のエージェント群を管理し、MCP で状態公開・操作を提供するホスト側ソフト。viewer の接続先 |
 | MCP | Model Context Protocol。本件では Streamable HTTP 上の JSON-RPC 2.0 |
 | `/report` | 読み取り専用の MCP 窓口。見るだけの接続が使う（`sessions_list`・`report`・`pane_tail`・`ask_card`） |
-| `/ops` | 読み取り＋操作の MCP 窓口。操作の接続が使う（上に加えて `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`） |
+| `/ops` | 読み取り＋操作の MCP 窓口。操作の接続が使う（上に加えて `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list`。`skill_list` は未実装・要望） |
 | report トークン | `swarm-console token add <名前> --scope report [--sessions …]`（または `pair`）で発行する読み取り専用トークン |
 | ops トークン | `swarm-console token add <名前> --scope ops [--sessions …]`（または `pair --scope ops`）で発行する操作用トークン。ペインへの送信・中断・起動・終了ができるため、漏れたら `swarm-console token revoke <名前>` で失効する |
 | 接続の種類 | 見るだけ（`/report`）と操作（`/ops`）。接続文字列の `url` の path で決まる |
@@ -124,3 +125,4 @@ graph TD
 | 1.4 | 2026-11-03 | 環境構築の概要を更新（CI をセルフホステッドランナーに） | 環境構築ドキュメントの更新との整合 |
 | 1.5 | 2026-11-05 | Android 版をスコープに追加（「含まないもの」から外す）。システム全体像・ドキュメントマップ・用語集に Android を反映 | Issue #15（Android 版の仕様書への反映） |
 | 1.6 | 2026-11-08 | 操作モード（Issue #97）。目的・スコープ・範囲外を「既定は見るだけ、操作の接続のときだけ操作できる」に変更。システム全体像・ドキュメントマップ・用語集（`/ops`・ops トークン・接続の種類）を更新 | Issue #97（操作モード） |
+| 1.7 | 2026-11-09 | 最初のタスクをスコープに追加（FR-OPS-11）。`skill_list`（要望・swarm-console 側は未実装）をステークホルダー・範囲外・用語集（`/ops`）に反映 | Issue #103（空きセッションへの最初のタスク） |

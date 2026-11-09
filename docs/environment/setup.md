@@ -115,7 +115,7 @@ lint で機械的に守らせるアーキテクチャ上のルール（§6.1 の
 | `internal/web/handler` は `repository` を import しない | 同上 |
 | `internal/web` は `internal/app` を import しない | [コンポーネント設計 §7](../components/overview.md) |
 | `templ.Raw` を使わない | NFR-SEC-10（HTML として解釈しない） |
-| `repository/report` から、接続の種類ごとの許可リスト（見るだけ: `sessions_list`・`report`・`pane_tail`・`ask_card`、操作: それに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`）以外のツール名を呼ばない。見るだけの接続から `/ops` を呼ぶコードパスを作らない | NFR-SEC-1・NFR-SEC-14。ツール名は種類別の定数で、レビューと単体テスト（NFR-QLT-4）で担保する |
+| `repository/report` から、接続の種類ごとの許可リスト（見るだけ: `sessions_list`・`report`・`pane_tail`・`ask_card`、操作: それに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list`）以外のツール名を呼ばない。見るだけの接続から `/ops` を呼ぶコードパスを作らない | NFR-SEC-1・NFR-SEC-14。ツール名は種類別の定数で、レビューと単体テスト（NFR-QLT-4）で担保する |
 
 ## 5. CI/CD
 

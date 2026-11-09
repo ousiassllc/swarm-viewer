@@ -117,11 +117,11 @@ swarm-viewer/
 │       │   ├── panehandler.go   #     PaneHandler・ルート登録・対象の解決・見るだけの接続への操作は 403
 │       │   ├── live.go          #     ペイン詳細（`P`）・本文の部分描画（`P/live`）
 │       │   ├── actions.go       #     質問への回答・送信・中断・終了（`P/pick`・`P/send`・`P/escape`・`P/close`）
-│       │   └── start.go         #     新しいセッション（`P/start`・`P/start/dirs`）
+│       │   └── start.go         #     新しいセッション（`P/start`・`P/start/dirs`・`P/start/skills`）
 │       ├── middleware/          #   CSRF・NoStore・CSP・Recover・RequestLog
 │       ├── atoms/               #   badge / progress_bar / spinner / toast / button / input
 │       ├── molecules/           #   pane_card / usage_row / host_row / session_tab / attention_item / pane_tail / pane_header / kind_badge
-│       ├── organisms/           #   session_tabs / pane_grid / usage_panel / host_panel / attention_bar / connection_list、`panedetail/`（ペイン詳細の本文: `Live`・`AskCard`・`SendForm`・`StartForm`・`StartConfirm`・`DirPicker`）
+│       ├── organisms/           #   session_tabs / pane_grid / usage_panel / host_panel / attention_bar / connection_list、`panedetail/`（ペイン詳細の本文: `Live`・`AskCard`・`SendForm`・`StartForm`・`StartConfirm`・`DirPicker`・`SkillPicker`・`StartTaskResult`）
 │       ├── pages/               #   main / connections / pairing / settings / pane（`PaneDetailPage`・`PaneStartPage`）
 │       └── layout/              #   base（head・htmx・CSP meta・CSRF meta）
 └── static/
@@ -322,9 +322,9 @@ sequenceDiagram
 
 - 呼び出しの順序は常に「接続の種類の確認 → 同じ `(接続, ペイン)` の排他 → ツール呼び出し」。見るだけの接続、または実行中の操作がある場合は、**通信せず**に断る（`ErrOpsRequired` 相当・「前の操作がまだ終わっていません」）。排他は service が持つ（ハンドラ・UI の無効化と二重）
 - ペイン詳細の本文の自動更新は、確認ダイアログが開いている間は止まる（`app.js` が `dialog[data-modal][open]` の間、`…/live` へのリクエストを取り消す）。操作のボタン・送信は `hx-sync="#pane-live:replace"` で、進行中の自動更新より先に送る。「その他（自分で書く）」と指示の入力欄は `hx-preserve` で、自動更新の再描画で入力途中の文字が消えない
-- 中断（`POST P/escape`）・終了（`POST P/close`）は、確認ダイアログを経たフォームだけが付ける `confirm=true` が無ければ `send_escape`・`pane_close` を呼ばない（`confirm_required`）。`POST P/close`・`POST P/start` は、送る前にサーバー側でも最新の `report` のペイン状態を再検査する（`close` は `idle`・`shell` だけ、`start` は `shell` だけ。合わなければ通信せず `invalid_state`）
+- 中断（`POST P/escape`）・終了（`POST P/close`）は、確認ダイアログを経たフォームだけが付ける `confirm=true` が無ければ `send_escape`・`pane_close` を呼ばない（`confirm_required`）。`POST P/close`・`POST P/start` は、送る前にサーバー側でも最新の `report` のペイン状態を再検査する（`close` は `idle`・`shell` だけ、`start` は `shell` だけ、`start` の `resend=1` は `idle` だけ。合わなければ通信せず `invalid_state`）
 - 401・403 は `ConnectionService` の `needs_repair` を立て、その接続のポーリングと操作を止める（[API 仕様 §1.5](../api/endpoints.md)）。操作の結果は固定文言で出し、ホストの `message` を画面に出さない（[機能要件 §10.1](../requirements/functional.md)）
-- 新しいセッションは `GET P/start`（入力画面。`shell` のペインだけ）→ `GET P/start/dirs?path=`（`dir_list` を 1 階層ずつ。`pick=1` は選択済みの表示）→ `POST P/start` の 2 段階（`confirm=1` が無ければ確認画面を返すだけで `pane_start` は呼ばない。`edit=1` で入力画面へ戻る。`confirm=1` で `pane_start`）。成功は `HX-Redirect` でペイン詳細へ（トーストは出さない。終了の成功も `HX-Redirect` でメイン画面へ）
+- 新しいセッションは `GET P/start`（入力画面。`shell` のペインだけ）→ `GET P/start/dirs?path=`（`dir_list` を 1 階層ずつ。`pick=1` は選択済みの表示）→ `GET P/start/skills?agent=`（スキルの選択部品。`skill_list`。操作の接続のみ。見るだけは 403 と固定文言。取得結果は画面を開いている間のメモリだけに持つ）→ `POST P/start` の 2 段階（`confirm=1` が無ければ確認画面を返すだけで `pane_start` は呼ばない。`edit=1` で入力画面へ戻る。`confirm=1` で `pane_start`。`agent`・`cwd`・`title` に加えて任意の `skill`・`task`（本文）を受ける）。`pane_start` が `ok: true` で `state` が `idle` のときだけ、同じペインの排他（FR-OPS-9）を保ったまま続けて `send_text` で最初のタスクを送る（`idle` 以外・`pane_start` の失敗なら送らない。`send_text` が失敗でも `pane_close` は呼ばず自動リトライもしない）。送れなかったときは結果の表示を返し、`resend=1`（「もう一度送る」。`skill`・`task` だけを使い `send_text` だけを送る。ペインが `idle` でなければ通信せず `invalid_state`）で送り直す。成功は `HX-Redirect` でペイン詳細へ（トーストは出さない。終了の成功も `HX-Redirect` でメイン画面へ）
 - 本文（`pane_tail`・質問文・送信本文）は Templ のエスケープで描画し、`templ.Raw` を使わない。ログには接続 ID・ツール名・種別・コード・ペイン位置だけを出す（NFR-SEC-10・11）
 
 ## 6. ウィンドウ・プロセスの挙動
@@ -354,7 +354,7 @@ graph LR
 - フォント: Sora・Noto Sans JP（JIS X 0208 サブセット）・JetBrains Mono・Symbols Nerd Font Mono を同梱する（woff2。`static/src/fonts/` → generate で `static/dist/fonts/` → `/static/fonts/`）。`app.css` の `@font-face` で配り、Symbols Nerd Font だけ `unicode-range` を PUA に絞る。`font-sans` は Sora → Noto Sans JP → Symbols Nerd Font、`font-mono` は JetBrains Mono。CSP は変えない（`default-src 'self'`。NFR-SEC-9）
 - デザイントークン: 色・角丸・文字サイズ・フォント・影は `app.css` の `:root`（ライト）と `prefers-color-scheme: dark` で定義し、Tailwind の `@theme` から参照する（`bg-bone` `text-ink` `text-mute` `bg-surface` `border-border` `bg-accent` `bg-accent-soft` `text-danger` など）。Tailwind の既定色は無効。ペイン・使用率の状態色は `format/tone.go` が返すトークンのクラスが唯一の出所（NFR-DSG-1）
 - 画面に出す文字列はすべて Templ のエスケープに任せ、HTML として解釈しない（`templ.Raw` を使わない。NFR-SEC-10）
-- MCP の許可リスト: 接続の種類ごとに、見るだけ（`/report`）は `sessions_list`・`report`・`pane_tail`・`ask_card`、操作（`/ops`）はそれに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list` を足した 10 個。リストは repository/report 内の種類別の定数で、送信前（呼び出し口）と送信内容（`roundTripper`。URL の path が `/report` なら 4 つ、`/ops` なら 10 個）の二重で検査する。許可外のツール名は呼び出し時にエラーにし、見るだけの接続に操作系ツールを呼ぶと通信せずに `tool_not_allowed` で断る（NFR-SEC-1）
+- MCP の許可リスト: 接続の種類ごとに、見るだけ（`/report`）は `sessions_list`・`report`・`pane_tail`・`ask_card`、操作（`/ops`）はそれに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list` を足した 11 個。リストは repository/report 内の種類別の定数で、送信前（呼び出し口）と送信内容（`roundTripper`。URL の path が `/report` なら 4 つ、`/ops` なら 11 個）の二重で検査する。許可外のツール名は呼び出し時にエラーにし、見るだけの接続に操作系ツールを呼ぶと通信せずに `tool_not_allowed` で断る（NFR-SEC-1）
 - 操作の安全: 中断・終了は確認ダイアログを経ないと送らない（`confirm=true` が無ければ `send_escape` を呼ばない）。質問カードの選択肢は押したらすぐ送る代わりに、送信中の全ボタンの無効化とサーバー側の排他で二重送信を防ぐ（NFR-SEC-12）
 
 ## 8. Lit 導入時の規約（初版では未使用）
@@ -410,6 +410,7 @@ graph LR
 | 14 | Android: 折りたたみ⇔展開の切替 | Galaxy Fold7 で折りたたみ時と展開時の WindowSizeClass がそれぞれ何になるか。切替で選択中のセッション・スクロール位置・表示内容が保たれること。切替中に `report` の取得が重複しないこと |
 | 15 | Android: 端末再起動後の通知ジョブの再開 | 再起動後、アプリを一度も開かなくても周期ジョブが再開して通知が出ること。通知オフの設定が再起動後も保たれ、ジョブが走らないこと |
 | 16 | 操作モード（`/ops`）の実機確認 | 実際の swarm-console の `/ops` に対し、ops スコープの token で `ask_pick`（`n`・`text`、`cursor_mismatch`）・`send_text`（`accepted: false`）・`send_escape`・`dir_list` → `pane_start`・`pane_close`（`exit_timeout`）が仕様どおり動くこと。`report` スコープの token で `/ops` に繋いだときの 403。デスクトップ（WebView の確認ダイアログ・5 秒ごとの自動更新・最小化中の停止）と Android（Galaxy Fold7 の閉じ / 開き・親指での操作）の使い勝手。自動テストは偽の swarm-console の範囲で、実機での確認は未実施 |
+| 17 | 最初のタスク（`skill_list`・`pane_start` 直後の入力） | (a) swarm-console に `skill_list` が未実装であること（viewer が前提とするインターフェースの要望。`skill_list` はツール名の仮称で、実装後にツール名・引数・返り値・`invoke` を確定する。swarm-console 側の Issue は別途起票が必要）。(b) `pane_start` が `ok: true` で返った直後の `state` が `idle`（入力可）になっているか（omp・claude・codex それぞれ。`idle` 以外のときは本仕様どおり最初のタスクを送らない）。(c) スキルが `cwd`（プロジェクト）ごとに異なる場合の一覧の範囲（`skill_list` に `cwd` を引数として足す必要があるか）。(d) 複数行の本文を `send_text` で送ったときの各エージェントでの解釈（改行が送信になるか）。(e) `invoke` の構文がエージェントごとに違っても、`invoke` をそのまま送れば足りるか |
 
 ## 12. Android 版の構成
 
@@ -437,7 +438,7 @@ Android 版は同じリポジトリの `android/` ディレクトリに置く（
 | 役割 | 技術 | 備考 |
 |------|------|------|
 | UI | Jetpack Compose + Material 3 | WindowSizeClass でレイアウトを切り替える |
-| HTTP / MCP | OkHttp | `/report`・`/ops` への `POST`（JSON-RPC 2.0 の `tools/call`）。公式 Kotlin SDK は使わず、種類別の許可リスト（見るだけ 4 つ・操作 10 個）のツールだけを呼ぶ薄いクライアントを自前で持つ。ハンドシェイクの要否（ステートレス運用）はデスクトップと同じ未確認事項（§11 #1）に含む |
+| HTTP / MCP | OkHttp | `/report`・`/ops` への `POST`（JSON-RPC 2.0 の `tools/call`）。公式 Kotlin SDK は使わず、種類別の許可リスト（見るだけ 4 つ・操作 11 個）のツールだけを呼ぶ薄いクライアントを自前で持つ。ハンドシェイクの要否（ステートレス運用）はデスクトップと同じ未確認事項（§11 #1）に含む |
 | JSON | kotlinx.serialization | 未知のキーは無視、欠落は既定値（NFR-CMP-1・2） |
 | 永続化 | Room（SQLite） | 接続・設定・スナップショット・通知済み状態（[ER §7](er.md)） |
 | バックグラウンド | WorkManager | 周期ジョブ（[Android 版の設計 §3](../android/overview.md)） |
@@ -501,7 +502,7 @@ graph TD
 - **cleartext**: Android 9（API 28）以降は平文 HTTP が既定で禁止される。`http://<tailnet-ip>:48120` に繋ぐため、Network Security Config（`res/xml/network_security_config.xml`）でアプリ全体の cleartext を許可する。範囲指定ができない見込み（§11 #8）のため、宛先の制限は接続先 URL の検証（NFR-SEC-4・5。domain の `validateUrl`）が担う。この検証を通らない URL へは接続しない。tailnet（WireGuard）の暗号化を前提とする点はデスクトップと同じ（NFR-SEC-6）
 - **token**: Android Keystore で保護した領域だけに保存する。Room・ログ・画面・バックアップに出さない。`allowBackup="false"` とデータ抽出ルールで全データをバックアップ・端末間転送から除外する
 - **外部入力**: ディープリンク（Intent）と QR の中身は信頼できない入力として、接続文字列と同じ検証（`parsePairing`）を通し、確認画面で利用者が確定するまで保存しない
-- **許可リスト**: 呼ぶツールは接続の種類ごとの許可リストのものだけ（見るだけ = `sessions_list`・`report`・`pane_tail`・`ask_card`、操作 = それに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`。NFR-SEC-1・NFR-AND-SEC-5）。許可リストは `data/report` の定数で、送信前と送信内容（`GuardInterceptor` が URL の path で 4 つ / 10 個）の二重で検査する。それ以外のツール名は呼べず、見るだけの接続に操作系ツールを呼ぶと通信せずに断る
+- **許可リスト**: 呼ぶツールは接続の種類ごとの許可リストのものだけ（見るだけ = `sessions_list`・`report`・`pane_tail`・`ask_card`、操作 = それに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list`。NFR-SEC-1・NFR-AND-SEC-5）。許可リストは `data/report` の定数で、送信前と送信内容（`GuardInterceptor` が URL の path で 4 つ / 11 個）の二重で検査する。それ以外のツール名は呼べず、見るだけの接続に操作系ツールを呼ぶと通信せずに断る
 - **操作の安全**: 見るだけの接続には操作の UI を出さない。中断・終了は確認ダイアログ（`AppDialog`）を経ないと送らず、送信中は `PaneDetailViewModel` の `busy` と `PaneService` の排他で同じペインの二重送信を防ぐ（NFR-AND-SEC-9）
 - **表示**: ツール応答（`title`・`activity`・`note`・`pane_tail`・`ask_card` の質問文・選択肢）は常にテキストとして描画する（NFR-SEC-10 と同じ）
 
@@ -513,7 +514,7 @@ graph TD
 | data | MockWebServer・Room のテスト | 401 / 403 / `isError` の変換、タイムアウト、許可リスト、マイグレーション、接続削除での連鎖削除 |
 | work / notify | `TestListenableWorkerBuilder`・フェイククロック | 順次取得、失敗の読み飛ばし、二重通知の防止、通知オフでのジョブ停止。固定時間の待ちに頼らない |
 | ui | Compose のテスト | WindowSizeClass によるリスト / グリッドの切替、見るだけの接続に操作系のコントロールが無いこと、操作の接続で確認ダイアログを経ないと `send_escape`・`pane_close` を送らないこと |
-| 実機 | 手動（§11 #8〜#16） | cleartext・Keystore・QR・Doze・Tailscale・折りたたみ・再起動後の再開・操作モード（`/ops`） |
+| 実機 | 手動（§11 #8〜#17） | cleartext・Keystore・QR・Doze・Tailscale・折りたたみ・再起動後の再開・操作モード（`/ops`）・最初のタスク（`skill_list`） |
 
 ## 改訂履歴
 
@@ -530,3 +531,4 @@ graph TD
 | 1.8 | 2026-11-05 | §7 のフォントをガイド指定の書体の同梱に改訂し、デザイントークンの置き場を追記 | Issue #30（Ousiass デザインガイド準拠） |
 | 1.9 | 2026-11-08 | 操作モード（Issue #97）。§1 の HATEOAS・許可リスト、§3・§12.3 の構成図（`/report`・`/ops`、ops トークン）、§4.1 に `PaneService`・ペイン詳細のハンドラ・部品、§5.6 ペイン詳細と操作の通信フロー、§7・§12.6 の許可リストを種類別に、§10・§12.7 のテスト、§11 に #16（`/ops` の実機確認）を追加 | Issue #97（操作モード） |
 | 2.0 | 2026-11-09 | 独立レビューの指摘とコード修正の反映。§4.1・§4.2 に `domain/ops`・`service/paneservice`・`web/panehandler`・`organisms/panedetail`・molecules の実在の名前（depguard の `web-handler` 規則が `panehandler` にも掛かる）、§5.6 に確認ダイアログ中の自動更新停止・`hx-sync`・`hx-preserve`・`P/close` の `confirm=true`・状態の再検査・`P/start` の 2 段階を追記 | Issue #97（独立レビュー ReviewDocs） |
+| 2.1 | 2026-11-09 | 最初のタスク（Issue #103）。§4.1 に `P/start/skills`・`SkillPicker`・`StartTaskResult`、§5.6 の新しいセッションに `P/start/skills`（`skill_list`）・`pane_start` → `send_text` の続き・`resend=1` を追記、§7・§12 の許可リストを操作 11 個（`skill_list` 追加）に、§11 に #17（`skill_list`・`pane_start` 直後の入力の実機確認）を追加 | Issue #103（空きセッションへの最初のタスク） |
