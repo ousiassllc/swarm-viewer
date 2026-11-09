@@ -124,3 +124,28 @@ func TestAppCSS_ModalBackdropUsesScrimToken(t *testing.T) {
 		}
 	}
 }
+
+var scrimRE = regexp.MustCompile(`--scrim\s*:\s*color-mix\(\s*in\s+srgb\s*,\s*var\(--(\w+)\)\s*(\d+)%`)
+
+// スクラムの濃さはガイドの見本（ink 18〜22%）に合わせる（#92）。ライトは --ink の 20%。
+// ダークは --ink が白になるので、暗い --bone の 60%（--bone は背景とほぼ同色で、20% では暗幕にならない）。
+func TestAppCSS_ScrimDarkness(t *testing.T) {
+	t.Parallel()
+
+	dark, rest := darkBlocksAndRest(t, readAppCSS(t))
+	for _, tc := range []struct {
+		name, css, token, percent string
+	}{
+		{"ライト", rest, "ink", "20"},
+		{"ダーク", dark, "bone", "60"},
+	} {
+		m := scrimRE.FindStringSubmatch(tc.css)
+		if m == nil {
+			t.Errorf("%s: --scrim が color-mix(in srgb, var(--トークン) N%%, …) の形で見つからない", tc.name)
+			continue
+		}
+		if m[1] != tc.token || m[2] != tc.percent {
+			t.Errorf("%s: --scrim は %s の %s%% のはずが %s の %s%%", tc.name, tc.token, tc.percent, m[1], m[2])
+		}
+	}
+}
