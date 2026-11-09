@@ -63,3 +63,18 @@ func TestAppCSS_TextLink(t *testing.T) {
 		}
 	}
 }
+
+// 画面のガターを切り替える幅の区分（medium 600px・expanded 840px）は Android の WindowWidthSizeClass と同じ境目で、app.css が持つ（NFR-DSG-10）。
+func TestAppCSS_WidthClassGutters(t *testing.T) {
+	t.Parallel()
+
+	css := strings.ReplaceAll(readAppCSS(t), " ", "")
+	for _, want := range []string{
+		"@media(min-width:600px){.medium\\:p-6{padding:calc(var(--spacing)*6)}}",
+		"@media(min-width:840px){.expanded\\:p-8{padding:calc(var(--spacing)*8)}}",
+	} {
+		if !strings.Contains(css, want) {
+			t.Errorf("app.css に %q が無い", want)
+		}
+	}
+}

@@ -1,14 +1,16 @@
 package com.ousiassllc.swarmviewer.ui.theme
 
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** 画面のガターはガイド S5 のとおり、Compact（モバイル）は 16dp・Medium 以上（md 相当）は 24dp であること。 */
+/** 画面のガターは幅の区分で決まり、Compact 16dp・Medium 24dp・Expanded 32dp であること（NFR-DSG-10）。 */
 class GutterTest {
     @Test
-    fun compactIs16dpAndWideIs24dp() {
-        assertEquals(16.dp, gutterFor(wide = false))
-        assertEquals(24.dp, gutterFor(wide = true))
+    fun gutterFollowsWidthSizeClass() {
+        assertEquals(16.dp, gutterFor(WindowWidthSizeClass.Compact))
+        assertEquals(24.dp, gutterFor(WindowWidthSizeClass.Medium))
+        assertEquals(32.dp, gutterFor(WindowWidthSizeClass.Expanded))
     }
 }

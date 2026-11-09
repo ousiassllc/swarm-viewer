@@ -41,7 +41,7 @@ func csrfHeaders(token string) string {
 //   - <body>: hx-headers で全リクエストに X-CSRF-Token を付け、response-targets 拡張と、退出のフェードを待つ leave-fade 拡張（app.js。response-targets の後に動く順で並べる）を有効にする
 //   - スクリプトは htmx.min.js・response-targets.min.js・app.js・modal.js の外部ファイルだけ（インラインスクリプト・hx-on を使わない）
 //
-// 子要素は <main id="main"> に入る。
+// 子要素は <main id="main"> に入る。四辺のガターは幅の区分で Compact 16・Medium（600px〜）24・Expanded（840px〜）32（NFR-DSG-10。Android と同じ境目）。
 templ Base(p BaseProps) {
 	<!DOCTYPE html>
 	<html lang="ja" class="bg-bone">
@@ -64,7 +64,7 @@ templ Base(p BaseProps) {
 		>
 			<div id={ atoms.ToastContainerID } class={ atoms.ToastContainerClass } aria-live="polite"></div>
 			@atoms.ConfirmDialog()
-			<main id={ MainID } class="mx-auto flex max-w-6xl flex-col gap-4 p-4 md:p-6">
+			<main id={ MainID } class="mx-auto flex max-w-6xl flex-col gap-4 p-4 medium:p-6 expanded:p-8">
 				{ children... }
 			</main>
 		</body>
