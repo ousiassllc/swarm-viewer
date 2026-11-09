@@ -9,11 +9,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
-import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -72,11 +76,15 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             SwarmViewerTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                // 横向きの切り欠き（ノッチ・パンチホール）の左右には内容を置かない。システムバーの inset は各画面の Scaffold が受ける。
+                Surface(
+                    modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal)),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
                     // 幅の区分（Compact / Medium / Expanded）で表示を切り替える。折りたたみ⇔展開で変わる。
                     val widthClass = calculateWindowSizeClass(this).widthSizeClass
-                    // 画面のガターも同じ区分で切り替える（Compact 16dp・Medium 以上 24dp。ガイド S5）。
-                    CompositionLocalProvider(LocalGutter provides gutterFor(widthClass != WindowWidthSizeClass.Compact)) {
+                    // 画面のガターも同じ区分で切り替える（Compact 16dp・Medium 24dp・Expanded 32dp。NFR-DSG-10）。
+                    CompositionLocalProvider(LocalGutter provides gutterFor(widthClass)) {
                         AppNavigation(
                             navigation = navigation,
                             main = main,
