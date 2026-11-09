@@ -59,11 +59,22 @@ internal class ReportClientOpsTest : ReportClientTestBase() {
             val children = c.dirList(conn, "/work")
             c.paneStart(conn, "s0", "B1", "claude", "/work/app", "task")
             c.paneClose(conn, "s0", "B1")
+            val skills = c.skillList(conn, "claude")
             c.paneTail(conn, "s0", "T1", lines = 500)
             c.askCard(conn, "s0", "T1")
 
             assertEquals(
-                listOf("send_text", "send_escape", "dir_list", "dir_list", "pane_start", "pane_close", "pane_tail", "ask_card"),
+                listOf(
+                    "send_text",
+                    "send_escape",
+                    "dir_list",
+                    "dir_list",
+                    "pane_start",
+                    "pane_close",
+                    "skill_list",
+                    "pane_tail",
+                    "ask_card",
+                ),
                 calls().map { it.tool },
             )
             assertTrue(calls().all { it.path == "/ops" && it.auth == "Bearer $TEST_TOKEN" })
@@ -105,6 +116,8 @@ internal class ReportClientOpsTest : ReportClientTestBase() {
                 },
                 args("pane_close"),
             )
+            assertEquals(buildJsonObject { put("agent", "claude") }, args("skill_list")) // session も cwd も渡さない
+            assertEquals(listOf("secret-skill-name"), skills.skills.map { it.name })
             assertEquals(
                 buildJsonObject {
                     put("session", "s0")

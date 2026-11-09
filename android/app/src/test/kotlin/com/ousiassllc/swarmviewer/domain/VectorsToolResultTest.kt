@@ -13,8 +13,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
-private const val MIN_VALID_CASES = 27
-private const val MIN_INVALID_CASES = 32
+private const val MIN_VALID_CASES = 35
+private const val MIN_INVALID_CASES = 37
 private const val SHORT_INPUT = 8
 
 @Serializable
@@ -42,6 +42,7 @@ private data class ToolResultFile(
     @SerialName("pane_start") val paneStart: List<ToolCase>,
     @SerialName("pane_close") val paneClose: List<ToolCase>,
     @SerialName("dir_list") val dirList: List<ToolCase>,
+    @SerialName("skill_list") val skillList: List<ToolCase>,
     val invalid: List<InvalidCase>,
 )
 
@@ -59,6 +60,7 @@ class VectorsToolResultTest {
             "pane_start" to { parseStart(it).toJson() },
             "pane_close" to { parseClose(it).toJson() },
             "dir_list" to { parseDirList(it).toJson() },
+            "skill_list" to { parseSkillList(it).toJson() },
         )
 
     @Test
@@ -73,6 +75,7 @@ class VectorsToolResultTest {
                 "pane_start" to file.paneStart,
                 "pane_close" to file.paneClose,
                 "dir_list" to file.dirList,
+                "skill_list" to file.skillList,
             )
         Vectors.requireMin("toolresult.json の正常系", groups.values.sumOf { it.size }, MIN_VALID_CASES)
         for ((tool, cases) in groups) {
@@ -171,6 +174,24 @@ private fun DirList.toJson(): JsonElement =
                         put("name", it.name)
                         put("path", it.path)
                         put("git", it.git)
+                    }
+                },
+            ),
+        )
+        put("truncated", truncated)
+    }
+
+private fun SkillList.toJson(): JsonElement =
+    buildJsonObject {
+        put("agent", agent)
+        put(
+            "skills",
+            JsonArray(
+                skills.map {
+                    buildJsonObject {
+                        put("name", it.name)
+                        put("description", it.description)
+                        put("invoke", it.invoke)
                     }
                 },
             ),

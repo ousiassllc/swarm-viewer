@@ -9,6 +9,7 @@ import com.ousiassllc.swarmviewer.domain.EscapeResult
 import com.ousiassllc.swarmviewer.domain.PaneTail
 import com.ousiassllc.swarmviewer.domain.PickResult
 import com.ousiassllc.swarmviewer.domain.SendResult
+import com.ousiassllc.swarmviewer.domain.SkillList
 import com.ousiassllc.swarmviewer.domain.StartResult
 
 /**
@@ -87,4 +88,13 @@ interface PaneApi {
         conn: Connection,
         path: String? = null,
     ): DirList
+
+    /**
+     * `skill_list`（仮称。swarm-console 側は未実装で、古いホストは `unknown_tool`）: 新しいセッションの最初のタスクに選べるスキル。
+     * `session` は取らず、`cwd` も渡さない。[agent] は `omp`・`claude`・`codex` のどれか（違えば通信せず `invalid_args`）。
+     */
+    suspend fun skillList(
+        conn: Connection,
+        agent: String,
+    ): SkillList
 }

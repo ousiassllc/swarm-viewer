@@ -1,7 +1,9 @@
 package com.ousiassllc.swarmviewer.ui
 
 import com.ousiassllc.swarmviewer.domain.CloseResult
+import com.ousiassllc.swarmviewer.domain.ErrKind
 import com.ousiassllc.swarmviewer.domain.EscapeResult
+import com.ousiassllc.swarmviewer.domain.FetchException
 import com.ousiassllc.swarmviewer.domain.PaneState
 import com.ousiassllc.swarmviewer.domain.PickResult
 import com.ousiassllc.swarmviewer.domain.SendResult
@@ -85,6 +87,24 @@ fun closeToast(result: CloseResult): String = if (result.ok) "終了しました
 
 // 状態（report の値）は表示ラベルにする。未知の値はそのまま出さず「判定できない」にする（応答由来の文字列を画面に直接出さない）。
 private fun stateLabel(state: String): String = PaneState.parse(state).label
+
+// 新しいセッションの最初のタスク（FR-OPS-11。機能要件 §10.1）の固定文言。スキル名・本文・invoke は文言に含めない。
+
+/** `skill_list` が `unknown_tool`（ホストの swarm-console が古い）のとき。再読み込みしても変わらない。 */
+const val SKILL_UNSUPPORTED_MESSAGE = "スキルの一覧を取得できません（ホストの swarm-console が古い可能性があります）"
+
+/** `skill_list` のそれ以外の失敗のとき（「再読み込み」を付ける）。 */
+const val SKILL_LOAD_FAILED_MESSAGE = "スキルの一覧を読み込めませんでした"
+
+/** `pane_start` に成功したが、最初のタスクを送れなかったとき（理由を続けて出す）。 */
+const val FIRST_TASK_FAILED_MESSAGE = "起動しました。最初のタスクを送れませんでした"
+
+/** `skill_list` の失敗の固定文言。 */
+fun skillListFailureMessage(e: FetchException): String =
+    if (e.kind == ErrKind.Operation && e.code == "unknown_tool") SKILL_UNSUPPORTED_MESSAGE else SKILL_LOAD_FAILED_MESSAGE
+
+/** `pane_start` に成功したが `state` が `idle` 以外のため、最初のタスクを送らなかったとき。 */
+fun firstTaskNotIdleMessage(state: String): String = "起動しました。最初のタスクはまだ送っていません（状態: ${stateLabel(state)}）。ペイン詳細から送れます"
 
 /** ペアリング確認画面（操作の接続のとき）の警告文。 */
 const val OPS_PAIRING_WARNING = "この接続はペインに送信・中断・起動・終了できます"

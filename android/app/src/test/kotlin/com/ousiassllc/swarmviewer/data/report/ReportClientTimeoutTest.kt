@@ -28,6 +28,7 @@ internal class ReportClientTimeoutTest : ReportClientTestBase() {
             "pane_tail",
             "ask_card",
             "dir_list",
+            "skill_list",
         )) {
             assertEquals(tool, 1, ReportTools.timeoutScale(tool))
         }
@@ -60,6 +61,7 @@ internal class ReportClientTimeoutTest : ReportClientTestBase() {
                     { c.paneTail(conn, "s0", "T1") },
                     { c.askCard(conn, "s0", "T1") },
                     { c.dirList(conn) },
+                    { c.skillList(conn, "omp") },
                     { c.sessions(conn) },
                     { c.report(conn, "s0") },
                 )

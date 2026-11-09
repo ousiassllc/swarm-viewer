@@ -59,11 +59,11 @@ class AllowlistKindTest {
     }
 
     @Test
-    fun opsEndpointAcceptsAllTenTools() {
+    fun opsEndpointAcceptsAllElevenTools() {
         for (tool in ReportTools.ops) callTool(ops, tool)
 
         assertEquals(ReportTools.ops.toList().sorted(), ops.seen.mapNotNull { it.tool }.sorted())
-        assertEquals(10, ops.seen.size)
+        assertEquals(11, ops.seen.size)
         assertEquals(0, report.seen.size)
     }
 
