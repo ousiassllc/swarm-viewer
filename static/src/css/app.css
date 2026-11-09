@@ -64,8 +64,8 @@
   --toast-h: 40px;
   --toast-duration: 3s;
 
-  /* モーダルのスクラム（ガイド O1）: ライトは --ink の 40%。ダークは --ink が白になるので、暗い --bone の 60% にする。 */
-  --scrim: color-mix(in srgb, var(--ink) 40%, transparent);
+  /* モーダルのスクラム（ガイド O1）: 見本（ink 18〜22%）に合わせ、ライトは --ink の 20%。ダークは --ink が白になるので、暗い --bone の 60% にする（--bone は背景とほぼ同色で、20% では暗幕にならない）。 */
+  --scrim: color-mix(in srgb, var(--ink) 20%, transparent);
 
   /* モーダルの影（ガイド C5）。ダークは下の dark ブロックで濃くする。 */
   --shadow-modal: 0 1px 2px rgb(0 0 0 / 0.06);
