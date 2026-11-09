@@ -1,6 +1,9 @@
 package pages
 
-import "github.com/ousiassllc/swarm-viewer/internal/web/paths"
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+)
 
 // navLink は #main を差し替えるアプリ内リンク。JS 無効時のために href も持つ。
 templ navLink(href, label string) {
@@ -15,4 +18,9 @@ templ pageTitle(text string) {
 // homeLink は `/` へ戻るリンク。
 templ homeLink(label string) {
 	@navLink(paths.Home, label)
+}
+
+// blockedNotice は操作できないときの固定文言（警告）。
+templ blockedNotice(message string) {
+	@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertWarning, Message: message})
 }

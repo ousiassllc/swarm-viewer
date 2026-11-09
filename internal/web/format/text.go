@@ -220,6 +220,8 @@ func FetchErrorMessage(e *domain.FetchError) string {
 		return "セッションが存在しません"
 	case domain.ErrHostError:
 		return "ホスト側でエラーが発生しました"
+	case domain.ErrOperation:
+		return OperationMessage(e.Code)
 	default:
 		return "接続先がこのアプリと互換ではありません"
 	}

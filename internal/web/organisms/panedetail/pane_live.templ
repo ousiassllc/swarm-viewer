@@ -1,0 +1,232 @@
+package panedetail
+
+import (
+	"strconv"
+
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/domain/ops"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
+	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
+	"github.com/ousiassllc/swarm-viewer/internal/web/organisms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+)
+
+// LiveProps は Live の入力。ハンドラが report・pane_tail・ask_card の結果を解決して渡す。
+type LiveProps struct {
+	Ref  Ref
+	Kind domain.ConnectionKind
+	// Loading は最初の描画（まだ何も取得していない）。スピナーを出し、load で直ちに取得する。
+	Loading bool
+	// Pane・HasPane は report のペイン。HasPane が false（report に無い）なら案内だけで、自動更新も止める。
+	Pane    domain.Pane
+	HasPane bool
+	// Tail・HasTail は pane_tail。Lines は取得した行数（30・100・200。自動更新・操作の結果でも同じ行数で読み直す）。
+	Tail    ops.PaneTail
+	HasTail bool
+	Lines   int
+	// Card は ask_card（state が asking のときだけ取得する）。
+	Card    ops.AskCard
+	HasCard bool
+	// Banner は取得失敗の固定文言。Repair（401・403）のときは自動更新を止めて再ペアリングへ誘導する。
+	Banner string
+	Repair bool
+	// Notice は操作の失敗の固定文言（インラインのアラート）。RetryClose は exit_timeout の「もう一度試す」。
+	Notice     string
+	RetryClose bool
+	// ClearInput が true なら、指示の入力欄を空にして出す（送信が受理されたとき。それ以外は入力中の文字を残す）。
+	ClearInput bool
+}
+
+// polling は自動更新の属性を出すか。再ペアリングが必要な間（401・403）は止める。
+func (p LiveProps) polling() bool { return !p.Repair }
+
+// showOps は操作の部品（送信欄・中断・終了・選択ボタン）を出すか。操作の接続で、取得に失敗していない（直前の状態が古い可能性がない）ときだけ。
+func (p LiveProps) showOps() bool { return p.isOps() && p.Banner == "" }
+
+func (p LiveProps) isOps() bool { return p.Kind == domain.KindOps }
+
+func (p LiveProps) lines() int {
+	if p.Lines <= 0 {
+		return ops.DefaultTailLines
+	}
+	return p.Lines
+}
+
+// nextLines は「もっと見る」の次の行数（30 → 100 → 200）。最大なら 0。
+func nextLines(n int) int {
+	switch {
+	case n < 100:
+		return 100
+	case n < ops.MaxTailLines:
+		return ops.MaxTailLines
+	default:
+		return 0
+	}
+}
+
+// Live はペイン詳細の本文（部分描画）。自分自身を outerHTML で置き換えながら 5 秒ごとに読み直す（開いている間だけ。
+// 非表示の間の停止と復帰時の即時更新は app.js）。操作の結果も同じ形で返す。
+// 見るだけの接続は、ヘッダ・質問の一覧・pane_tail だけ（送信欄・中断・終了・起動・選択ボタンは一切描画しない）。
+templ Live(p LiveProps) {
+	<div
+		id={ LiveID }
+		class="flex min-w-0 flex-col gap-4"
+		if p.polling() {
+			hx-get={ p.Ref.live(p.lines(), p.Loading) }
+			hx-trigger={ organisms.PollTrigger(PollSeconds, p.Loading) }
+			hx-sync="this:drop"
+			hx-swap="outerHTML"
+		}
+	>
+		<div id={ BannerID }>
+			@Banner(p.Banner, p.Repair)
+		</div>
+		if p.Notice != "" {
+			@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: p.Notice}) {
+				if p.RetryClose {
+					@closeButton(p, "もう一度試す")
+				}
+			}
+		}
+		if p.Loading {
+			<div class="flex items-center gap-2 text-sm text-ink">
+				@atoms.Spinner(atoms.SpinnerProps{})
+				<span role="status">読み込み中…</span>
+			</div>
+		} else if !p.HasPane && p.Banner == "" {
+			@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertWarning, Message: format.OperationMessage("pane_not_found")})
+		}
+		if p.HasPane {
+			@molecules.PaneHeader(molecules.PaneHeaderProps{Pane: p.Pane, Kind: p.Kind})
+			if p.HasCard && p.Card.Asking {
+				@AskCard(AskCardProps{Ref: p.Ref, Card: p.Card, Lines: p.lines(), Ops: p.showOps()})
+			}
+			if p.HasTail {
+				@molecules.PaneTail(molecules.PaneTailProps{Text: p.Tail.Text, Truncated: p.Tail.Truncated})
+			}
+			if !p.Repair {
+				@paneToolbar(p)
+			}
+			if p.showOps() {
+				@SendForm(p)
+				@paneDanger(p)
+			}
+		}
+	</div>
+}
+
+// Banner は取得失敗の固定文言のバナー。空なら何も描画しない。Repair は再ペアリングへのリンクを添える。
+templ Banner(message string, repair bool) {
+	if message != "" {
+		@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: message, Attrs: templ.Attributes{"data-pane-error": true}}) {
+			if repair {
+				@organisms.RepairLink()
+			}
+		}
+	}
+}
+
+// BannerOOB は自動更新の失敗を、直前の表示を残したまま #pane-banner だけ差し替えて知らせる。
+templ BannerOOB(message string, repair bool) {
+	<div id={ BannerID } hx-swap-oob="true">
+		@Banner(message, repair)
+	</div>
+}
+
+// paneToolbar は手動の「更新」と「もっと見る」（100 → 200 行。最大 200）。どちらも読み取りだけ（hx-get）。
+templ paneToolbar(p LiveProps) {
+	<div class="flex flex-wrap items-center gap-2">
+		@atoms.Button(atoms.ButtonProps{Label: "更新", Size: atoms.ButtonSmall, Attrs: liveGet(p, p.lines())})
+		if n := nextLines(p.lines()); n > 0 && p.HasTail {
+			@atoms.Button(atoms.ButtonProps{Label: "もっと見る（" + strconv.Itoa(n) + " 行）", Size: atoms.ButtonSmall, Attrs: liveGet(p, n)})
+		}
+	</div>
+}
+
+func liveGet(p LiveProps, lines int) templ.Attributes {
+	return templ.Attributes{
+		"hx-get":    p.Ref.live(lines, false),
+		"hx-target": "#" + LiveID,
+		"hx-swap":   "outerHTML",
+		"hx-sync":   PreemptPoll,
+	}
+}
+
+// paneDanger は詳細の最下部の、控えめな中断・終了（操作の接続だけ）。どちらも確認ダイアログを経ないと送られない。
+templ paneDanger(p LiveProps) {
+	if format.CanEscape(p.Pane.State) || format.CanClose(p.Pane.State) {
+		<div class="flex flex-wrap items-center gap-2 border-t border-border pt-3" data-pane-danger>
+			if format.CanEscape(p.Pane.State) {
+				@atoms.Button(atoms.ButtonProps{Label: "中断", Size: atoms.ButtonSmall, Attrs: escapeAttrs(p)})
+			}
+			if format.CanClose(p.Pane.State) {
+				@closeButton(p, "終了")
+			}
+			if p.Pane.State == domain.StateShell {
+				<a
+					href={ templ.SafeURL(paths.PaneStart(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos)) }
+					hx-get={ paths.PaneStart(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos) }
+					hx-target="#main"
+					hx-sync={ PreemptPoll }
+					class="text-link hover-fade text-sm text-ink"
+				>＋ 始める</a>
+			}
+		</div>
+	}
+}
+
+// escapeAttrs は中断ボタン。確認ダイアログ（modal.js の htmx:confirm）を経たときだけリクエストが出て、confirm=true が付く。
+func escapeAttrs(p LiveProps) templ.Attributes {
+	a := actionAttrs(paths.PaneEscape(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos), map[string]string{FieldConfirm: "true", FieldLines: strconv.Itoa(p.lines())})
+	a["hx-confirm"] = "作業中のエージェントを止めます"
+	a["data-confirm-title"] = "エージェントを中断"
+	a["data-confirm-label"] = "中断する"
+	return a
+}
+
+templ closeButton(p LiveProps, label string) {
+	@atoms.Button(atoms.ButtonProps{Label: label, Size: atoms.ButtonSmall, Variant: atoms.ButtonDanger, Attrs: closeAttrs(p)})
+}
+
+// closeAttrs は終了ボタン。確認ダイアログを経ないと送られない。成功するとメイン画面へ戻る（HX-Redirect）。
+func closeAttrs(p LiveProps) templ.Attributes {
+	a := actionAttrs(paths.PaneClose(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos), map[string]string{FieldConfirm: "true", FieldLines: strconv.Itoa(p.lines())})
+	a["hx-confirm"] = "このペインのエージェントを終了して、片付けます。よろしいですか？"
+	a["data-confirm-title"] = "ペインを終了"
+	a["data-confirm-label"] = "終了する"
+	return a
+}
+
+// SendForm は指示の送信欄（操作の接続だけ）。idle・stalled のときだけ使え、それ以外は無効にして理由を 1 行で出す。
+// 入力中の文字はポーリングの再描画で消えないよう、入力欄を hx-preserve にする（送信が受理されたときだけ空にして出す）。
+templ SendForm(p LiveProps) {
+	<form
+		class="flex flex-col gap-2"
+		aria-label="指示を送る"
+		hx-post={ paths.PaneSend(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos) }
+		hx-target={ "#" + LiveID }
+		hx-swap="outerHTML"
+		hx-sync={ PreemptPoll }
+		hx-disabled-elt={ "#" + LiveID + " button, #" + LiveID + " textarea" }
+	>
+		<input type="hidden" name={ FieldLines } value={ strconv.Itoa(p.lines()) }/>
+		<fieldset class="flex flex-col gap-2" disabled?={ !format.CanSend(p.Pane.State) }>
+			<legend class="sr-only">指示を送る</legend>
+			@atoms.Textarea(atoms.TextareaProps{ID: SendInputID, Name: FieldText, Rows: "3", Label: "ペインへの指示", Attrs: sendInputAttrs(p)})
+			<div>
+				@atoms.Button(atoms.ButtonProps{Label: "送る", Type: "submit", Variant: atoms.ButtonPrimary, Size: atoms.ButtonSmall})
+			</div>
+		</fieldset>
+		if reason := format.SendBlockedReason(p.Pane.State); reason != "" {
+			<p class="text-sm text-mute" data-send-blocked>{ reason }</p>
+		}
+	</form>
+}
+
+func sendInputAttrs(p LiveProps) templ.Attributes {
+	if p.ClearInput {
+		return nil
+	}
+	return templ.Attributes{"hx-preserve": true}
+}

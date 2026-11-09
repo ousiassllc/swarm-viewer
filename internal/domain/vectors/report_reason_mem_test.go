@@ -1,8 +1,12 @@
-package domain
+package vectors_test
 
-import "testing"
+import (
+	"testing"
 
-// usage の reason と host.mem（Issue #10・#11）。
+	. "github.com/ousiassllc/swarm-viewer/internal/domain"
+)
+
+// usage の reason と host.mem（Issue #10・#11）。domain 本体のテストと分けるのは、linterly の 1 ディレクトリ 2,000 行の上限のため。
 
 func TestParseReportAccountReason(t *testing.T) {
 	t.Parallel()

@@ -1,23 +1,30 @@
-// 画面更新ポーリングの可視性制御（docs/api/endpoints.md §4.5）、トーストの自動消去、アラートのフェード、退出フェードの待ち（leave-fade）、ボタンのリップル。
+// 画面更新ポーリング（メイン画面の snapshot・ペイン詳細の live）の可視性制御（docs/api/endpoints.md §4.5）、トーストの自動消去、アラートのフェード、退出フェードの待ち（leave-fade）、ボタンのリップル。
 // 確認ダイアログ（hx-confirm）とモーダルは modal.js。
 // CSP の script-src 'self' で読み込む外部ファイル（インラインではない）。eval は使わない。
 // htmx.min.js より後に読み込むこと。
 (() => {
-  const SNAPSHOT_SUFFIX = "/snapshot";
+  // 画面更新ポーリングの取得先: メイン画面の `…/snapshot`、ペイン詳細の `…/live`（どちらも読み取りだけの GET）。
+  const POLLED_SUFFIXES = ["/snapshot", "/live"];
 
-  // リクエスト先のパス（クエリ・フラグメントを除く）が `…/snapshot` か。
-  const isSnapshotRequest = (detail) => {
+  // リクエスト先のパス（クエリ・フラグメントを除く）がポーリングの取得先か。
+  const isPolledRequest = (detail) => {
     const raw =
       detail.pathInfo?.requestPath ?? detail.requestConfig?.path ?? "";
     const path = String(raw).split(/[?#]/, 1)[0];
-    return path.endsWith(SNAPSHOT_SUFFIX);
+    return POLLED_SUFFIXES.some((suffix) => path.endsWith(suffix));
   };
 
-  // 非表示・最小化中は snapshot の取得を取り消す（FR-POLL-3）。
+  // 確認ダイアログ（モーダル）が開いているか。開いている間に画面を差し替えると、ダイアログを開いた時点のボタン要素が DOM から外れ、
+  // 「確定」で止めておいたリクエストが送られなくなる（htmx は DOM に無い要素のリクエストを捨てる）。
+  const isModalOpen = () =>
+    document.querySelector("dialog[data-modal][open]") !== null;
+
+  // 非表示・最小化中は snapshot・live の取得を取り消す（FR-POLL-3、NFR-PERF-8）。確認ダイアログが開いている間も取り消す
+  // （閉じたら次の周期、または復帰時の refresh で再び取る）。操作（POST）は対象外。
   document.addEventListener("htmx:beforeRequest", (event) => {
     if (
-      document.visibilityState === "hidden" &&
-      isSnapshotRequest(event.detail)
+      (document.visibilityState === "hidden" || isModalOpen()) &&
+      isPolledRequest(event.detail)
     ) {
       event.preventDefault();
     }

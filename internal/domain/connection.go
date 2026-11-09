@@ -12,11 +12,33 @@ import (
 	"time"
 )
 
-// ReportPort は swarm-console の `/report` の待ち受けポート。tailnet の IP ではこのポートに限る。
+// ReportPort は swarm-console の `/report`・`/ops` の待ち受けポート。tailnet の IP ではこのポートに限る。
 const ReportPort = "48120"
 
-// ReportPath は接続先 URL のパス。
+// ReportPath は見るだけの接続の URL のパス。
 const ReportPath = "/report"
+
+// OpsPath は操作の接続の URL のパス。
+const OpsPath = "/ops"
+
+// ConnectionKind は接続の種類。DB に列は持たず、接続先 URL の path から導く（Issue #97）。
+type ConnectionKind string
+
+// ConnectionKind の値。
+const (
+	// KindView は見るだけの接続（`/report`）。ペインの閲覧（pane_tail・ask_card）までで、操作はしない。
+	KindView ConnectionKind = "view"
+	// KindOps は操作の接続（`/ops`）。見るだけの機能に加え、選択・送信・中断・起動・終了ができる。
+	KindOps ConnectionKind = "ops"
+)
+
+// KindOfURL は接続先 URL の path から種類を返す。path が `/ops` ちょうどなら操作、それ以外（判定できない URL を含む）は見るだけ。
+func KindOfURL(raw string) ConnectionKind {
+	if u, err := url.Parse(raw); err == nil && u.Path == OpsPath && u.RawPath == "" {
+		return KindOps
+	}
+	return KindView
+}
 
 // ErrInvalidURL は接続先 URL が許可された範囲外・形式不正のとき（NFR-SEC-4・5）。
 var ErrInvalidURL = errors.New("domain: connection url is not allowed")
@@ -37,6 +59,9 @@ type Connection struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
+
+// Kind は接続の種類（URL の path から。判定できない URL は見るだけ）。
+func (c Connection) Kind() ConnectionKind { return KindOfURL(c.URL) }
 
 // Baselined は初回の取得パスが完了済み（通知を出してよい段階）かを返す。
 func (c Connection) Baselined() bool { return !c.BaselinedAt.IsZero() }
@@ -96,7 +121,7 @@ func ParseSessions(data []byte) ([]Session, error) {
 //   - host は tailnet（100.64.0.0/10、fd7a:115c:a1e0::/48）またはループバック（127.0.0.0/8、::1）の IP リテラル。
 //     ホスト名・0.0.0.0・IPv6 ゾーン・IPv4 射影アドレス・省略形の IPv4 は不可
 //   - port は明示が必須。tailnet は 48120 のみ、ループバックは 1〜65535（先頭ゼロ不可）
-//   - path は /report ちょうど（末尾スラッシュ・パーセントエンコード別表記は不可）
+//   - path は /report（見るだけ）か /ops（操作）ちょうど（末尾スラッシュ・パーセントエンコード別表記は不可）
 //   - userinfo・クエリ（空の `?` を含む）・フラグメントは不可
 //
 // 前後の空白は除去してから解析する。
@@ -113,7 +138,7 @@ func ValidateURL(raw string) (string, error) {
 		u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
 		return "", ErrInvalidURL
 	}
-	if u.Path != ReportPath || u.RawPath != "" {
+	if (u.Path != ReportPath && u.Path != OpsPath) || u.RawPath != "" {
 		return "", ErrInvalidURL
 	}
 	addr, err := netip.ParseAddr(u.Hostname())
@@ -124,7 +149,7 @@ func ValidateURL(raw string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return "http://" + net.JoinHostPort(addr.String(), port) + ReportPath, nil
+	return "http://" + net.JoinHostPort(addr.String(), port) + u.Path, nil
 }
 
 // normalizePort は host の種別に応じて port を検証する。addr は tailnet かループバックでなければ拒否する。

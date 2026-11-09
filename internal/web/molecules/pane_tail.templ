@@ -1,0 +1,24 @@
+package molecules
+
+// PaneTailProps は PaneTail の入力。
+type PaneTailProps struct {
+	// Text は pane_tail の本文。信頼できない入力（ホストのペインの画面）で、<pre> の中に文字列として描画する。HTML として解釈しない。
+	Text string
+	// Truncated は本文を途中で切ったか（swarm-console の truncated）。
+	Truncated bool
+}
+
+// PaneTail はペインの最後の数行を等幅で表示する。スマホ幅でも横にはみ出さず（折り返し・必要なら内側でスクロール）、
+// キーボードで内側をスクロールできる（tabindex=0）。
+templ PaneTail(p PaneTailProps) {
+	<section class="flex min-w-0 flex-col gap-1" aria-label="ペインの出力">
+		<pre
+			tabindex="0"
+			data-pane-tail
+			class="max-h-[60vh] min-w-0 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-surface p-3 font-mono text-xs text-ink"
+		>{ p.Text }</pre>
+		if p.Truncated {
+			<p class="text-xs text-mute">一部のみ表示</p>
+		}
+	</section>
+}

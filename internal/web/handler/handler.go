@@ -17,8 +17,10 @@ import (
 
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
 	"github.com/ousiassllc/swarm-viewer/internal/service"
+	"github.com/ousiassllc/swarm-viewer/internal/service/paneservice"
 	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/layout"
+	"github.com/ousiassllc/swarm-viewer/internal/web/panehandler"
 )
 
 const (
@@ -35,6 +37,7 @@ type Deps struct {
 	Connections *service.ConnectionService
 	Snapshots   *service.SnapshotService
 	Pairing     *service.PairingService
+	Panes       *paneservice.PaneService
 	// Notifier は設定画面の OS 通知許可状態（Permitted）にだけ使う。
 	Notifier service.Notifier
 	Clock    service.Clock
@@ -49,18 +52,23 @@ type Handler struct {
 	conns    *service.ConnectionService
 	snaps    *service.SnapshotService
 	pairing  *service.PairingService
+	panes    *panehandler.PaneHandler
 	notifier service.Notifier
 	clock    service.Clock
 }
 
 // New は Handler を作る。
 func New(d Deps) *Handler {
+	b := base{log: d.Logger, csrf: d.CSRFToken}
 	return &Handler{
-		base:     base{log: d.Logger, csrf: d.CSRFToken},
+		base:     b,
 		settings: d.Settings,
 		conns:    d.Connections,
 		snaps:    d.Snapshots,
 		pairing:  d.Pairing,
+		panes: panehandler.New(panehandler.Deps{
+			Logger: d.Logger, Resp: responder{b}, Connections: d.Connections, Snapshots: d.Snapshots, Panes: d.Panes,
+		}),
 		notifier: d.Notifier,
 		clock:    d.Clock,
 	}
@@ -71,6 +79,7 @@ func (h *Handler) Register(r gin.IRoutes) {
 	r.GET("/", h.home)
 	h.registerMain(r)
 	h.registerConnections(r)
+	h.panes.Register(r)
 	h.registerPairing(r)
 	h.registerSettings(r)
 }

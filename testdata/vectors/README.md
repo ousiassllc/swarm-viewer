@@ -4,18 +4,20 @@ swarm-viewer のデスクトップ版（Go）と Android 版（Kotlin）が**同
 
 | ファイル | 対象 | 仕様 |
 |----------|------|------|
-| `url.json` | `ValidateURL` / `validateUrl` | NFR-SEC-4・5 |
+| `url.json` | `ValidateURL` / `validateUrl`（path は `/report`・`/ops` ちょうどだけ通す） | NFR-SEC-4・5 |
 | `pairing.json` | `ParsePairing` / `parsePairing` | API 仕様 §2.1・§2.2 |
 | `report.json` | `ParseReport`・`ParseSessions` / `parseReport`・`parseSessions`、`Layout.Valid`、state の表示ラベル | API 仕様 §1.3・§1.4、機能要件 §3 |
 | `detect.json` | `Detect` / `detect` | ER §3.4、機能要件 §8.2 |
-| `classify.json` | `Classify` / `classify` | API 仕様 §1.5 |
+| `classify.json` | `Classify` / `classify`（操作ツールのエラーコードは `operation`） | API 仕様 §1.5・§1.5.1 |
 | `usage_tone.json` | `UsageTone`・`PercentTone` / `usageTone`・`percentTone` | 機能要件 §5.3 |
+| `toolresult.json` | 操作モードのツール結果の解析（`ops.ParsePaneTail` ほか / `parsePaneTail` ほか） | API 仕様 §1.5.2 |
+| `opsinput.json` | 操作モードの入力の検査（`ops.CheckText`・`StartRequest.Normalize`・`NormalizeTailLines` / `sendTextProblem`・`normalizeTitle` ほか） | API 仕様 §1.2、機能要件 §4.7・§4.8 |
 
 ## 読むテスト
 
 | 言語 | テスト |
 |------|--------|
-| Go | `internal/domain/vectors/*_test.go`（表示ラベルだけ `internal/web/format/vectors_test.go`）。`go test ./internal/domain/... ./internal/web/format/...` |
+| Go | `internal/domain/vectors/*_test.go`（操作モードは `ops_test.go`）（表示ラベルだけ `internal/web/format/vectors_test.go`）。`go test ./internal/domain/... ./internal/web/format/...` |
 | Kotlin | `android/app/src/test/kotlin/com/ousiassllc/swarmviewer/domain/Vectors*Test.kt`。`android/` で `./gradlew test` |
 
 - どちらも、ファイルごとに**ケース数の下限**をテストコードに持つ。ファイルが空・読めない・キーの綴り違いでケースが消えても、静かに空振りしない（下限を下げるときはレビューで理由を確認する）
@@ -36,7 +38,7 @@ swarm-viewer のデスクトップ版（Go）と Android 版（Kotlin）が**同
 {"description": "...", "cases": [{"name": "v4 下端", "input": "http://100.64.0.0:48120/report", "want": "http://100.64.0.0:48120/report"}]}
 ```
 
-`want` が文字列なら成功して正規化後の URL、`null` なら拒否。成功のケースは、`want` をもう一度検証しても同じ値になること（冪等）も確かめる。
+`want` が文字列なら成功して正規化後の URL、`null` なら拒否。成功のケースは、`want` をもう一度検証しても同じ値になること（冪等）も確かめる。path は `/report`（見るだけ）と `/ops`（操作）ちょうどだけ通し、末尾スラッシュ・大文字小文字違い・パスの追加・クエリ・エンコード別表記（`/%6fps`）は拒否する（NFR-SEC-5・NFR-QLT-2）。
 
 ### `pairing.json`
 
@@ -84,7 +86,25 @@ auth{agents[]{agent, status, expires_at}}
 
 - `error`: `none`（エラーなし）・`network`（タイムアウト・DNS・route なしなどの一般のエラー）・`invalid_response`（応答の解析失敗）・`fetch_error`（分類済みの失敗。`fetch_kind`・`fetch_code` を持つ）
 - `http_status` が 0 のときは HTTP の応答がない
-- `want`: `null` なら成功（分類なし）、それ以外は `{"kind", "code"}`。`kind` は種別名（`unreachable`・`unauthorized`・`forbidden_scope`・`session_required`・`session_forbidden`・`session_missing`・`host_error`・`protocol`）。エラーの本文（`Error()` / `message`）は種別名と `code` だけで、入力の `tool_code` の本文を含まないこと
+- `want`: `null` なら成功（分類なし）、それ以外は `{"kind", "code"}`。`kind` は種別名（`unreachable`・`unauthorized`・`forbidden_scope`・`session_required`・`session_forbidden`・`session_missing`・`host_error`・`protocol`・`operation`）。操作ツールのエラーコード（`invalid_state`・`not_asking` など。`internal/domain/errors.go` の `operationCodes`）は `operation`。エラーの本文（`Error()` / `message`）は種別名と `code` だけで、入力の `tool_code` の本文を含まないこと
+
+### `toolresult.json`
+
+操作モードの結果の解析（`content[0].text` の JSON）。ツールごとの配列 `pane_tail`・`ask_card`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`（各ケースは `name`・`input`・`want`）と、`invalid[]`。
+
+- `input`: `content[0].text`（JSON 文字列）。`want`: 解析後の値。キーは snake_case で、ドメインの項目名と同じ（`ask_pick` の `picked` は `picked_n`・`picked_label` に平らにする）。`ask_card` の `options[]` は `{n, label, recommended}`、`dir_list` の `entries[]` は `{name, path, git}`
+- 未知のキーは無視し、欠落・null の項目は零値（`false`・空文字・0・空配列）
+- `ask_card` で `asking` が false なら、`question`・`options`・`cursor`・`allows_custom` は応答にあっても零値にする
+- `dir_list` の `entries[]` は、`name` か `path` が空の項目を捨てる
+- `invalid[]`: `name`・`tool`・`input_raw`（本文そのまま）。JSON のオブジェクトでないとき、解析が `ErrInvalidResponse` / `InvalidResponseException` で失敗し、エラーに本文が含まれないこと
+
+### `opsinput.json`
+
+操作モードの入力を、swarm-console に送る前に検査する規則。
+
+- `text_cases[]`: `name`・`text`（または `repeat: {char, count}` で `char` を `count` 回繰り返した文字列）・`want`。`send_text`・`ask_pick`（text）の本文を検査した結果で、問題なしは空文字、あればエラーコード（`invalid_args`・`text_too_long`・`forbidden_control_char`）。文字数は Unicode のコードポイント（サロゲートペアは 1 字）。長さの検査が制御文字より先
+- `title_cases[]`: `name`・`input`・`want`。`pane_start` の `title` を、前後の空白（Go の `strings.TrimSpace` と同じ範囲）を除いて検査した値。不正は `null`（1〜80 字、制御文字なし）
+- `tail_lines_cases[]`: `name`・`lines`・`want`。`pane_tail` の `lines` を 1〜200 に収めた値（0 以下は既定の 30）
 
 ### `usage_tone.json`
 

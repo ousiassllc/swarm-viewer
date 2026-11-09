@@ -4,6 +4,7 @@ import com.ousiassllc.swarmviewer.data.secret.TokenStore
 import com.ousiassllc.swarmviewer.data.store.ConnectionRepository
 import com.ousiassllc.swarmviewer.data.store.ViewerStore
 import com.ousiassllc.swarmviewer.domain.Connection
+import com.ousiassllc.swarmviewer.domain.ConnectionKind
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +23,8 @@ data class ConnectionItem(
     val host: String,
     val selected: Boolean,
     val needsRepair: Boolean,
+    /** 接続の種類（URL の path から導く）。操作 UI を出すかの判定に使う。 */
+    val kind: ConnectionKind = ConnectionKind.View,
 )
 
 /**
@@ -91,4 +94,4 @@ class ConnectionService(
 private fun Connection.toItem(
     selectedId: String?,
     needsRepair: Boolean,
-) = ConnectionItem(id = id, name = name, host = host, selected = id == selectedId, needsRepair = needsRepair)
+) = ConnectionItem(id = id, name = name, host = host, selected = id == selectedId, needsRepair = needsRepair, kind = kind)

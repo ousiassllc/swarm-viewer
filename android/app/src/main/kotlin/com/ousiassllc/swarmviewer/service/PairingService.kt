@@ -3,9 +3,11 @@ package com.ousiassllc.swarmviewer.service
 import com.ousiassllc.swarmviewer.data.secret.TokenStore
 import com.ousiassllc.swarmviewer.data.store.ViewerStore
 import com.ousiassllc.swarmviewer.domain.Connection
+import com.ousiassllc.swarmviewer.domain.ConnectionKind
 import com.ousiassllc.swarmviewer.domain.PairingPayload
 import com.ousiassllc.swarmviewer.domain.Report
 import com.ousiassllc.swarmviewer.domain.Session
+import com.ousiassllc.swarmviewer.domain.connectionKindOf
 import com.ousiassllc.swarmviewer.domain.detect
 import com.ousiassllc.swarmviewer.domain.hostOf
 import com.ousiassllc.swarmviewer.domain.parsePairing
@@ -51,6 +53,8 @@ data class PairingDraft(
     val host: String,
     val sessionsHint: List<String>,
     val replacesExisting: Boolean,
+    /** 接続の種類（URL の path）。操作のときは確認画面で「ペインに送信・中断・起動・終了できる」警告を出す。 */
+    val kind: ConnectionKind = ConnectionKind.View,
 )
 
 /** 下書きが無い・期限切れ・別の下書きに置き換わった。 */
@@ -94,7 +98,7 @@ class PairingService(
         val replaces = store.connectionByUrl(payload.url) != null
         val created = Draft(newId(), payload, clock.instant().plus(DRAFT_TTL))
         synchronized(lock) { draft = created }
-        return PairingDraft(created.id, payload.name, hostOf(payload.url), payload.sessionsHint, replaces)
+        return PairingDraft(created.id, payload.name, hostOf(payload.url), payload.sessionsHint, replaces, connectionKindOf(payload.url))
     }
 
     /** 下書きを即時に破棄する（token ごとメモリから消える）。別の下書きに置き換わっていれば何もしない。 */

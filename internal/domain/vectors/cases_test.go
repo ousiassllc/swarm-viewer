@@ -17,11 +17,11 @@ import (
 // testdata/vectors/*.json は Android 版（Kotlin）と共有するテストベクタ。形式は testdata/vectors/README.md。
 // ケース数の下限は、ファイルが空・キーの綴り違いでケースが消えてもテストが空振りしないためのもの。
 const (
-	minURLCases      = 60
+	minURLCases      = 70
 	minPairingCases  = 55
 	minToneCases     = 15
 	minPercentCases  = 7
-	minClassifyCases = 30
+	minClassifyCases = 45
 	vectorsFakeToken = "test-token-not-secret"
 )
 
@@ -218,7 +218,7 @@ func TestVectorsClassify(t *testing.T) {
 	loadVectors(t, "classify.json", &f)
 	requireMinCases(t, "classify.json", len(f.Cases), minClassifyCases)
 	kinds := map[string]ErrKind{}
-	for k := ErrUnreachable; k <= ErrProtocol; k++ {
+	for k := ErrUnreachable; k <= ErrOperation; k++ {
 		kinds[k.String()] = k
 	}
 	for _, c := range f.Cases {

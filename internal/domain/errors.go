@@ -19,6 +19,8 @@ const (
 	ErrSessionMissing
 	ErrHostError
 	ErrProtocol
+	// ErrOperation は操作ツール（`/ops`）の失敗（状態の不一致・入力の拒否など。HTTP 200 の isError）。Code で理由を区別する。
+	ErrOperation
 )
 
 var kindNames = [...]string{
@@ -30,6 +32,7 @@ var kindNames = [...]string{
 	ErrSessionMissing:   "session_missing",
 	ErrHostError:        "host_error",
 	ErrProtocol:         "protocol",
+	ErrOperation:        "operation",
 }
 
 // String は種別名（ログ・固定文言用）。範囲外は "unknown"。
@@ -66,7 +69,7 @@ func (e *FetchError) Error() string {
 //   - HTTP 401 → ErrUnauthorized、403 → ErrForbiddenScope、404・405・413 → ErrProtocol
 //   - ツールコード（HTTP 200 の isError、または HTTP エラー本文の code）:
 //     session_required / session_forbidden / invalid_args（session が sessions にない）/
-//     tmux_error・internal → ErrHostError。ほかは ErrProtocol
+//     tmux_error・internal → ErrHostError。操作ツールの失敗（operationCodes。invalid_state・not_asking など）→ ErrOperation。ほかは ErrProtocol
 //   - HTTP が上記以外の 4xx/5xx で toolCode が写像に無ければ ErrProtocol
 //   - HTTP の応答もツールコードも無い err（タイムアウト・DNS・route なし）→ ErrUnreachable
 //   - err が ErrInvalidResponse → ErrProtocol
@@ -123,8 +126,21 @@ func toolKind(code string) (ErrKind, bool) {
 	case "tmux_error", "internal":
 		return ErrHostError, true
 	default:
+		if _, ok := operationCodes[code]; ok {
+			return ErrOperation, true
+		}
 		return 0, false
 	}
+}
+
+// operationCodes は ErrOperation に分類する操作ツールのエラーコード（allow-list。契約 §2）。
+// invalid_args は含めない（Classify は session が sessions にない意味の session_missing に写す。
+// 操作ツールの invalid_args は ops.Failure が ErrOperation にする）。
+var operationCodes = map[string]struct{}{
+	"invalid_state": {}, "not_asking": {}, "option_out_of_range": {}, "custom_not_allowed": {},
+	"cursor_mismatch": {}, "confirm_required": {}, "forbidden_control_char": {}, "text_too_long": {},
+	"forbidden_path": {}, "path_forbidden": {}, "file_unreadable": {}, "unsupported_agent": {},
+	"pane_not_found": {}, "busy_timeout": {}, "exit_timeout": {}, "not_found": {}, "unknown_tool": {},
 }
 
 func httpCode(status int) string { return "http_" + strconv.Itoa(status) }

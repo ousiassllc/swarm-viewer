@@ -3,8 +3,11 @@ package pages
 import (
 	"strings"
 
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
 	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
 	"github.com/ousiassllc/swarm-viewer/internal/web/layout"
+	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
 	"github.com/ousiassllc/swarm-viewer/internal/web/organisms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
 )
@@ -49,6 +52,8 @@ type DraftProps struct {
 	Name string
 	// Host は接続先の host のみ（url の host）。URL 全体は出さない。
 	Host string
+	// Kind は接続の種類。操作のときは警告文（ペインに送信・中断・起動・終了できる）を出す。
+	Kind domain.ConnectionKind
 	// SessionsHint はホストが申告した許可セッション（表示のヒントのみ。権限の正は sessions_list）。
 	SessionsHint []string
 	// ExpiresText は期限の表示（例: 「あと 4 分」「12:34 まで」）。空なら出さない。
@@ -83,6 +88,10 @@ templ PairingDraftContent(p DraftProps) {
 				<dd class="truncate text-ink" title={ p.Name }>{ p.Name }</dd>
 				<dt class="text-mute">接続先ホスト</dt>
 				<dd class="font-mono text-ink">{ p.Host }</dd>
+				<dt class="text-mute">種類</dt>
+				<dd>
+					@molecules.KindBadge(p.Kind)
+				</dd>
 				<dt class="text-mute">ホストが申告した許可セッション</dt>
 				<dd class="text-ink">
 					if len(p.SessionsHint) == 0 {
@@ -92,6 +101,9 @@ templ PairingDraftContent(p DraftProps) {
 					}
 				</dd>
 			</dl>
+			if p.Kind == domain.KindOps {
+				@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertWarning, Title: format.OpsWarning, Message: format.OpsLeakNote, Attrs: templ.Attributes{"data-ops-warning": true}})
+			}
 			if p.ExpiresText != "" {
 				<p class="text-xs text-mute">{ "有効期限: " + p.ExpiresText }</p>
 			}

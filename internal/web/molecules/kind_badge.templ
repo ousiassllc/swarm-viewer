@@ -1,0 +1,13 @@
+package molecules
+
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
+)
+
+// KindBadge は接続の種類（操作 / 見るだけ）のバッジ。色だけに頼らず文言と点で示す。
+// 接続一覧・メイン画面のヘッダ・ペイン詳細・ペアリング確認で使う。
+templ KindBadge(kind domain.ConnectionKind) {
+	@atoms.Badge(atoms.BadgeProps{Text: format.KindLabel(kind), Tone: format.KindTone(kind), Marker: true})
+}

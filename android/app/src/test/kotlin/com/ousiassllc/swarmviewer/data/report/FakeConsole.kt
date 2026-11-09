@@ -25,6 +25,7 @@ internal const val SECRET_MESSAGE = "secret-message-body-do-not-leak"
 /** swarm-console が受けた 1 リクエスト。 */
 internal data class Seen(
     val httpMethod: String,
+    val path: String,
     val auth: String?,
     val sessionHeader: String?,
     val protocolHeader: String?,
@@ -40,11 +41,13 @@ internal data class ToolReply(
 )
 
 /**
- * swarm-console を模した MockWebServer の応答。`/report` は POST のみで GET・DELETE は 405。
+ * swarm-console を模した MockWebServer の応答。[path]（`/report` か `/ops`）は POST のみで GET・DELETE は 405。
+ * 受けたリクエストの path を [Seen.path] に記録する（`/report` と `/ops` を区別する検査用）。[path] 以外への要求は 404。
  * Bearer が合わなければ 401（swarm-console と同じ形の JSON）。応答は単発 JSON か SSE。
  */
 internal class FakeConsole(
     private val token: String = TEST_TOKEN,
+    private val path: String = "/report",
 ) : Dispatcher() {
     val server = MockWebServer()
     val seen = CopyOnWriteArrayList<Seen>()
@@ -73,7 +76,13 @@ internal class FakeConsole(
     /** すべての応答のヘッダーをこのミリ秒だけ遅らせる（合計時間の上限の検査用）。 */
     @Volatile var delayMillis = 0L
 
-    val url: String get() = "http://127.0.0.1:${server.port}/report"
+    /** tools/call の応答のヘッダーだけをこのミリ秒だけ遅らせる（ツール別の期限の検査用。initialize などは遅らせない）。 */
+    @Volatile var toolDelayMillis = 0L
+
+    val url: String get() = "http://127.0.0.1:${server.port}$path"
+
+    /** 受けたリクエストのうち path が [wanted] のものの数。 */
+    fun countAt(wanted: String): Int = seen.count { it.path == wanted }
 
     fun start(): FakeConsole {
         server.dispatcher = this
@@ -89,8 +98,11 @@ internal class FakeConsole(
     override fun dispatch(request: RecordedRequest): MockResponse =
         answer(request).also {
             if (delayMillis > 0) it.setHeadersDelay(delayMillis, TimeUnit.MILLISECONDS)
+            if (toolDelayMillis > 0 && lastRpcMethod(request) == "tools/call") it.setHeadersDelay(toolDelayMillis, TimeUnit.MILLISECONDS)
             if (closeAfterResponse) it.setSocketPolicy(SocketPolicy.DISCONNECT_AT_END)
         }
+
+    private fun lastRpcMethod(request: RecordedRequest): String? = seen.lastOrNull()?.rpcMethod
 
     private fun answer(request: RecordedRequest): MockResponse {
         val body = request.body.readUtf8()
@@ -100,6 +112,7 @@ internal class FakeConsole(
         seen +=
             Seen(
                 httpMethod = request.method.orEmpty(),
+                path = request.path.orEmpty(),
                 auth = request.getHeader("Authorization"),
                 sessionHeader = request.getHeader("Mcp-Session-Id"),
                 protocolHeader = request.getHeader("MCP-Protocol-Version"),
@@ -107,6 +120,7 @@ internal class FakeConsole(
                 tool = (params?.get("name") as? JsonPrimitive)?.content,
                 arguments = params?.get("arguments") as? JsonObject,
             )
+        if (request.path != path) return httpError(404, "not_found")
         if (request.method != "POST") return httpError(405, "method_not_allowed")
         if (request.getHeader("Authorization") != "Bearer $token") return httpError(401, "unauthorized")
         rawPostResponse?.let { return it }
@@ -184,6 +198,12 @@ internal class FakeConsole(
             .setBody("""{"error":{"code":"$code","message":"$SECRET_MESSAGE"}}""")
 }
 
+/** `details.field` つきのツール失敗（`invalid_args` の分類の検査用）。 */
+internal fun toolErrorField(
+    code: String,
+    field: String,
+): ToolReply = ToolReply("""{"error":{"code":"$code","message":"$SECRET_MESSAGE","details":{"field":"$field"}}}""", isError = true)
+
 internal fun toolError(code: String): ToolReply =
     ToolReply("""{"error":{"code":"$code","message":"$SECRET_MESSAGE","details":{"allowed_count":2}}}""", isError = true)
 
@@ -203,3 +223,29 @@ internal fun okTools(): (String) -> ToolReply =
             else -> toolError("invalid_args")
         }
     }
+
+/** 操作モードのツールの既定の応答（見るだけの 4 つと、操作の 6 つ）。 */
+internal fun opsTools(): (String) -> ToolReply =
+    { name ->
+        when (name) {
+            "pane_tail" -> ToolReply("""{"pane":"T1","lines":30,"text":"$PANE_BODY","truncated":false}""")
+            "ask_card" ->
+                ToolReply(
+                    """{"asking":true,"question":"どうしますか？","options":[{"n":1,"label":"A","recommended":true},{"n":2,"label":"B"}],""" +
+                        """"cursor":1,"allows_custom":true}""",
+                )
+            "ask_pick" -> ToolReply("""{"ok":true,"state":"working","picked":{"n":2,"label":"B"},"card_closed":true}""")
+            "send_text" -> ToolReply("""{"ok":true,"state":"working","accepted":true,"chars":5}""")
+            "send_escape" -> ToolReply("""{"ok":true,"state":"idle","interrupted":true}""")
+            "pane_start" -> ToolReply("""{"ok":true,"state":"idle","agent":"omp","cwd":"/work/app","title":"t"}""")
+            "pane_close" -> ToolReply("""{"ok":true,"state":"shell","note_archived":true}""")
+            "dir_list" ->
+                ToolReply(
+                    """{"path":"/work","entries":[{"name":"app","path":"/work/app","git":true},{"name":"docs","path":"/work/docs"}],"truncated":false}""",
+                )
+            else -> okTools()(name)
+        }
+    }
+
+/** `pane_tail` の本文（ログ・エラーに出てはいけない値）。 */
+internal const val PANE_BODY = "secret-pane-body-do-not-leak"

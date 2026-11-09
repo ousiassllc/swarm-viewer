@@ -5,6 +5,7 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
 	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
 	"slices"
 	"strconv"
 	"time"
@@ -18,6 +19,18 @@ type AttentionBarProps struct {
 	Warnings []domain.Warning
 	// Auth は auth.agents[]。auth_expired / auth_expiring に expires_at を併記するために使う。
 	Auth domain.Auth
+	// ConnectionID・Session はペイン詳細（ペイン関連の項目の導線）の URL に使う。空ならリンクにしない。
+	ConnectionID string
+	Session      string
+}
+
+// paneHref はペイン関連の項目の、ペイン詳細への URL。asking はそのペインの質問カードへ直接開く（詳細が質問カードを出す）。
+// ペイン位置・接続・セッションのどれかが無い、またはログイン関連（auth_*）の項目はリンクにしない（空文字）。
+func paneHref(p AttentionBarProps, a domain.Attention) string {
+	if p.ConnectionID == "" || p.Session == "" || a.Pane == "" || isAuthKind(a.Kind) {
+		return ""
+	}
+	return paths.Pane(p.ConnectionID, p.Session, a.Pane)
 }
 
 // authExpiresAt は auth_expired / auth_expiring の detail（エージェント名）に対応する expires_at。無ければ零値。
@@ -127,18 +140,18 @@ templ AttentionBar(p AttentionBarProps) {
 				</div>
 			}
 			if len(p.Attention) > 0 {
-				@attentionList(groupAttention(p.Attention), p.Auth)
+				@attentionList(groupAttention(p.Attention), p)
 			}
 		</section>
 	}
 }
 
-templ attentionList(g attentionGroups, auth domain.Auth) {
+templ attentionList(g attentionGroups, p AttentionBarProps) {
 	<div class={ attentionBoxClass(g) }>
 		if len(g.Panes) > 0 {
 			<ul class="flex flex-col gap-2 px-4 py-3" data-attention-group="panes">
 				for _, a := range g.Panes {
-					@molecules.AttentionItem(molecules.AttentionItemProps{Attention: a, AuthExpiresAt: authExpiresAt(auth, a)})
+					@molecules.AttentionItem(molecules.AttentionItemProps{Attention: a, AuthExpiresAt: authExpiresAt(p.Auth, a), PaneHref: paneHref(p, a)})
 				}
 			</ul>
 		}
@@ -147,7 +160,7 @@ templ attentionList(g attentionGroups, auth domain.Auth) {
 				for _, ag := range g.Agents {
 					<ul class="flex flex-col gap-2 px-4 py-3" data-attention-agent={ ag.Agent }>
 						for _, a := range ag.Items {
-							@molecules.AttentionItem(molecules.AttentionItemProps{Attention: a, AuthExpiresAt: authExpiresAt(auth, a)})
+							@molecules.AttentionItem(molecules.AttentionItemProps{Attention: a, AuthExpiresAt: authExpiresAt(p.Auth, a), PaneHref: paneHref(p, a)})
 						}
 					</ul>
 				}

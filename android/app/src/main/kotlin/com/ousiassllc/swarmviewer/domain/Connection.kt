@@ -5,8 +5,11 @@ import java.time.Instant
 /** swarm-console の `/report` の待ち受けポート。tailnet の IP ではこのポートに限る。 */
 const val REPORT_PORT = "48120"
 
-/** 接続先 URL のパス。 */
+/** 接続先 URL のパス（見るだけの接続）。 */
 const val REPORT_PATH = "/report"
+
+/** 接続先 URL のパス（操作の接続。ペインへの送信・中断・起動・終了ができる）。 */
+const val OPS_PATH = "/ops"
 
 private const val SCHEME_PREFIX = "http://"
 private const val MAX_PORT = 65535
@@ -32,6 +35,24 @@ data class Connection(
 
     /** URL の host のみ（ログ・表示用。NFR-SEC-11）。解釈できなければ空文字。 */
     val host: String get() = hostOf(url)
+
+    /** 接続の種類。URL の path から導く（DB に列を持たない）。判定できなければ [ConnectionKind.View]。 */
+    val kind: ConnectionKind get() = connectionKindOf(url)
+}
+
+/** 接続の種類。見るだけ（`/report`）と、操作もできる（`/ops`）。[id] は固定の名前（ログ・テストベクタ用）。 */
+enum class ConnectionKind(
+    val id: String,
+) {
+    View("view"),
+    Ops("ops"),
+}
+
+/** URL の path が `/ops` ちょうどなら [ConnectionKind.Ops]、それ以外（判定できない URL を含む）は [ConnectionKind.View]。 */
+fun connectionKindOf(url: String): ConnectionKind {
+    val rest = url.substringAfter("://", "")
+    val path = if (rest.contains('/')) rest.substring(rest.indexOf('/')) else ""
+    return if (path == OPS_PATH) ConnectionKind.Ops else ConnectionKind.View
 }
 
 /** URL から host のみを取り出す。IPv6 は角括弧なし。解釈できなければ空文字。 */
@@ -49,7 +70,7 @@ fun hostOf(url: String): String {
  *  - host は tailnet（100.64.0.0/10、fd7a:115c:a1e0::/48）またはループバック（127.0.0.0/8、::1）の IP リテラル。
  *    ホスト名・0.0.0.0・IPv6 ゾーン・IPv4 射影アドレス・省略形の IPv4 は不可
  *  - port は明示が必須。tailnet は 48120 のみ、ループバックは 1〜65535（先頭ゼロ不可）
- *  - path は /report ちょうど（末尾スラッシュ・パーセントエンコード別表記は不可）
+ *  - path は /report か /ops ちょうど（末尾スラッシュ・パーセントエンコード別表記・大文字小文字違いは不可）
  *  - userinfo・クエリ（空の `?` を含む）・フラグメントは不可
  *
  * 前後の空白は除去してから解析する。デスクトップ版の ValidateURL と同じ結果になる（testdata/vectors/url.json）。
@@ -63,14 +84,14 @@ fun validateUrl(raw: String): String {
     val slash = rest.indexOf('/')
     val authority = if (slash < 0) rest else rest.substring(0, slash)
     val path = if (slash < 0) "" else rest.substring(slash)
-    if (rest.contains('?') || path != REPORT_PATH || authority.contains('@')) throw InvalidUrlException()
+    if (rest.contains('?') || (path != REPORT_PATH && path != OPS_PATH) || authority.contains('@')) throw InvalidUrlException()
 
     val (host, port) = splitHostPort(authority)
     val address = IpAddress.parse(host) ?: throw InvalidUrlException()
     if (address.isV4InV6) throw InvalidUrlException()
     val normalizedPort = normalizePort(port, address)
     val hostText = if (address.isV4) address.toString() else "[$address]"
-    return "$SCHEME_PREFIX$hostText:$normalizedPort$REPORT_PATH"
+    return "$SCHEME_PREFIX$hostText:$normalizedPort$path"
 }
 
 // `[v6]:port`・`v4:port`（port は省略・空も可）。角括弧なしの IPv6 は不可。

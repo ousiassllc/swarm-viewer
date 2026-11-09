@@ -10,7 +10,7 @@ import org.junit.Test
 
 private const val MIN_DETECT = 20
 private const val MIN_CYCLES = 2
-private const val MIN_CLASSIFY = 30
+private const val MIN_CLASSIFY = 46
 private const val MIN_TONE = 15
 private const val MIN_PERCENT = 7
 private const val SHORT_INPUT = 8

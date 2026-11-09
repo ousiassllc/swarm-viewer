@@ -4,6 +4,7 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
 	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/layout"
+	"github.com/ousiassllc/swarm-viewer/internal/web/molecules"
 	"github.com/ousiassllc/swarm-viewer/internal/web/organisms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
 )
@@ -27,6 +28,7 @@ func (p MainProps) snapshotProps() organisms.SnapshotViewProps {
 	s := p.Snapshot
 	s.ConnectionID = p.Connection.ID
 	s.Session = p.Selected
+	s.Kind = p.Connection.Kind()
 	s.Initial = true
 	return s
 }
@@ -43,6 +45,7 @@ templ MainPage(shell layout.BaseProps, p MainProps) {
 templ MainContent(p MainProps) {
 	<header class="flex flex-wrap items-center gap-3">
 		<h1 class="text-base font-semibold" title={ p.Connection.Name }>接続: { p.Connection.Name }</h1>
+		@molecules.KindBadge(p.Connection.Kind())
 		if len(p.Connections) > 1 {
 			<nav class="flex flex-wrap gap-1" aria-label="接続の切替">
 				for _, c := range p.Connections {

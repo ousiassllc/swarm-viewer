@@ -43,6 +43,26 @@ func Snapshot(cid, sid string) string {
 	return Session(cid, sid) + "/snapshot"
 }
 
+// Pane は `/connections/{cid}/sessions/{sid}/panes/{pos}`（ペイン詳細）。pos は report の panes[].pos。
+func Pane(cid, sid, pos string) string {
+	return Session(cid, sid) + "/panes/" + url.PathEscape(pos)
+}
+
+// PaneLive は `…/panes/{pos}/live`（ペイン詳細の本文の部分描画。5 秒ごとに読み直す）。
+func PaneLive(cid, sid, pos string) string { return Pane(cid, sid, pos) + "/live" }
+
+// PanePick・PaneSend・PaneEscape・PaneClose は操作（POST。操作の接続のみ）。
+func PanePick(cid, sid, pos string) string   { return Pane(cid, sid, pos) + "/pick" }
+func PaneSend(cid, sid, pos string) string   { return Pane(cid, sid, pos) + "/send" }
+func PaneEscape(cid, sid, pos string) string { return Pane(cid, sid, pos) + "/escape" }
+func PaneClose(cid, sid, pos string) string  { return Pane(cid, sid, pos) + "/close" }
+
+// PaneStart は `…/panes/{pos}/start`（新しいセッション。GET が画面、POST が起動）。
+func PaneStart(cid, sid, pos string) string { return Pane(cid, sid, pos) + "/start" }
+
+// PaneStartDirs は `…/panes/{pos}/start/dirs`（フォルダピッカーの部分描画。クエリ path が一覧するフォルダ）。
+func PaneStartDirs(cid, sid, pos string) string { return PaneStart(cid, sid, pos) + "/dirs" }
+
 // Draft は `/pairing/drafts/{did}`。
 func Draft(did string) string {
 	return Pairing + "/drafts/" + url.PathEscape(did)

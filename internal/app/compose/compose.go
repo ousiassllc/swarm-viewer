@@ -22,6 +22,7 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/repository/store"
 	"github.com/ousiassllc/swarm-viewer/internal/router"
 	"github.com/ousiassllc/swarm-viewer/internal/service"
+	"github.com/ousiassllc/swarm-viewer/internal/service/paneservice"
 )
 
 // ErrUnavailable は通常モードでないため（recovery モード）、機能を使えないときのエラー。
@@ -48,6 +49,8 @@ type Config struct {
 	Secrets  Secrets
 	// Report が nil なら repository/report の実クライアントを使う。
 	Report service.ReportClient
+	// Panes（ペイン詳細・操作）が nil なら repository/report の実クライアントを使う。
+	Panes paneservice.Client
 	// Static は埋め込みの静的アセット（static.FS()）。
 	Static fs.FS
 	// Handler は Wails のアセットハンドラ。モードの切り替えでここへ差し替える。
@@ -196,9 +199,14 @@ type services struct {
 // 通常モードのハンドラを返す。
 func (r *Runtime) build(st *store.Store) (http.Handler, services, error) {
 	c := r.cfg
-	rep := c.Report
-	if rep == nil {
-		rep = report.NewClient(c.Secrets, r.log)
+	real := report.NewClient(c.Secrets, r.log)
+	var rep service.ReportClient = real
+	if c.Report != nil {
+		rep = c.Report
+	}
+	var paneClient paneservice.Client = real
+	if c.Panes != nil {
+		paneClient = c.Panes
 	}
 	settings := service.NewSettingsService(st)
 	conns := service.NewConnectionService(rep, st, c.Secrets, c.Clock, r.log)
@@ -206,6 +214,7 @@ func (r *Runtime) build(st *store.Store) (http.Handler, services, error) {
 	snaps := service.NewSnapshotService(rep, st, notif, conns, c.Clock, r.log)
 	pairing := service.NewPairingService(rep, st, c.Secrets, c.IDs, c.Clock, conns, r.log)
 	pairing.SetPollTrigger(notif)
+	panes := paneservice.New(paneClient, conns, r.log)
 
 	h, err := router.New(router.Deps{
 		Logger:      r.log,
@@ -213,6 +222,7 @@ func (r *Runtime) build(st *store.Store) (http.Handler, services, error) {
 		Connections: conns,
 		Snapshots:   snaps,
 		Pairing:     pairing,
+		Panes:       panes,
 		Notifier:    c.Notifier,
 		Clock:       c.Clock,
 		Static:      c.Static,

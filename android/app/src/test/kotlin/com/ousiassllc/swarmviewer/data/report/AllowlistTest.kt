@@ -9,7 +9,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 
-/** NFR-SEC-1: 呼べるのは `sessions_list` と `report` だけ。許可リスト外の送信は、通信の前に止まる。 */
+/** NFR-SEC-1: 呼べるのは接続の種類（URL の path）ごとの許可リストのツールだけ。許可リスト外の送信は、通信の前に止まる。 */
 class AllowlistTest {
     private lateinit var console: FakeConsole
     private lateinit var client: OkHttpClient
@@ -45,8 +45,8 @@ class AllowlistTest {
     ) = """{"jsonrpc":"2.0","id":1,"method":"$method","params":$params}"""
 
     @Test
-    fun theAllowlistIsExactlyTheTwoTools() {
-        assertEquals(setOf("sessions_list", "report"), ReportTools.allowed)
+    fun theViewAllowlistIsExactlyTheFourReadingTools() {
+        assertEquals(setOf("sessions_list", "report", "pane_tail", "ask_card"), ReportTools.view)
         assertEquals(setOf("initialize", "notifications/initialized", "tools/call"), ReportTools.allowedRpcMethods)
     }
 
@@ -61,7 +61,7 @@ class AllowlistTest {
 
     @Test
     fun otherToolsAreRejectedBeforeAnythingIsSent() {
-        for (name in listOf("tools_list", "ops_send", "dispatch", "pane_tail", "report_read", "Report", "report ", "")) {
+        for (name in listOf("tools_list", "ops_send", "dispatch", "ask_pick", "send_text", "report_read", "Report", "report ", "")) {
             assertThrows(name, RequestRejectedException::class.java) { post(rpc("tools/call", """{"name":"$name","arguments":{}}""")) }
         }
         assertThrows(RequestRejectedException::class.java) { post(rpc("tools/call", """{"arguments":{}}""")) }

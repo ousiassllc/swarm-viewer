@@ -124,3 +124,47 @@ templ Input(p InputProps) {
 		{ p.Attrs... }
 	/>
 }
+
+// ChoiceButtonClass は選択肢の大きなボタン（親指で押せる高さ 48 以上・全幅・折り返し可）。選択肢の文言が長くても崩れない。
+const ChoiceButtonClass = "hover-fade relative flex min-h-12 w-full cursor-pointer items-center gap-2 overflow-clip rounded-md border border-border bg-transparent px-4 py-2 text-left text-base text-ink hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40"
+
+// ChoiceButton は質問カードの選択肢などの大きなボタン。中身は子要素（文言・印）に書き、Attrs に hx-* を渡す。
+templ ChoiceButton(attrs templ.Attributes) {
+	<button type="button" class={ ChoiceButtonClass } { attrs... }>
+		{ children... }
+	</button>
+}
+
+// TextareaProps は Textarea の入力。
+type TextareaProps struct {
+	// ID・Name は textarea の属性。
+	ID   string
+	Name string
+	// Rows は行数（既定 3）。
+	Rows string
+	// Label はスクリーンリーダー用の名前（aria-label）。
+	Label string
+	// Attrs は追加の属性（hx-preserve など）。
+	Attrs templ.Attributes
+}
+
+func textareaRows(r string) string {
+	if r == "" {
+		return "3"
+	}
+	return r
+}
+
+// Textarea は共通の複数行入力（FieldClass）。値は戻さない（送信後は空）。
+templ Textarea(p TextareaProps) {
+	<textarea
+		id={ p.ID }
+		name={ p.Name }
+		rows={ textareaRows(p.Rows) }
+		aria-label={ p.Label }
+		autocomplete="off"
+		spellcheck="false"
+		class={ FieldClass, "w-full px-3 py-2" }
+		{ p.Attrs... }
+	></textarea>
+}

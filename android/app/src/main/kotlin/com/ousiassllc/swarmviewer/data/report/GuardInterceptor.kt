@@ -1,6 +1,7 @@
 package com.ousiassllc.swarmviewer.data.report
 
 import com.ousiassllc.swarmviewer.domain.InvalidUrlException
+import com.ousiassllc.swarmviewer.domain.connectionKindOf
 import com.ousiassllc.swarmviewer.domain.validateUrl
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -22,7 +23,8 @@ private const val MAX_REQUEST_BYTES = 64L * 1024
  * Bearer の付与・接続先の再検証・送信内容の許可リスト検査を行う（NFR-SEC-1・4・5）。1 回の呼び出しごとに作る。
  *  - URL は毎回 [validateUrl] を通し、呼び出し開始時の [endpoint]（検証済み・正規化済み）と一致するものだけ送る
  *  - メソッドは POST（JSON-RPC）と DELETE（セッション終了。応答は見ない）だけ。GET（常駐 SSE）は開かない
- *  - POST の本文は許可リストの JSON-RPC メソッド（`tools/call` は許可リストのツール）だけ。バッチ・不明なメソッドは通さない
+ *  - POST の本文は許可リストの JSON-RPC メソッド（`tools/call` は許可リストのツール）だけ。バッチ・不明なメソッドは通さない。
+ *    ツールの許可リストは URL の path で決める（`/report` は見るだけの 4 つ、`/ops` は 10 個。[ReportTools.allowedFor]）
  */
 internal class GuardInterceptor(
     private val endpoint: String,
@@ -33,7 +35,7 @@ internal class GuardInterceptor(
         checkUrl(request.url.toString())
         when (request.method) {
             "DELETE" -> Unit
-            "POST" -> checkRpc(request.body)
+            "POST" -> checkRpc(request.body, ReportTools.allowedFor(connectionKindOf(request.url.toString())))
             else -> throw RequestRejectedException()
         }
         return chain.proceed(request.newBuilder().header("Authorization", "Bearer $token").build())
@@ -53,7 +55,10 @@ internal class GuardInterceptor(
     override fun toString(): String = "GuardInterceptor"
 }
 
-private fun checkRpc(body: okhttp3.RequestBody?) {
+private fun checkRpc(
+    body: okhttp3.RequestBody?,
+    allowedTools: Set<String>,
+) {
     if (body == null || body.contentLength() !in 0L..MAX_REQUEST_BYTES) throw RequestRejectedException()
     val buffer = Buffer()
     body.writeTo(buffer)
@@ -62,7 +67,7 @@ private fun checkRpc(body: okhttp3.RequestBody?) {
     if (method !in ReportTools.allowedRpcMethods) throw RequestRejectedException()
     if (method == ReportTools.RPC_TOOLS_CALL) {
         val name = ((message["params"] as? JsonObject)?.get("name") as? JsonPrimitive)?.contentOrNull
-        if (name !in ReportTools.allowed) throw RequestRejectedException()
+        if (name !in allowedTools) throw RequestRejectedException()
     }
 }
 

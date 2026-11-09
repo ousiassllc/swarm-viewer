@@ -112,6 +112,7 @@ func (h *Handler) draftProps(c *gin.Context, did, errMsg string) (pages.DraftPro
 		DraftID:        did,
 		Name:           v.Name,
 		Host:           v.Host,
+		Kind:           v.Kind,
 		SessionsHint:   v.SessionsHint,
 		ExpiresText:    format.Until(v.ExpiresAt, h.clock.Now()),
 		Error:          errMsg,

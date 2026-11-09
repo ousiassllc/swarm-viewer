@@ -11,18 +11,18 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
 )
 
-func TestAllowlistContainsOnlyTheTwoTools(t *testing.T) {
+func TestViewAllowlistContainsOnlyTheFourTools(t *testing.T) {
 	var names []string
-	for name := range allowedTools {
+	for name := range viewTools {
 		names = append(names, name)
 	}
 	slices.Sort(names)
-	if want := []string{"report", "sessions_list"}; !slices.Equal(names, want) {
-		t.Fatalf("allowedTools = %v, want %v", names, want)
+	if want := []string{"ask_card", "pane_tail", "report", "sessions_list"}; !slices.Equal(names, want) {
+		t.Fatalf("viewTools = %v, want %v", names, want)
 	}
-	for _, bad := range []string{"", "panes_status", "host_status", "pane_tail", "ask_card", "report_read", "Report", "report "} {
-		if toolAllowed(bad) {
-			t.Errorf("toolAllowed(%q) = true", bad)
+	for _, bad := range []string{"", "panes_status", "host_status", "report_read", "dispatch", "note_set", "file_get", "Report", "report "} {
+		if toolAllowed(domain.KindView, bad) {
+			t.Errorf("toolAllowed(view, %q) = true", bad)
 		}
 	}
 }
@@ -45,7 +45,7 @@ func TestOnlyAllowedToolsReachTheWire(t *testing.T) {
 			t.Errorf("rpc method %q reached the wire", r.RPCMethod)
 		}
 		if r.RPCMethod == "tools/call" {
-			if !toolAllowed(r.Tool) {
+			if !toolAllowed(domain.KindView, r.Tool) {
 				t.Errorf("tool %q reached the wire", r.Tool)
 			}
 			seen[r.Tool] = true
@@ -79,8 +79,8 @@ func TestRoundTripperRejectsUnlistedRequests(t *testing.T) {
 		url    string
 		body   string
 	}{
-		{"tool not listed", "POST", endpoint, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"pane_tail","arguments":{}}}`},
-		{"ops tool", "POST", endpoint, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"ask_card"}}`},
+		{"tool not listed", "POST", endpoint, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"panes_status","arguments":{}}}`},
+		{"ops tool", "POST", endpoint, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"send_text"}}`},
 		{"tools/list", "POST", endpoint, `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`},
 		{"server/discover", "POST", endpoint, `{"jsonrpc":"2.0","id":1,"method":"server/discover"}`},
 		{"batch", "POST", endpoint, `[{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"report"}}]`},
@@ -191,7 +191,7 @@ func TestInvalidConnectionURLIsRejectedWithoutRequest(t *testing.T) {
 	for name, raw := range map[string]string{
 		"empty":              "",
 		"hostname":           "http://localhost:48120/report",
-		"ops path":           "http://" + port + "/ops",
+		"ops trailing /":     "http://" + port + "/ops/",
 		"trailing /":         "http://" + port + "/report/",
 		"query":              "http://" + port + "/report?a=1",
 		"userinfo":           "http://user:pw@" + port + "/report",

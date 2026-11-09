@@ -7,7 +7,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
-private const val MIN_URL_CASES = 60
+private const val MIN_URL_CASES = 75
 private const val MIN_PAIRING_CASES = 55
 private const val FAKE_TOKEN = "test-token-not-secret"
 private const val SHORT_INPUT = 8

@@ -52,6 +52,7 @@ fun AppTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     singleLine: Boolean = false,
     isError: Boolean = false,
+    enabled: Boolean = true,
 ) {
     val extra = MaterialTheme.extraColors
     val surface = MaterialTheme.colorScheme.surface
@@ -76,6 +77,7 @@ fun AppTextField(
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth().heightIn(min = FieldMinHeight).semantics { contentDescription = label },
             textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface, lineHeight = FieldLineHeight),
+            enabled = enabled,
             keyboardOptions = keyboardOptions,
             singleLine = singleLine,
             visualTransformation = visualTransformation,
@@ -85,7 +87,7 @@ fun AppTextField(
                 OutlinedTextFieldDefaults.DecorationBox(
                     value = value,
                     innerTextField = innerTextField,
-                    enabled = true,
+                    enabled = enabled,
                     singleLine = singleLine,
                     visualTransformation = visualTransformation,
                     interactionSource = interactionSource,
@@ -94,7 +96,7 @@ fun AppTextField(
                     contentPadding = FieldContentPadding,
                     container = {
                         OutlinedTextFieldDefaults.Container(
-                            enabled = true,
+                            enabled = enabled,
                             isError = isError,
                             interactionSource = interactionSource,
                             colors = colors,

@@ -39,14 +39,14 @@ erDiagram
 
 ### 3.1 connections
 
-保存済みの接続（swarm-console の `/report` 1 つにつき 1 行）。
+保存済みの接続（swarm-console の `/report`（見るだけ）または `/ops`（操作）の窓口 1 つにつき 1 行）。**接続の種類（見るだけ / 操作）を表す列は持たない**。種類は `url` の path から導く（`Connection.Kind()` が `/ops` なら「操作」、それ以外は「見るだけ」）。同じホストに `/report` と `/ops` の接続を両方保存でき、`url` が違うので別の行になる。
 
 ```mermaid
 erDiagram
     connections {
         TEXT id PK "ULID"
         TEXT name "表示名"
-        TEXT url UK "http://IP:48120/report"
+        TEXT url UK "http://IP:48120/report か /ops"
         TEXT last_session "最後に選んだセッション。NULL 可"
         TEXT baselined_at "初回パス完了時刻。NULL = 通知せず記録のみの段階"
         TEXT created_at
@@ -60,7 +60,7 @@ erDiagram
 |--------|----|------|------|
 | `id` | TEXT | PK | ULID（26 文字）。URL パス・秘密領域のキー・外部キーに使う |
 | `name` | TEXT | NOT NULL, `CHECK (length(name) BETWEEN 1 AND 100)` | 表示名。ペアリングの `name` が無ければ URL の host で補う |
-| `url` | TEXT | NOT NULL, UNIQUE | 正規化済み URL（scheme・host・port・path を検証済み。NFR-SEC-4・5）。同じ `url` の再ペアリングは新規追加ではなく token の差し替え |
+| `url` | TEXT | NOT NULL, UNIQUE | 正規化済み URL（scheme・host・port・path を検証済み。path は `/report` または `/ops` ちょうど。NFR-SEC-4・5）。path が接続の種類を決める（FR-OPS-1）。同じ `url` の再ペアリングは新規追加ではなく token の差し替え（`/report` と `/ops` は別の `url`） |
 | `last_session` | TEXT | NULL 可 | 最後に選んだセッションの `id`（`sessions_list` の `id`）。許可外・消滅時は先頭の許可セッションにフォールバックする（FR-SESS-3） |
 | `baselined_at` | TEXT | NULL 可 | 初回の取得パス（全許可セッション）が完了した時刻。NULL の間は通知せず通知済み記録だけを作る（[機能要件 §8.2](../requirements/functional.md)）。一部のセッションが取得に失敗し続ける間は NULL のままで、その接続は通知されない（残余リスク。機能要件の規則どおり。新規ペアリング直後の最初の一巡は `Confirm` が直ちに起動する） |
 | `created_at` | TEXT | NOT NULL | 作成時刻 |
@@ -171,7 +171,7 @@ erDiagram
 |------|----|
 | サービス名 | `swarm-viewer` |
 | アカウント名（キー） | `connection:{connections.id}` |
-| 値 | report スコープの token（平文文字列） |
+| 値 | token（平文文字列）。`/report` の接続は report スコープ、`/ops` の接続は ops スコープ（操作の token。NFR-SEC-13） |
 | 作成 | ペアリング確定時（疎通確認に成功した後）。SQLite の `connections` の `INSERT` と同じユースケースで行う |
 | 差し替え | 同じ `url` の再ペアリング時に上書きする |
 | 削除 | 接続削除時。孤立エントリ（token だけが残り利用者が気づけない状態）を作らない順序にする: 先に秘密領域を削除し、次に SQLite の行を削除する。秘密領域の削除に失敗したら接続は残したままエラーを返し、利用者が再試行できる。行の削除に失敗した場合は token が先に消えているため、接続は残るが「token なし」（`needs_repair`）として扱い、再ペアリングまたは再削除で片付ける。キーのみをログに出す（値は出さない）。孤立エントリの自動掃除は行わない（採用ライブラリ `go-keyring` はエントリ一覧を取得できないため）。同じ接続 ID は再利用されない（ULID） |
@@ -194,10 +194,11 @@ erDiagram
 | データ | 保存 | 理由・扱い |
 |--------|------|-----------|
 | token | 秘密領域のみ | SQLite・ログ・画面に出さない（NFR-SEC-2） |
-| 接続の URL | SQLite（平文） | token を含まない。ログには host のみ（NFR-SEC-11） |
+| 接続の URL | SQLite（平文） | token を含まない。ログには host のみ（NFR-SEC-11）。path から接続の種類が分かる |
 | `report`（ペイン本文を含む） | SQLite（平文、最新 1 件） | 起動直後と失敗時のグレーアウト表示用。履歴は持たない。ファイルは `0600`。接続削除で消える |
+| `pane_tail`・`ask_card`・送信本文・質問への回答 | **保存しない**（メモリ上の表示だけ） | ペイン詳細を閉じれば消える。SQLite・ログ・通知に出さない（NFR-SEC-11） |
 | 通知済み記録 | SQLite | ペイン ID と状態のみ。本文は持たない |
-| ログ | ログファイル | `report` の本文（`activity`・`note`）は出さない（NFR-LOG-3）。SQLite の `snapshots` とは独立 |
+| ログ | ログファイル | `report` の本文（`activity`・`note`）、`pane_tail`・`ask_card` の本文、送信本文は出さない（NFR-LOG-3）。操作のログは接続 ID・ツール名・種別・コード・ペイン位置まで。SQLite の `snapshots` とは独立 |
 
 - ディスク暗号化は OS（BitLocker / FileVault）に任せ、アプリでは行わない。平文でペイン本文が残る点は README に記載する
 
@@ -219,7 +220,7 @@ Android 版は、§3 の 4 テーブル（`connections`・`settings`・`snapshot
 
 | テーブル | デスクトップ版（§3）との違い |
 |----------|----------------------------|
-| `connections` | `id` はアプリが生成するランダムな UUID（v4、小文字）の文字列。同じ `url` の再ペアリングは新規追加でなく token の差し替え（同じ）。`url` は UNIQUE |
+| `connections` | `id` はアプリが生成するランダムな UUID（v4、小文字）の文字列。同じ `url` の再ペアリングは新規追加でなく token の差し替え（同じ）。`url` は UNIQUE。接続の種類の列は持たず、`url` の path から導く（§3.1 と同じ） |
 | `settings` | `notify_poll_minutes` の許容値は **15 / 30 / 60**、既定は **15**（WorkManager の周期ジョブの最小間隔が 15 分のため。5 / 10 は持たない）。`screen_poll_seconds` は 5 / 10 / 30 / 60、既定 10。`notifications_enabled` 既定 1、`debug_log` 既定 0。1 行固定（`id = 1`）・`last_connection_id` の外部キー（`ON DELETE SET NULL`）は同じ |
 | `snapshots` | 主キー `(connection_id, session_id)`、`report_json` は domain の `Report` の JSON（`panes[]`・`layout`・`usage`・`host`・`attention`・`warnings`）。接続×セッションごとに最新 1 件、`ON DELETE CASCADE`、読めない版・壊れた JSON は「スナップショットなし」として扱う（同じ） |
 | `notified_states` | 主キー `(connection_id, session_id, pane_id, state)`。**この主キー制約が二重通知の防止になる**（`INSERT` が成功したときだけ通知する。[Android 版の設計 §3.2](../android/overview.md)）。`state` は `asking` / `stalled` だけ、接続あたり 1,000 件を上限に古い順に削除（NFR-DAT-3）、インデックス `(connection_id, notified_at)`、`ON DELETE CASCADE`（同じ） |
@@ -234,7 +235,7 @@ Android 版は、§3 の 4 テーブル（`connections`・`settings`・`snapshot
 | 項目 | 値 |
 |------|----|
 | キー | `connection:{connections.id}`（デスクトップ版の秘密領域のキーと同じ形） |
-| 値 | report スコープの token。Android Keystore の鍵（エクスポート不可）で暗号化した暗号文だけを保存し、平文を DB・ファイル・ログに書かない |
+| 値 | token（`/report` は report スコープ、`/ops` は ops スコープ）。Android Keystore の鍵（エクスポート不可）で暗号化した暗号文だけを保存し、平文を DB・ファイル・ログに書かない |
 | 保存先 | アプリの `noBackupFilesDir` 配下（`tokens/<接続 ID>.token`。DB に入れず、バックアップ・端末間転送の対象外）。Keystore の AES-256-GCM 鍵（エクスポート不可）で暗号化した `IV（12 バイト）+ 暗号文 + 認証タグ` を、一時ファイルへ書いてから置き換える（EncryptedSharedPreferences は使わない）。接続 ID を認証データに含め、別の接続のファイルへ移しても復号できない。方式の確定は[アーキテクチャ設計 §11](overview.md) #9 |
 | 作成・差し替え | デスクトップ版の §4 と同じ。ペアリング確定後（疎通確認に成功した後）に作成し、同じ `url` の再ペアリングで上書きする |
 | 削除 | §4 と同じ順序。先に token を削除し、次に Room の行を削除する。token の削除に失敗したら接続は残したままエラーを返し、行の削除に失敗した場合は「token なし」（`needs_repair`）として扱う。接続の削除で、token・`snapshots`・`notified_states` がすべて消える（NFR-SEC-8） |
@@ -245,7 +246,7 @@ Android 版は、§3 の 4 テーブル（`connections`・`settings`・`snapshot
 
 ### 7.4 保存データの取り扱い
 
-§6 と同じ方針。`snapshots.report_json` にはホスト側の作業内容（`title`・`cwd`・`activity`・`note`）が平文で含まれるが、アプリ専用の内部ストレージにあり、バックアップに含まれず、接続の削除で消える。ディスク暗号化は OS（Android のファイルベース暗号化）に任せる。
+§6 と同じ方針。`snapshots.report_json` にはホスト側の作業内容（`title`・`cwd`・`activity`・`note`）が平文で含まれるが、アプリ専用の内部ストレージにあり、バックアップに含まれず、接続の削除で消える。`pane_tail`・`ask_card`・送信本文は保存せず、メモリ上の表示だけにする。ディスク暗号化は OS（Android のファイルベース暗号化）に任せる。
 
 ## 改訂履歴
 
@@ -256,3 +257,4 @@ Android 版は、§3 の 4 テーブル（`connections`・`settings`・`snapshot
 | 1.2 | 2026-11-04 | 接続削除の順序を「先に秘密領域、次に行」へ変更し、失敗時の扱いを明記 | 秘密領域の削除失敗が利用者に伝わらず孤立 token が残るため |
 | 1.3 | 2026-11-04 | 既存 DB の権限を `0600` へ締める・`user_version` を WAL 切り替えより先に読む・`baselined_at` の残余リスクを明記 | 緩い権限の DB の保護、新しい版の DB を変更しないため |
 | 1.4 | 2026-11-05 | §7「Android 版の保存データ」を追加（Room の 4 テーブル、通知間隔の許容値 15 / 30 / 60 分、token の保護領域、バックアップ除外） | Issue #15（Android 版の仕様書への反映） |
+| 1.5 | 2026-11-08 | 操作モード（Issue #97）。接続の種類を `url` の path（`/report`・`/ops`）から導き、列は足さないと明記。token に ops スコープを追記。`pane_tail`・`ask_card`・送信本文を保存しない・ログに出さないと追記 | Issue #97（操作モード） |
