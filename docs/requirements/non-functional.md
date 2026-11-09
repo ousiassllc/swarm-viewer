@@ -215,6 +215,7 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 |------|------|------|
 | 要対応ペインの強調（`ring-warning`、Android は 2dp の warning 枠） | ガイドに部品がない | 状態色（`--warning`）だけで組み、ガイドの追加提案を別途出す |
 | 古いデータのグレーアウト（`opacity-50 grayscale`、Android は `alpha`） | ガイドに規定がない | 状態を示す表示で、色だけに頼らず文言（「古いデータ」）を併記する。`opacity` は入れ子で掛け算になるので、かけるのは 1 回だけ（Web は取得失敗の領域 `#snapshot` に 1 回。`usage.status` が stale のパネルは、領域がグレーアウトされていないときだけ単体でかける） |
+| 主ボタンのホバー（`atoms.Button` の `ButtonPrimary` は `hover:bg-accent/85`） | ガイドの見本の `.pri` には `:hover` がなく、共通の `.btn:hover{opacity:.85}` が主ボタンにも掛かる（文字ごと薄くなり、`opacity` は `hover-fade` の遷移（色・背景・枠・下線）の対象外） | 地を `--accent` の 85% にし、文字（`--bone`）は薄くしない。ガイドの「ホバーは色/背景のみ・180ms」（M1）に沿い、`hover-fade` で 180ms ずつ遷移する。ガイドへの追加提案: 主ボタンに `.pri:hover{background:color-mix(in srgb,var(--accent) 85%,transparent)}` を規定する（危険ボタンの `.dan:hover` と同じ `color-mix` の書き方）。Android はホバーを持たない |
 | 使用率バーのしきい値色（`warning` / `danger`） | ガイドの進捗は `--accent` 1 色 | 80% / 95% の警告を色で示す。数値と文言を併記する |
 | Nerd Font の PUA 用フォント | ガイドに「ユーザーデータ内の記号」の規定がない | ペインタイトルのアイコン（UI アイコンではない）。UI アイコンは Iconoir |
 | 状態色バッジのコントラスト（ライトの warning 文字は背景上 4:1 前後） | AA（4.5:1）未満 | ガイドのトークン値のまま使う。文言と併記しており色だけに頼らない。値の見直しはガイド側の課題 |
@@ -267,3 +268,4 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | 4.8 | 2026-11-08 | 操作モードを追加。NFR-SEC-1 を「接続の種類ごとの許可リスト以外は呼べない」に書き換え、NFR-SEC-5 に path `/ops` を追加、NFR-SEC-10・11・NFR-LOG-3・NFR-AND-LOG-2 に `pane_tail`・`ask_card`・送信本文を追加。NFR-SEC-12〜14（確認・ops token の失効・見るだけの隔離）、NFR-PERF-8、NFR-QLT-4、NFR-DSG-16 を追加。Android は NFR-AND-SEC-5 の書き換えと NFR-AND-SEC-9・NFR-AND-PERF-8・NFR-AND-QLT-5 | Issue #97（操作モード） |
 | 4.9 | 2026-11-09 | 独立レビューの指摘とコード修正の反映。NFR-PERF-4・NFR-AND-PERF-4 をツール別のタイムアウト（読み取り 10 秒、`ask_pick`・`send_text`・`send_escape` 30 秒、`pane_start`・`pane_close` 50 秒）に、NFR-SEC-12 に `pane_close` の `confirm=true` とサーバー側の状態の再検査を追記 | Issue #97（独立レビュー ReviewDocs） |
 | 5.0 | 2026-11-09 | NFR-DSG-8 にスクラムの濃さ（ライト ink 20%・ダーク bone 60%）を明記。ガイドは濃さを規定しておらず、見本（ink 18〜22%）に実装を合わせる判断と、ダークだけ bone 60% にする理由を記録 | Issue #92（デザインガイド O1） |
+| 5.1 | 2026-11-09 | §11 の承認済みの逸脱に「主ボタンのホバー（`--accent` の 85% の地）」を追加し、ガイドへの追加提案の文言を記録した | Issue #93（デザインガイドの主ボタンに `:hover` の規定がない） |
