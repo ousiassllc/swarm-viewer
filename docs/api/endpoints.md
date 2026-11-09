@@ -4,7 +4,7 @@ swarm-viewer が関わる API は 4 種類ある。viewer 自身は**外部に�
 
 | 種別 | 向き | 内容 | 節 |
 |------|------|------|----|
-| swarm-console `/report`・`/ops` の利用 | viewer → swarm-console | MCP `tools/call`。見るだけ（`/report`）は `sessions_list`・`report`・`pane_tail`・`ask_card`、操作（`/ops`）はそれに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list` を足した 10 個 | §1 |
+| swarm-console `/report`・`/ops` の利用 | viewer → swarm-console | MCP `tools/call`。見るだけ（`/report`）は `sessions_list`・`report`・`pane_tail`・`ask_card`、操作（`/ops`）はそれに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list` を足した 11 個 | §1 |
 | ペアリング形式 | swarm-console → viewer | 接続文字列 / `swarm-viewer://` ディープリンク（`url` の path で見るだけ / 操作を見分ける） | §2 |
 | swarm-console の `pair` コマンド | — | `swarm-console pair [--scope report\|ops]`（swarm-console 側が実装。viewer が前提とする出力） | §3 |
 | 画面ルート（アプリ内 HTTP） | WebView → Go | Gin のルート。HTMX が HTML フラグメントを取得 | §4 |
@@ -30,7 +30,7 @@ Huma（OpenAPI）で登録する JSON オペレーションは **v1 では 0 本
 | URL | 接続の `url`（`http://<tailnet-ip>:48120/report` または `…/ops`）。**path は `/report` か `/ops` ちょうどだけ**（NFR-SEC-5）。見るだけの接続は `/ops` を呼ばない（NFR-SEC-1・NFR-SEC-14） |
 | メソッド | `POST` のみ（swarm-console は `GET`・`DELETE` を 405 で拒否するステートレス運用） |
 | ヘッダ | `Authorization: Bearer <token>`、`Content-Type: application/json`、`Accept: application/json, text/event-stream`（SDK が付与する Bearer は `http.Client` の Transport で付ける） |
-| タイムアウト | ツールごとの上限（接続・応答の合計。NFR-PERF-4）。読み取り（`sessions_list`・`report`・`pane_tail`・`ask_card`・`dir_list`）は 10 秒、`ask_pick`・`send_text`・`send_escape` は 10 秒 × 3 = 30 秒、`pane_start`・`pane_close` は 10 秒 × 5 = 50 秒（§1.2） |
+| タイムアウト | ツールごとの上限（接続・応答の合計。NFR-PERF-4）。読み取り（`sessions_list`・`report`・`pane_tail`・`ask_card`・`dir_list`・`skill_list`）は 10 秒、`ask_pick`・`send_text`・`send_escape` は 10 秒 × 3 = 30 秒、`pane_start`・`pane_close` は 10 秒 × 5 = 50 秒（§1.2） |
 | 本文上限 | リクエストは 256 KiB 未満（swarm-console 側の上限。viewer の引数は小さいため問題にならない） |
 | リトライ | しない（次の周期で再取得する。NFR-AVL-2） |
 
@@ -41,7 +41,7 @@ viewer が呼ぶツールは、接続の種類ごとの許可リストにある�
 | 接続の種類 | 呼べるツール |
 |-----------|-------------|
 | 見るだけ（`/report`） | `sessions_list`・`report`・`pane_tail`・`ask_card`（4 つ） |
-| 操作（`/ops`） | 上の 4 つ ＋ `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`（計 10 個） |
+| 操作（`/ops`） | 上の 4 つ ＋ `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list`（計 11 個） |
 
 **ツール別のタイムアウト**: 操作ツールは swarm-console が画面の確認を待ってから応答する（`accept_timeout` 既定 10 秒・`start_timeout` 既定 30 秒。`pane_start`・`pane_close` は複数の手順を踏む）。viewer の上限が 10 秒のままだと、swarm-console 側の待ちより先に切れてしまうため、swarm-console に待つ余地を残すよう通信の上限（基準 10 秒）に倍率を掛ける: `ask_pick`・`send_text`・`send_escape` は 3 倍（30 秒）、`pane_start`・`pane_close` は 5 倍（50 秒）、読み取り系は 1 倍（10 秒）。倍率は Go の `internal/repository/report/tools.go`（`toolTimeoutScale`）と Kotlin の `ReportTools.timeoutScale` の定数で、2 つの実装で同じ。リトライはしない
 
@@ -52,15 +52,16 @@ viewer が呼ぶツールは、接続の種類ごとの許可リストにある�
 | `pane_tail` | 両方 | ペイン詳細（機能要件 §4.5）。開くとき・更新・5 秒ごとの自動更新 | `{"session": "<id>", "pane": "<pos>", "lines": 30}`（`lines` は既定 30・最大 200。`raw` は付けない） |
 | `ask_card` | 両方 | ペイン詳細で、`report` の状態が `asking` のときだけ | `{"session": "<id>", "pane": "<pos>"}` |
 | `ask_pick` | 操作のみ | 質問カードの選択肢のボタン（押したらすぐ）・「その他」の送信 | `{"session", "pane", "n": 1}` または `{"session", "pane", "text": "…"}`（同時に指定しない。`text` は 8000 字まで） |
-| `send_text` | 操作のみ | 指示の送信 | `{"session", "pane", "text": "…"}`（1〜8000 字。許可する制御文字は `\n`・`\t` だけ。`file` は使わない） |
+| `send_text` | 操作のみ | 指示の送信、新しいセッションの最初のタスク（機能要件 §4.8。`pane_start` が成功して `idle` のときだけ続けて送る） | `{"session", "pane", "text": "…"}`（1〜8000 字。許可する制御文字は `\n`・`\t` だけ。`file` は使わない） |
 | `send_escape` | 操作のみ | 確認ダイアログで確定した「中断」 | `{"session", "pane", "confirm": true}`（確認済みでなければ呼ばない。NFR-SEC-12） |
-| `pane_start` | 操作のみ | 新しいセッション（機能要件 §4.8）の確定 | `{"session", "pane", "agent": "omp\|claude\|codex", "cwd": "<絶対パス>", "title": "…"}`（`title` は 1〜80 字） |
+| `pane_start` | 操作のみ | 新しいセッション（機能要件 §4.8）の確定。成功して `state` が `idle` なら、最初のタスクがあるときは続けて `send_text` で送る | `{"session", "pane", "agent": "omp\|claude\|codex", "cwd": "<絶対パス>", "title": "…"}`（`title` は 1〜80 字） |
 | `pane_close` | 操作のみ | 確認ダイアログで確定した「終了」 | `{"session", "pane"}` |
 | `dir_list` | 操作のみ | フォルダピッカー（機能要件 §4.8） | `{"path": "<絶対パス>"}`（`path` 省略 = `allowed_roots`）。`session` は取らない。`limit` は指定しない |
+| `skill_list` | 操作のみ | 新しいセッションのスキル選択（機能要件 §4.8。エージェントを選んだとき） | `{"agent": "omp\|claude\|codex"}`。`session` は取らない（`dir_list` と同じ）。**仮称・swarm-console 側は未実装（要望）**。viewer が前提とするインターフェース: 返り値は `agent`・`skills[]{name, description, invoke}`・`truncated`（§1.5.2）。`invoke` は「そのスキルを呼ぶために送る入力文字列」（例 `/impl`）で、viewer はエージェントごとの呼び出し構文を持たず、`invoke` をそのまま最初のタスクの先頭に使う。実装後にツール名・引数・返り値を確定する（[アーキテクチャ設計 §11](../architecture/overview.md) #17） |
 
-- `session` は**常に明示する**（`report`・`pane_tail`・`ask_card`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`。`dir_list` を除く）。許可セッションが 2 つ以上のトークンで省略すると `session_required` になるため、許可数に依存しない動作にする
+- `session` は**常に明示する**（`report`・`pane_tail`・`ask_card`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`。`dir_list` と `skill_list` を除く）。許可セッションが 2 つ以上のトークンで省略すると `session_required` になるため、許可数に依存しない動作にする
 - `pane` は `report` の `panes[].pos`（セッション内の位置。接頭辞なし）を使う
-- 見るだけの接続で操作系ツール（`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`）を呼ぼうとしたときは、**通信せずに** `tool_not_allowed`（domain の `FetchError{Kind: protocol, Code: "tool_not_allowed"}`）で断る。送信内容の検査（Go は `roundTripper`、Android は `GuardInterceptor`）も、URL の path が `/report` なら 4 つ、`/ops` なら 10 個だけを通す（呼び出し口と合わせた二重の検査）
+- 見るだけの接続で操作系ツール（`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list`）を呼ぼうとしたときは、**通信せずに** `tool_not_allowed`（domain の `FetchError{Kind: protocol, Code: "tool_not_allowed"}`）で断る。送信内容の検査（Go は `roundTripper`、Android は `GuardInterceptor`）も、URL の path が `/report` なら 4 つ、`/ops` なら 11 個だけを通す（呼び出し口と合わせた二重の検査）
 - 呼ばないツール: `dispatch`・`note_set`・`note_log`・`file_get`（範囲外。機能要件 §11）、`panes_status`・`host_status`・`report_read`（`report` の JSON に必要な値がすべて入っているため）、`tools/list`（許可リストを viewer 側で固定する）
 
 ### 1.3 `sessions_list`
@@ -171,7 +172,7 @@ swarm-console のエラー本文は HTTP レベルでもツールでも `{"error
 | `pane_not_found` | `pane` を取る全部 | 画面を更新させる |
 | `busy_timeout` | 操作系全部 | しばらくしてから再試行 |
 | `exit_timeout` | `pane_close` | 「もう一度試す」。`pane_close` は呼び直してよい |
-| `unknown_tool` | 操作系 | ホストの swarm-console が古い。固定文言 |
+| `unknown_tool` | 操作系・`skill_list` | ホストの swarm-console が古い。固定文言（`skill_list` はスキルの手順に出す専用の固定文言。機能要件 §10.1） |
 | `invalid_args` | 全部 | `details.field == "session"`（`session` の名前が `sessions` にない）のときだけ従来どおり `session_missing`（§1.5）。それ以外（`pane`・入力の不正）は `operation`（`ops.Failure`。Kotlin も同じ） |
 
 - 上の一覧にないコードは従来どおり `protocol`。`session_forbidden`・`session_required`・`tmux_error`・`internal`・HTTP 401・403・404・405・413 は §1.5 のとおり（401・403 は操作の接続でもその接続のポーリングと操作を止める）
@@ -191,6 +192,7 @@ swarm-console のエラー本文は HTTP レベルでもツールでも `{"error
 | `pane_start` | `ok`・`state`・`agent`・`cwd`・`title` |
 | `pane_close` | `ok`・`state`・`note_archived`（`steps` は読まない） |
 | `dir_list` | `path`・`entries[]{name, path, git}`・`truncated` |
+| `skill_list` | `agent`・`skills[]{name, description, invoke}`・`truncated` |
 
 ### 1.6 MCP ハンドシェイク
 
@@ -324,9 +326,10 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | POST | `P/send` | アクション | フラグメント + トースト OOB | `text`、`lines`。`send_text`。受理されたとき入力欄を空にする。**操作の接続のみ** |
 | POST | `P/escape` | アクション | フラグメント + トースト OOB | `confirm=true`（確認ダイアログで確定したフォームだけが付ける。無ければ `send_escape` を呼ばず `confirm_required`）、`lines`。**操作の接続のみ** |
 | POST | `P/close` | アクション | `HX-Redirect: /connections/{cid}/sessions/{sid}`（成功）/ フラグメント | `confirm=true`（確認ダイアログで確定したフォームだけが付ける。無ければ `pane_close` を呼ばず `confirm_required`。`escape` と同じ）、`lines`。送る前に最新の `report` でペインの状態を再検査し、`idle`・`shell` 以外は通信せず `invalid_state`。成功はトーストなしでメイン画面へ。`exit_timeout` は「もう一度試す」付きの表示。**操作の接続のみ** |
-| GET | `P/start` | ページ | フルページ / フラグメント | 新しいセッションの入力画面（S5。エージェント・フォルダピッカー・タイトル）。**操作の接続のみ**。`shell` のペインだけ（それ以外・`report` が取れないときは、入力画面でなく固定文言の案内） |
+| GET | `P/start` | ページ | フルページ / フラグメント | 新しいセッションの入力画面（S5。エージェント・フォルダピッカー・スキル（任意）・本文（任意）・タイトル）。**操作の接続のみ**。`shell` のペインだけ（それ以外・`report` が取れないときは、入力画面でなく固定文言の案内） |
 | GET | `P/start/dirs?path=&pick=1` | ページ（部分） | フラグメント | フォルダピッカー（`dir_list`。`path` 省略 = `allowed_roots`。省略のときは最近使ったフォルダ（`report` の `agent` があるペインの `cwd`、最大 5 件）も出す）。`pick=1` かつ `path` ありは「このフォルダを選ぶ」で、通信せずに選択済みの表示を返す（許可の判定は `pane_start` が行う）。**操作の接続のみ** |
-| POST | `P/start` | アクション | フラグメント / `HX-Redirect: P`（成功） | `agent`・`cwd`・`title`。2 段階: `edit=1` は入力画面へ戻す、`confirm=1` が無ければ入力を検査して確認画面を返すだけ（`pane_start` は呼ばない。不正な入力は入力画面に固定文言）、`confirm=1` で `pane_start`。`confirm=1` でも送る前に最新の `report` でペインが `shell` であることを再検査し、違えば通信せず `invalid_state`。成功はトーストなしでペイン詳細へ。失敗（`ok: false`・エラー）は確認画面に固定文言。**操作の接続のみ** |
+| GET | `P/start/skills?agent=` | ページ（部分） | フラグメント | スキルの選択部品（`skill_list`。`agent` は `omp`・`claude`・`codex`。エージェントを選んだときに取得し、結果は画面を開いている間のメモリだけに持つ）。1 つ選ぶか「スキルなし」。`unknown_tool`（ホストが古い）は固定文言「スキルの一覧を取得できません（ホストの swarm-console が古い可能性があります）」、それ以外の失敗は「スキルの一覧を読み込めませんでした」＋「再読み込み」。どちらも「スキルなし」で起動は続けられる。`skills[].name`・`description`・`invoke` は信頼できない入力として常にテキストで描画する（`templ.Raw` を使わない）。**操作の接続のみ**（見るだけは 403 と固定文言で、コンソールに通信しない） |
+| POST | `P/start` | アクション | フラグメント / `HX-Redirect: P`（成功） | `agent`・`cwd`・`title` と、任意の `skill`（`skill_list` が返した `invoke` の文字列。長さと制御文字だけ検査し、一覧との照合はしない。任意の文字列は本文欄からも送れるため権限は増えない）・`task`（本文）。2 段階: `edit=1` は入力画面へ戻す、`confirm=1` が無ければ入力を検査して確認画面（エージェント・フォルダ・スキル・本文の先頭の要約）を返すだけ（`pane_start` は呼ばない。不正な入力は入力画面に固定文言）、`confirm=1` で `pane_start`。`confirm=1` でも送る前に最新の `report` でペインが `shell` であることを再検査し、違えば通信せず `invalid_state`。`skill`・`task` のどちらかがあるときは、送る文字列（両方 = `<invoke> <本文>`、スキルだけ = `<invoke>`、本文だけ = `<本文>`。合計 1〜8000 字、許可する制御文字は `\n`・`\t` だけ）を `pane_start` の前に検査し、違反は `pane_start` を呼ばずに入力欄の固定文言で拒否する。`pane_start` が `ok: true` かつ `state` が `idle` のときだけ、同じペインの排他（機能要件 FR-OPS-9）を保ったまま続けて `send_text` で最初のタスクを送る（1 つの操作。合算の上限は設けない）。`pane_start` が `ok: false` ならタスクは送らない。起動したが `idle` 以外なら送らず、遷移せずに結果の表示で固定文言「起動しました。最初のタスクはまだ送っていません（状態: …）。ペイン詳細から送れます」と「ペイン詳細を開く」を出す（`HX-Redirect` ではトーストが消えるため。「もう一度送る」は出さない）。`send_text` が失敗・`accepted: false` のときは自動で再送せず、起動も取り消さず（`pane_close` は呼ばない）、「起動しました。最初のタスクを送れませんでした」＋理由の固定文言の結果の表示に「ペイン詳細を開く」と「もう一度送る」を出す（本文はこの表示の間だけフラグメントの hidden 項目に残し、保存・ログ出力しない）。`resend=1`（「もう一度送る」）は `skill`・`task` だけを使い `send_text` だけを送る（`pane_start` は呼ばない。ペインが `idle` でなければ通信せず `invalid_state`）。成功はトーストなしでペイン詳細へ。失敗（`ok: false`・エラー）は確認画面に固定文言。**操作の接続のみ** |
 | GET | `/settings` | ページ | フルページ / フラグメント | 設定画面。OS が通知を許可していないときはその旨を表示する |
 | PUT | `/settings` | アクション | フラグメント（設定フォーム）+ トースト OOB / 422 | 設定を保存する。許容値は[ER §3.2](../architecture/er.md)。許容外は 422 でフォームを再描画 |
 | GET | `/static/*` | — | 埋め込みアセット | `htmx.min.js`・`app.js`（§4.5 の可視性制御）・`modal.js`（確認ダイアログとモーダル）・`app.css`。外部ホストは参照しない |
@@ -384,7 +387,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | 選択肢のボタン・「その他」の送信 | `hx-post="P/pick"` `hx-vals='{"n":"1","lines":"30"}'`（または `text` を含むフォーム）`hx-sync="#pane-live:replace"` `hx-disabled-elt="#pane-live button, #pane-live textarea"` | 押したらすぐ送る。同じペインの全ボタンを `hx-disabled-elt` で無効にし、進行中の自動更新より先に送る（NFR-SEC-12・FR-OPS-9） |
 | 送信欄 | `hx-post="P/send"` `hx-disabled-elt="this"` | `send_text` |
 | 中断・終了 | `hx-post="P/escape"`・`hx-post="P/close"` `hx-confirm` `data-confirm-title` `data-confirm-label` | 確認ダイアログ（`modal.js` の `htmx:confirm`。取り消しは「キャンセル」）を経ないと送らない（NFR-SEC-12）。確定したフォームだけが `confirm=true` を持つ |
-| 新しいセッション | `hx-get="P/start/dirs?path=…"`（ピッカー）・`hx-post="P/start"`（入力 → 確認 `confirm=1` → 起動）`hx-disabled-elt` `hx-indicator` | 1 階層ずつたどり、確認画面を経て `pane_start`。待つ間はスピナー |
+| 新しいセッション | `hx-get="P/start/dirs?path=…"`（ピッカー）・`hx-get="P/start/skills?agent=…"`（スキルの選択）・`hx-post="P/start"`（入力 → 確認 `confirm=1` → 起動。最初のタスクを送れなかったときの「もう一度送る」は `resend=1`）`hx-disabled-elt` `hx-indicator` | 1 階層ずつたどり、スキルを選び、確認画面を経て `pane_start`（→ 続けて `send_text`）。待つ間はスピナー |
 | 共通 | `hx-disabled-elt="this"`、`hx-indicator` | 二重送信防止・ローディング表示。Optimistic UI とスケルトンは使わない |
 
 `static/dist/js/app.js` と `static/dist/js/modal.js`（外部ファイル。CSP の `script-src 'self'` で許可される。インラインではない）は次の 7 つだけを行う。`htmx:confirm` の項目は `modal.js`、ほかは `app.js`（行数の上限 300 行のため分けている）。
@@ -404,7 +407,7 @@ HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"include
 
 ### 4.6 ペイン詳細・操作ルートの規約
 
-- **見るだけの接続**: ペイン詳細（`P`・`P/live`）は開ける。`pick`・`send`・`escape`・`close`・`start`・`start/dirs` を呼ぶと、**コンソールに通信せず** 403 と固定文言「この接続では操作できません（見るだけの接続です）」のフラグメントを返す（NFR-SEC-14）。操作の部品（フォーム・ボタン・確認ダイアログ）は HTML に含めない
+- **見るだけの接続**: ペイン詳細（`P`・`P/live`）は開ける。`pick`・`send`・`escape`・`close`・`start`・`start/dirs`・`start/skills` を呼ぶと、**コンソールに通信せず** 403 と固定文言「この接続では操作できません（見るだけの接続です）」のフラグメントを返す（NFR-SEC-14）。操作の部品（フォーム・ボタン・確認ダイアログ。スキル・本文の部品を含む）は HTML に含めない
 - **取得失敗**（`P/live`）: 200 のまま、直前の表示を残して固定文言のバナー（§4.4 と同じ規則）。`unauthorized` / `forbidden_scope` はバナーに「再ペアリング」リンクを出し、`hx-trigger` の自動更新属性を出さない。`pane_not_found` は「ペインが見つかりません。画面を更新してください」を出し、操作部品を出さない
 - **操作の結果**: 成功・失敗の判定（`ok`・`accepted`・`card_closed`・`interrupted`）は固定文言のトースト OOB（機能要件 §10.1）、ツールのエラー（`operation`）はフラグメント内のインラインアラート。`cursor_mismatch`・`not_asking`・`option_out_of_range` のときは質問カードを取り直したフラグメントを返す
 - **排他**: 同じ `(接続, ペイン)` の操作は service が排他にする。実行中に次の操作が来たら通信せず「前の操作がまだ終わっていません」を返す。見るだけの接続に対する排他の取得もしない（先に種類を確認する）
@@ -419,6 +422,7 @@ HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"include
 | ペイロード版 `v` の更新 | §2.1・§2.2 を更新し、パーサを版で分岐する。旧版アプリは「アプリを更新してください」を表示する |
 | swarm-console が `/ops` 専用だったツールを `/report` に追加 | viewer は種類別の許可リストにあるツールしか呼ばないため影響なし |
 | swarm-console が `dir_list` を持たない古い版（`/ops` の `unknown_tool`） | 新しいセッションのフォルダピッカーが使えない（固定文言「この接続では使えない操作です（ホストの swarm-console が古い可能性があります）」。他の操作は動く） |
+| swarm-console が `skill_list` を持たない版（`/ops` の `unknown_tool`） | 新しいセッションのスキル選択が使えない（固定文言「スキルの一覧を取得できません（ホストの swarm-console が古い可能性があります）」。本文だけのタスク・タスクなしの起動は動く） |
 | swarm-console が操作ツールの返り値のキーを変えた・足した | 未知のキーは無視する。想定するキーが無い・型が違うときは `protocol`（§1.5.2） |
 
 ## 改訂履歴
@@ -437,3 +441,4 @@ HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"include
 | 1.9 | 2026-11-05 | 確認ダイアログとモーダルの処理（`htmx:confirm` ほか）を `app.js` から `modal.js` に分け、`/static/*` とレイアウトの読み込みに `modal.js` を追加 | linterly の行数上限（300 行）への対処 |
 | 2.0 | 2026-11-08 | 操作モード（Issue #97）。§1.1 に `/ops` の接続（種類・scope）、§1.2 を種類別の許可リストに変更（`pane_tail`・`ask_card`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list` の引数）、§1.5 に `operation` と `tool_not_allowed`、§1.5.1・§1.5.2（操作ツールのエラー・結果）、§2.1 の `url` の path に `/ops`、§3 を `pair [--scope report\|ops]` に更新（swarm-console 側で実装済み）、§4 にペイン詳細・操作・新しいセッションのルートと HTMX パターン（§4.5・§4.6） | Issue #97（操作モード）、swarm-console endpoints.md 1.21（`dir_list`・`pair --scope ops`） |
 | 2.1 | 2026-11-09 | 独立レビューの指摘とコード修正の反映。§1.1・§1.2 にツール別のタイムアウト（読み取り 10 秒、`ask_pick`・`send_text`・`send_escape` 30 秒、`pane_start`・`pane_close` 50 秒）、§4.2 のルート表を実装に合わせて訂正（`live?first=1`、`start/dirs?pick=1`、`POST P/start` の 2 段階、`lines`、`POST P/close` の `confirm=true`・状態の再検査）、§4.5 の `hx-sync`・`hx-preserve`・確認ダイアログ中の自動更新停止、§4.6 に確認と状態の再検査を追記 | Issue #97（独立レビュー ReviewDocs） |
+| 2.2 | 2026-11-09 | 新しいセッションの最初のタスク（Issue #103）。§1.1・§1.2 の許可リストを 11 個にして `skill_list`（仮称・swarm-console 側は未実装の要望）を追加、`pane_start` 成功後の `send_text` を追記、§1.5.1・§1.5.2 に `skill_list` の行、§4.2 に `GET P/start/skills?agent=` と `POST P/start` の `skill`・`task`・`resend=1`、§4.5・§4.6、§5 に `skill_list` の無い版の影響 | Issue #103（空きセッションへの最初のタスク） |

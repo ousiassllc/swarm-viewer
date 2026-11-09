@@ -20,7 +20,7 @@
 | NFR-PERF-1 | アプリ起動からウィンドウ表示まで | 3 秒以内 |
 | NFR-PERF-2 | 起動から最初のペイン状態の表示まで（接続が到達可能なとき） | 2 秒以内（起動時間を含まず、取得開始からの時間） |
 | NFR-PERF-3 | 常駐メモリ（通常使用時） | 200 MB 以下 |
-| NFR-PERF-4 | HTTP リクエストのタイムアウト（ツールごと。基準 10 秒に倍率を掛ける） | 読み取り（`sessions_list`・`report`・`pane_tail`・`ask_card`・`dir_list`）は 10 秒、`ask_pick`・`send_text`・`send_escape` は 30 秒（10 秒 × 3）、`pane_start`・`pane_close` は 50 秒（10 秒 × 5）。いずれも接続・応答の合計。操作ツールは swarm-console 側の `accept_timeout`（既定 10 秒）・`start_timeout`（既定 30 秒）に待つ余地を残すため長い（[API 仕様 §1.2](../api/endpoints.md)） |
+| NFR-PERF-4 | HTTP リクエストのタイムアウト（ツールごと。基準 10 秒に倍率を掛ける） | 読み取り（`sessions_list`・`report`・`pane_tail`・`ask_card`・`dir_list`・`skill_list`）は 10 秒、`ask_pick`・`send_text`・`send_escape` は 30 秒（10 秒 × 3）、`pane_start`・`pane_close` は 50 秒（10 秒 × 5）。いずれも接続・応答の合計。操作ツールは swarm-console 側の `accept_timeout`（既定 10 秒）・`start_timeout`（既定 30 秒）に待つ余地を残すため長い（[API 仕様 §1.2](../api/endpoints.md)）。新しいセッションの `pane_start` → `send_text` は 1 つの操作だが、上限は各ツールのもので、合算の上限は設けない |
 | NFR-PERF-5 | 画面更新ポーリングは選択中セッションの `report` 1 本のみとし、前のリクエストが終わる前に次を発行しない | — |
 | NFR-PERF-6 | 通知用ポーリングは接続・セッションを**順次**取得し、並列に発行しない（ホストへの負荷を抑える） | — |
 | NFR-PERF-7 | バックグラウンド（サスペンド中・最小化中）は画面更新ポーリングを止める。通知用ポーリングは通知がオンの間だけ動かす | — |
@@ -30,7 +30,7 @@
 
 | ID | 要件 |
 |----|------|
-| NFR-SEC-1 | 呼べるツールは、**接続の種類ごとの許可リストにあるものだけ**。種類は接続の URL の path で決まる（見るだけ = `/report`、操作 = `/ops`）。見るだけの接続は `sessions_list`・`report`・`pane_tail`・`ask_card` の 4 つ、操作の接続はそれに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list` を足した 10 個だけ。許可リストは種類別の定数で、送信前（呼び出し口）と送信内容（Transport）の二重で検査する。見るだけの接続が `/ops` を呼ぶコードパスは持たない（操作系ツールを呼ぶと、通信せずに `tool_not_allowed` で断る）。`dispatch`・`note_set`・`note_log`・`file_get`・`panes_status`・`host_status`・`report_read`・`tools/list` は、どの接続でも呼べない |
+| NFR-SEC-1 | 呼べるツールは、**接続の種類ごとの許可リストにあるものだけ**。種類は接続の URL の path で決まる（見るだけ = `/report`、操作 = `/ops`）。見るだけの接続は `sessions_list`・`report`・`pane_tail`・`ask_card` の 4 つ、操作の接続はそれに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list` を足した 11 個だけ。許可リストは種類別の定数で、送信前（呼び出し口）と送信内容（Transport）の二重で検査する。見るだけの接続が `/ops` を呼ぶコードパスは持たない（操作系ツールを呼ぶと、通信せずに `tool_not_allowed` で断る）。`dispatch`・`note_set`・`note_log`・`file_get`・`panes_status`・`host_status`・`report_read`・`tools/list` は、どの接続でも呼べない |
 | NFR-SEC-2 | token は OS 秘密領域（macOS Keychain、Windows Credential Manager）にのみ保存する。SQLite・設定ファイル・ログ・クラッシュ出力・画面・URL 履歴に平文で出さない |
 | NFR-SEC-3 | HTTP 通信は Go（バックエンド）側だけで行い、token をフロント（WebView の JS）に渡さない。画面と Go の間の HTTP は Wails のアセットハンドラ経由（in-process）で、TCP ポートを開かない。フロントは接続 ID・セッション ID・ペアリング下書き ID だけを扱う |
 | NFR-SEC-4 | 接続先 URL の host は tailnet 範囲（IPv4 `100.64.0.0/10`、IPv6 `fd7a:115c:a1e0::/48`）またはループバック（`127.0.0.0/8`、`::1`）の IP リテラルに限る。範囲外の URL はペアリングを拒否する。MagicDNS 名などのホスト名は受け付けない |
@@ -39,8 +39,8 @@
 | NFR-SEC-7 | ペアリング用の接続文字列・ディープリンクは token を含む。解析後はメモリ上の値をすぐ破棄し、貼り付け欄の内容を保存・ログ出力しない。ディープリンクは OS のプロセス引数・履歴に残りうるため、README で「発行した接続文字列は再利用しない」ことを案内する |
 | NFR-SEC-8 | トークン削除（切断）時は、秘密領域のエントリと、その接続に紐づく SQLite のレコードを削除する |
 | NFR-SEC-9 | フロントのコンテンツは同梱のローカルアセットのみ。外部 URL の読み込み・リモートスクリプト・インラインスクリプトを許さず、CSP（`default-src 'self'`、`script-src 'self'`、`style-src 'self'`、`connect-src 'self'`。`unsafe-eval`・`unsafe-inline` なし）で絞る。このため HTMX は `<meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false}'>` で eval とインラインスタイル注入を止め、eval を要する機能（トリガーフィルタ式、`hx-on:`・`js:` 構文）を使わない。状態変更ルートには CSRF トークンを要求する（`hx-headers` で配布）。フォントはすべて同梱し、`/static/fonts/` から配る（SIL OFL）。UI の本文は Sora + Noto Sans JP（ウェイトは Regular 400 と SemiBold 600 のみ。Noto Sans JP は JIS X 0208 の全文字・ASCII・半角カナのサブセットで、範囲外の字は OS のフォントで描く）、コードと桁を揃える数値は JetBrains Mono（Regular 400）、ペインタイトルの Nerd Font アイコンは Symbols Nerd Font（Nerd Fonts v3.5.1 の Symbols Only・Mono、`unicode-range` は私用領域 PUA だけ）。いずれも woff2。Android 版も同じ方針（Symbols Only だけを同梱し、日本語は Noto Sans JP と OS のフォントに任せる）で、`res/font/` の TTF（`symbols_nerd_font_mono_regular.ttf`）を UI の書体（Sora → Noto Sans JP → Symbols Nerd Font Mono → システム）の代替にする。CDN からは読まず、CSP の `font-src` は足さない（`default-src 'self'` が効く）。ライセンスは `THIRD_PARTY_NOTICES.md` |
-| NFR-SEC-10 | ツール応答の表示は常にテキストとして描画し、HTML としては解釈しない（`title`・`activity`・`note`・`pane_tail`・`ask_card` の質問文・選択肢は信頼できない入力として扱う） |
-| NFR-SEC-11 | ログに token・送信本文（`send_text`・`ask_pick` の `text`）・`pane_tail` と `ask_card` の本文を出さない。URL は host のみを記録し、完全な URL・クエリは出さない。操作のログに残すのは、接続 ID・ツール名・種別・コード・ペイン位置まで |
+| NFR-SEC-10 | ツール応答の表示は常にテキストとして描画し、HTML としては解釈しない（`title`・`activity`・`note`・`pane_tail`・`ask_card` の質問文・選択肢・`skill_list` の `skills[].name`・`description`・`invoke` は信頼できない入力として扱う） |
+| NFR-SEC-11 | ログに token・送信本文（`send_text`・`ask_pick` の `text`。新しいセッションの最初のタスクの本文を含む）・スキル名・`invoke`・`pane_tail` と `ask_card` の本文を出さない。URL は host のみを記録し、完全な URL・クエリは出さない。操作のログに残すのは、接続 ID・ツール名・種別・コード・ペイン位置まで |
 | NFR-SEC-12 | 中断（`send_escape`）と終了（`pane_close`）は、確認ダイアログを経ないと送れない。アプリ側も、確認済みのフォーム値（デスクトップは `confirm=true`）が無ければ `send_escape`・`pane_close` を呼ばない（`confirm_required`。`confirm: true` を無条件に付けない）。デスクトップは `POST P/close`・`POST P/start` で、送る前にサーバー側でも最新の `report` のペイン状態を再検査する（終了は `idle`・`shell`、起動は `shell`。違えば通信せず `invalid_state`）。質問カードの選択肢（`ask_pick`）は Issue #97 の決定（2026-11-08）で確認を挟まず、押したらすぐ送る。その代わり、送信中は同じペインの全ボタンを無効にし、アプリ側（service）も同じペインへの操作を排他にして二重送信を防ぐ |
 | NFR-SEC-13 | 操作の接続の token（ops スコープ）は、ペインへの送信・中断・起動・終了ができる。保存・表示・ログの扱いは report の token と同じ（NFR-SEC-2・3・7・11）。加えて、(a) ペアリング確認画面で、操作の接続のときだけ警告を出す（「この接続はペインに送信・中断・起動・終了できます」。token の漏えい・失効の案内を添える）、(b) token が漏れた・端末を紛失したときは、ホストで `swarm-console token revoke <名前>` を実行して失効する（名前は `swarm-console pair --scope ops` が `viewer-ops-<ホスト名>-<yyyymmdd>` で付ける。[API 仕様 §3](../api/endpoints.md)）。失効した token は 401 になり、viewer はその接続を `needs_repair` にして再ペアリングへ誘導する。viewer 自身は token を失効させない。README にも書く |
 | NFR-SEC-14 | 見るだけの接続は、`/ops` を呼ぶコードパスを通らず、操作の UI（選択肢のボタン・送信欄・中断・終了・「＋ 始める」）を描画しない。デスクトップの操作系ルートを見るだけの接続に対して直接呼んでも、コンソールに通信せずに 403 と固定文言を返す。ペイン詳細・質問の閲覧（`pane_tail`・`ask_card`）は見るだけの接続でも出す |
@@ -80,7 +80,7 @@
 |----|------|
 | NFR-LOG-1 | ローカルのログファイルに記録し、サイズ上限でローテーションする（上限 5 MB × 3 世代） |
 | NFR-LOG-2 | 既定ではエラー・警告のみ記録する。設定画面で**デバッグログ**のオン/オフを切り替えられる（既定オフ） |
-| NFR-LOG-3 | ログに token・完全な URL・ペインの本文（`activity`・`note`・`pane_tail`・`ask_card`）・送信本文を出さない。接続は表示名と host のみで識別する |
+| NFR-LOG-3 | ログに token・完全な URL・ペインの本文（`activity`・`note`・`pane_tail`・`ask_card`）・送信本文・スキル名・`invoke` を出さない。接続は表示名と host のみで識別する |
 | NFR-LOG-4 | ログ・クラッシュ情報を外部へ自動送信しない |
 
 ## 8. 配布・保守
@@ -100,7 +100,7 @@
 | NFR-QLT-1 | swarm-console の API 応答（`report`・`sessions_list`・エラー各種）のサンプルを固定し、パーサ・状態遷移検知・重複通知抑止をユニットテストで検証する |
 | NFR-QLT-2 | URL 検証（NFR-SEC-4・5）は、tailnet 範囲の境界値、ホスト名、`0.0.0.0`、`http` 以外の scheme、path（`/report`・`/ops` ちょうどだけ通し、末尾スラッシュ・大文字小文字違い・エンコード別表記・クエリは拒否）を含むテストを持つ |
 | NFR-QLT-3 | ポーリングのテストは固定時間の待ちに頼らず、フェイククロックまたは条件待ちで行う |
-| NFR-QLT-4 | 操作モードは次の 6 項目を自動テストで検証する（Android は NFR-AND-QLT-5 で同じ内容）。(1) 見るだけの接続: ペイン詳細に操作部品（`pick`・`send`・`escape`・`close`・`start` のフォーム・ボタン・確認ダイアログ）が出ない。`pane_tail`・`ask_card` は呼ばれる。偽の swarm-console への `/ops` のリクエストは 0 件で、操作ルートの直接呼び出しは 403 かつコンソールへの通信 0 件。(2) 操作の接続: `ask_pick`（`n`・`text`）・`send_text`・`send_escape`（`confirm: true`。確認なしは呼ばれない）・`dir_list` → `pane_start`・`pane_close` が、期待どおりのツール名・引数（`session` 明示、`/ops` path、Bearer）で届く。(3) 許可リスト: 種類別の定数、見るだけでの操作系ツールの通信なしの拒否、送信内容の検査（`/report` に操作系ツールを出せない）、`ValidateURL` の `/ops`。(4) 排他: 同じペインの操作が同時に 2 つ走らない（2 つ目は通信なしで拒否）。(5) ログに token・送信本文・`pane_tail` の本文が出ない。(6) 結果の解析と固定文言（`ok: false`・`accepted: false`・`card_closed`・エラーコード） |
+| NFR-QLT-4 | 操作モードは次の 6 項目を自動テストで検証する（Android は NFR-AND-QLT-5 で同じ内容）。(1) 見るだけの接続: ペイン詳細に操作部品（`pick`・`send`・`escape`・`close`・`start` のフォーム・ボタン・確認ダイアログ。スキル・本文の部品を含む）が出ない。`pane_tail`・`ask_card` は呼ばれる。偽の swarm-console への `/ops` のリクエストは 0 件で、操作ルートの直接呼び出し（`start/skills` を含む）は 403 かつコンソールへの通信 0 件（`skill_list` も通信 0 件）。(2) 操作の接続: `ask_pick`（`n`・`text`）・`send_text`・`send_escape`（`confirm: true`。確認なしは呼ばれない）・`dir_list`・`skill_list`（`agent` だけで `session` を付けない） → `pane_start`・`pane_close` が、期待どおりのツール名・引数（`session` 明示、`/ops` path、Bearer）で届く。新しいセッションの最初のタスクは `pane_start` → `send_text` の順に 1 つの操作で届き、`pane_start` が `ok: true` かつ `state` が `idle` のときだけ送る（`ok: false`・`idle` 以外では `send_text` を呼ばない）。`send_text` が失敗・`accepted: false` でも `pane_close` を呼ばず自動で再送しない。「もう一度送る」（`resend=1`）は `send_text` だけを送り、`pane_start` を呼ばない。(3) 許可リスト: 種類別の定数、見るだけでの操作系ツール（`skill_list` を含む）の通信なしの拒否、送信内容の検査（`/report` に操作系ツールを出せない）、`ValidateURL` の `/ops`。(4) 排他: 同じペインの操作が同時に 2 つ走らない（2 つ目は通信なしで拒否）。(5) ログに token・送信本文・スキル名・`invoke`・`pane_tail` の本文が出ない。(6) 結果の解析と固定文言（`ok: false`・`accepted: false`・`card_closed`・エラーコード・スキルの取得不可と読み込み失敗・起動したが未送信・最初のタスクを送れなかった） |
 
 ## 10. Android 版
 
@@ -139,11 +139,11 @@ Android に**適用しない**デスクトップ版の要件: NFR-ENV-1・NFR-EN
 | NFR-AND-SEC-2 | token は Android Keystore で保護した領域にのみ保存する。Room・平文のファイル・SharedPreferences・ログ・画面・通知・Intent・バックアップに出さない（NFR-SEC-2 の Android 版）。保存方式は Keystore の AES-256-GCM 鍵による暗号化で、暗号文を `noBackupFilesDir` に置く（[アーキテクチャ設計 §11](../architecture/overview.md) #9） |
 | NFR-AND-SEC-3 | アプリのデータはバックアップ・端末間転送の対象外にする（`allowBackup="false"` と `dataExtractionRules`・`fullBackupContent` による全データの除外） |
 | NFR-AND-SEC-4 | 接続文字列は貼り付け・ディープリンク（Intent）・QR のどれで受けても、同じ検証（NFR-SEC-4・5・7、NFR-CMP-3）を通し、確認画面で利用者が確定するまで保存しない。確認画面に token を出さない。解析後はメモリ上の値をすぐ破棄し、受け取った文字列を保存・ログ出力しない。ディープリンクは他のアプリからも送れる信頼できない入力として扱い、処理後は Intent のデータを消す |
-| NFR-AND-SEC-5 | 呼ぶツールは、接続の種類ごとの許可リスト（NFR-SEC-1）にあるものだけ。見るだけ（`/report`）は `sessions_list`・`report`・`pane_tail`・`ask_card`、操作（`/ops`）はそれに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list` を足した 10 個。許可リストは `data/report` の種類別の定数で、送信前（呼び出し口）と送信内容（`GuardInterceptor`。URL の path が `/report` なら 4 つ、`/ops` なら 10 個）の二重で検査する。見るだけの接続に操作系ツールを呼ぶと、通信せずに `tool_not_allowed`（`FetchException`）で断る。`tools/list` のコードパスを持たない。許可リスト外のツール名は呼べない |
+| NFR-AND-SEC-5 | 呼ぶツールは、接続の種類ごとの許可リスト（NFR-SEC-1）にあるものだけ。見るだけ（`/report`）は `sessions_list`・`report`・`pane_tail`・`ask_card`、操作（`/ops`）はそれに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list` を足した 11 個。許可リストは `data/report` の種類別の定数で、送信前（呼び出し口）と送信内容（`GuardInterceptor`。URL の path が `/report` なら 4 つ、`/ops` なら 11 個）の二重で検査する。見るだけの接続に操作系ツールを呼ぶと、通信せずに `tool_not_allowed`（`FetchException`）で断る。`tools/list` のコードパスを持たない。許可リスト外のツール名は呼べない |
 | NFR-AND-SEC-6 | アプリが自分で宣言する権限は `INTERNET`・`POST_NOTIFICATIONS`・`CAMERA` の 3 つまで。`POST_NOTIFICATIONS` は初回に、`CAMERA` は QR の読み取りを開始したときだけ要求する（QR の読み取り方式がカメラ権限を要さないものに決まれば `CAMERA` は宣言しない。[アーキテクチャ設計 §11](../architecture/overview.md) #10）。ほかの権限を要求しない。依存ライブラリがマニフェストのマージで加える権限（WorkManager の `WAKE_LOCK`・`ACCESS_NETWORK_STATE` など）は、マージ後のマニフェストを確認して許容する |
 | NFR-AND-SEC-7 | 外部に公開するコンポーネントは `MainActivity`（起動と `swarm-viewer` スキームの intent-filter）だけ。通知の `PendingIntent` は `FLAG_IMMUTABLE` とし、Intent に載せるのは接続 ID・セッション ID だけ |
-| NFR-AND-SEC-8 | ツール応答の表示は常にテキストとして描画し、解釈しない（`title`・`activity`・`note`・`pane_tail`・`ask_card` の質問文・選択肢は信頼できない入力。NFR-SEC-10 と同じ） |
-| NFR-AND-SEC-9 | 操作の UI は NFR-SEC-12〜14 と同じ規則に従う。見るだけの接続には Compose にも操作部品（選択肢のボタン・送信欄・中断・終了・「＋ 始める」）を出さない。中断・終了は確認ダイアログ（NFR-DSG-8 の `AppDialog`）を経ないと送らない。送信中は `PaneDetailViewModel` の `busy` で同じペインの全ボタンを無効にし、`PaneService` も同じペインの操作を排他にする。操作の接続の token は ops スコープで、失効はホストの `swarm-console token revoke <名前>`（NFR-SEC-13）。送信本文・`pane_tail` の本文は、ディスク・ログ・通知・Intent に出さない |
+| NFR-AND-SEC-8 | ツール応答の表示は常にテキストとして描画し、解釈しない（`title`・`activity`・`note`・`pane_tail`・`ask_card` の質問文・選択肢・`skill_list` の `skills[].name`・`description`・`invoke` は信頼できない入力。NFR-SEC-10 と同じ） |
+| NFR-AND-SEC-9 | 操作の UI は NFR-SEC-12〜14 と同じ規則に従う。見るだけの接続には Compose にも操作部品（選択肢のボタン・送信欄・中断・終了・「＋ 始める」・スキル選択・本文入力欄）を出さない。中断・終了は確認ダイアログ（NFR-DSG-8 の `AppDialog`）を経ないと送らない。送信中は `PaneDetailViewModel` の `busy` で同じペインの全ボタンを無効にし、`PaneService` も同じペインの操作を排他にする（新しいセッションの `pane_start` → `send_text` も同じ排他の中で行う）。操作の接続の token は ops スコープで、失効はホストの `swarm-console token revoke <名前>`（NFR-SEC-13）。送信本文（新しいセッションの最初のタスクの本文を含む）・スキル名・`invoke`・`pane_tail` の本文は、ディスク・ログ・通知・Intent に出さない（最初のタスクを送れなかったときの本文は、結果の表示の間だけ `StartSessionViewModel` のメモリに残す） |
 
 ### 10.4 可用性・耐障害性
 
@@ -163,7 +163,7 @@ Android に**適用しない**デスクトップ版の要件: NFR-ENV-1・NFR-EN
 | NFR-AND-DAT-2 | 通知済み記録は接続あたり 1,000 件を上限に古いものから削除する（NFR-DAT-3）。スナップショットは接続×セッションごとに最新 1 件だけで、接続の削除で消える（NFR-DAT-4） |
 | NFR-AND-DAT-3 | スキーマは Room の `Migration` で版管理し、破壊的な再作成（`fallbackToDestructiveMigration`）を使わない |
 | NFR-AND-LOG-1 | ログは Logcat のみ。ファイルへは書かず、外部へ自動送信しない（NFR-LOG-4） |
-| NFR-AND-LOG-2 | 既定では警告・エラーだけ記録する。設定画面の「デバッグログ」で詳細のオン/オフを切り替える（既定オフ）。どちらも token・完全な URL・ペインの本文（`activity`・`note`・`pane_tail`・`ask_card`）・送信本文を出さない。操作のログに残すのは、接続 ID・ツール名・種別・コード・ペイン位置まで。接続は表示名と host だけで識別する（NFR-LOG-3・NFR-SEC-11） |
+| NFR-AND-LOG-2 | 既定では警告・エラーだけ記録する。設定画面の「デバッグログ」で詳細のオン/オフを切り替える（既定オフ）。どちらも token・完全な URL・ペインの本文（`activity`・`note`・`pane_tail`・`ask_card`）・送信本文・スキル名・`invoke` を出さない。操作のログに残すのは、接続 ID・ツール名・種別・コード・ペイン位置まで。接続は表示名と host だけで識別する（NFR-LOG-3・NFR-SEC-11） |
 
 ### 10.6 配布・署名
 
@@ -184,7 +184,7 @@ Android に**適用しない**デスクトップ版の要件: NFR-ENV-1・NFR-EN
 | NFR-AND-QLT-2 | token が `toString`・ログ・例外メッセージに出ないことをテストで検証する |
 | NFR-AND-QLT-3 | `./gradlew lint ktlintCheck test` がクリーンに通る（Android Lint は警告もエラー扱い）。ポーリング・ワーカーのテストは固定時間の待ちに頼らない（NFR-QLT-3） |
 | NFR-AND-QLT-4 | 実機でしか確認できない項目（cleartext・Keystore・QR・Doze・Tailscale・折りたたみ・再起動後の再開）は、[アーキテクチャ設計 §11](../architecture/overview.md) #8〜#15 に未確認として残し、確認後に確定する |
-| NFR-AND-QLT-5 | 操作モードは NFR-QLT-4 と同じ 6 項目を JUnit（MockWebServer・ViewModel のテスト）で検証する。見るだけの接続では、偽のコンソールが `/ops` へのリクエストを 0 件と記録すること、操作の部品が出ないこと（ViewModel の状態）も確かめる |
+| NFR-AND-QLT-5 | 操作モードは NFR-QLT-4 と同じ 6 項目を JUnit（MockWebServer・ViewModel のテスト）で検証する。見るだけの接続では、偽のコンソールが `/ops` へのリクエストを 0 件と記録すること、操作の部品（スキル選択・本文入力欄を含む）が出ないこと（ViewModel の状態）、`skillList` が通信 0 件で `tool_not_allowed` になることも確かめる。操作の接続では、`ReportTools` の操作が 11 個、`GuardInterceptor` が `/ops` で 11 個・`/report` で 4 個を通すこと、`PaneService` の最初のタスクが `pane_start` → `send_text` の順で `idle` のときだけ送られること、`send_text` の失敗で `pane_close` を呼ばず、「もう一度送る」が `send_text` だけを送ることも確かめる |
 
 ## 11. Ousiass デザインガイド準拠
 
@@ -289,3 +289,4 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | 5.9 | 2026-11-09 | NFR-SEC-9 に、Android も同梱の Symbols Nerd Font Mono（TTF）を UI の書体の代替にすると明記。§11 の承認済みの逸脱「Nerd Font の PUA 用フォント」を Android にも適用 | Issue #81（Android のペインタイトルの Nerd Font アイコン） |
 | 6.0 | 2026-11-09 | NFR-DSG-10 のガターを、四辺とも幅の区分（Compact 16・Medium 24・Expanded 32。Web と Android で同じ境目）で決めるよう改め、Android の切り欠き（横 inset）を避けることを追記。ガイド S5（16・24）に Expanded の 32 を足すため、承認済みの逸脱に記録した | Issue #99 |
 | 6.1 | 2026-11-09 | NFR-DSG-19 を改訂。Web の S4 のヘッダもメモの `repo` と `items` を全件・全文（折り返し）で出すと明記し、承認済みの逸脱から「Web のペイン詳細（S4）のメモが要約のまま」の行を外した | Issue #106（Web のペイン詳細のメモが要約のままで、タッチ・キーボードで全文を見られない） |
+| 6.2 | 2026-11-09 | 新しいセッションの最初のタスク（Issue #103）。NFR-SEC-1・NFR-AND-SEC-5 の許可リストを 11 個にして `skill_list` を追加、NFR-PERF-4 に `skill_list`（10 秒）と `pane_start` → `send_text` の上限、NFR-SEC-10・NFR-AND-SEC-8 にスキルの `name`・`description`・`invoke`、NFR-SEC-11・NFR-LOG-3・NFR-AND-LOG-2・NFR-AND-SEC-9 にスキル名・`invoke`・最初のタスクの本文、NFR-QLT-4・NFR-AND-QLT-5 に最初のタスクの検証項目を追記 | Issue #103（空きセッションへの最初のタスク） |
