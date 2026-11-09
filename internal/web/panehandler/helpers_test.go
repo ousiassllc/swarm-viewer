@@ -14,8 +14,8 @@ const (
 	pathOps    = "/ops"
 )
 
-// opsOnlyTools は操作の 6 ツール。見るだけの接続では 1 回も呼ばれてはいけない。
-var opsOnlyTools = []string{"ask_pick", "send_text", "send_escape", "pane_start", "pane_close", "dir_list"}
+// opsOnlyTools は操作の 7 ツール。見るだけの接続では 1 回も呼ばれてはいけない。
+var opsOnlyTools = []string{"ask_pick", "send_text", "send_escape", "pane_start", "pane_close", "dir_list", "skill_list"}
 
 func body(t *testing.T, w *httptest.ResponseRecorder, status int) string {
 	t.Helper()

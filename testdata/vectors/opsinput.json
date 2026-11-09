@@ -1,5 +1,5 @@
 {
-  "description": "操作モードの入力の検査（API 仕様 §5.2。通信前に弾く）。text_cases[] は send_text・ask_pick(text) の本文: text（repeat があれば char を count 回繰り返したもの）が want（問題なしは空文字、あればエラーコード）になること。title_cases[] は pane_start の title: input の前後の空白を除いた値が want（不正は null）になること。tail_lines_cases[] は pane_tail の lines を 1〜200 に収めた値。形式は README.md",
+  "description": "操作モードの入力の検査（API 仕様 §5.2。通信前に弾く）。text_cases[] は send_text・ask_pick(text) の本文: text（repeat があれば char を count 回繰り返したもの）が want（問題なしは空文字、あればエラーコード）になること。title_cases[] は pane_start の title: input の前後の空白を除いた値が want（不正は null）になること。tail_lines_cases[] は pane_tail の lines を 1〜200 に収めた値。first_task_cases[] は新しいセッションの最初のタスク（skill・task）の組み立てと検査。形式は README.md",
   "text_cases": [
     {"name": "通常", "text": "続けてください", "want": ""},
     {"name": "改行とタブは可", "text": "a\nb\tc", "want": ""},
@@ -34,5 +34,22 @@
     {"name": "100", "lines": 100, "want": 100},
     {"name": "200", "lines": 200, "want": 200},
     {"name": "201 は 200 に収める", "lines": 201, "want": 200}
+  ],
+  "first_task_cases": [
+    {"name": "スキルと本文の両方は半角スペース 1 つでつなぐ", "skill": "/impl", "task": "#12 を直す", "want": {"empty": false, "text": "/impl #12 を直す", "code": ""}},
+    {"name": "スキルだけ", "skill": "/impl", "task": "", "want": {"empty": false, "text": "/impl", "code": ""}},
+    {"name": "本文だけ", "skill": "", "task": "続けてください", "want": {"empty": false, "text": "続けてください", "code": ""}},
+    {"name": "どちらも空なら最初のタスクなし", "skill": "", "task": "", "want": {"empty": true, "text": "", "code": ""}},
+    {"name": "空白だけも最初のタスクなし", "skill": " \t", "task": "\n  \n", "want": {"empty": true, "text": "", "code": ""}},
+    {"name": "スキル・本文の前後の空白を除く", "skill": " /impl ", "task": "\n 本文 \n", "want": {"empty": false, "text": "/impl 本文", "code": ""}},
+    {"name": "本文の途中の改行とタブは可", "skill": "", "task": "a\nb\tc", "want": {"empty": false, "text": "a\nb\tc", "code": ""}},
+    {"name": "スキルの前後の空白だけ除き、本文の途中の空白は保つ", "skill": "/impl", "task": "a  b", "want": {"empty": false, "text": "/impl a  b", "code": ""}},
+    {"name": "本文の制御文字は不可", "skill": "/impl", "task": "a\u001bb", "want": {"empty": false, "text": "/impl a\u001bb", "code": "forbidden_control_char"}},
+    {"name": "本文の CR は不可（呼び出し側が改行を LF に揃える）", "skill": "", "task": "a\r\nb", "want": {"empty": false, "text": "a\r\nb", "code": "forbidden_control_char"}},
+    {"name": "スキルの制御文字は不可", "skill": "/im\u0000pl", "task": "x", "want": {"empty": false, "text": "/im\u0000pl x", "code": "forbidden_control_char"}},
+    {"name": "合計 8000 字は可（スキル 5 ＋ スペース 1 ＋ 本文 7994）", "skill": "/impl", "task_repeat": {"char": "あ", "count": 7994}, "want": {"empty": false, "text_length": 8000, "code": ""}},
+    {"name": "合計 8001 字は長すぎる", "skill": "/impl", "task_repeat": {"char": "あ", "count": 7995}, "want": {"empty": false, "text_length": 8001, "code": "text_too_long"}},
+    {"name": "本文だけ 8000 字は可", "skill": "", "task_repeat": {"char": "😀", "count": 8000}, "want": {"empty": false, "text_length": 8000, "code": ""}},
+    {"name": "本文だけ 8001 字は長すぎる", "skill": "", "task_repeat": {"char": "😀", "count": 8001}, "want": {"empty": false, "text_length": 8001, "code": "text_too_long"}}
   ]
 }

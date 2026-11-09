@@ -40,6 +40,9 @@ const (
 	FieldCwd     = "cwd"
 	FieldTitle   = "title"
 	FieldPath    = "path"
+	FieldSkill   = "skill"
+	FieldTask    = "task"
+	FieldResend  = "resend"
 )
 
 // Ref はペイン詳細の対象（接続・セッション・ペイン位置）。URL の組み立てに使う。

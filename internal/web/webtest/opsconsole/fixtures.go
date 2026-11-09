@@ -26,6 +26,13 @@ const ReportText = `{"at":"2026-11-08T10:00:00Z","layout":{"rows":1,"cols":[5]},
 const CardText = `{"asking":true,"question":"` + QuestionSecret + ` どうしますか？","options":[` +
 	`{"n":1,"label":"TS 仕様どおり","recommended":true},{"n":2,"label":"拡張 <b>する</b>"}],"cursor":1,"allows_custom":true}`
 
+// SkillName・SkillDescription・SkillInvoke は skill_list の既定の応答に入れる目印（ログに出てはいけない。画面には出る）。
+const (
+	SkillName        = "SKILL-NAME-MARKER"
+	SkillDescription = "SKILL-DESC-MARKER"
+	SkillInvoke      = "/skill-invoke-marker"
+)
+
 // ToolError はツール失敗（HTTP 200 の isError）の応答。message は画面・ログに出てはいけない。
 func ToolError(code string) Reply {
 	b, _ := json.Marshal(map[string]any{"error": map[string]any{"code": code, "message": ConsoleMessage, "details": map[string]any{"field": "pane"}}})
@@ -43,6 +50,9 @@ func defaultReplies() map[string]Reply {
 		"send_escape":   {Text: `{"ok":true,"state":"idle","interrupted":true}`},
 		"pane_start":    {Text: `{"ok":true,"state":"idle","agent":"omp","cwd":"/work/new","title":"agent: t"}`},
 		"pane_close":    {Text: `{"ok":true,"state":"shell","steps":["/exit"],"note_archived":true}`},
-		"dir_list":      {Text: `{"entries":[{"name":"work","path":"/work","git":false},{"name":"docs","path":"/docs","git":true}],"truncated":false}`},
+		"skill_list": {Text: `{"agent":"omp","skills":[` +
+			`{"name":"` + SkillName + `","description":"` + SkillDescription + ` <b>bold</b>","invoke":"` + SkillInvoke + `"},` +
+			`{"name":"plain","description":"","invoke":"/plain"}],"truncated":false}`},
+		"dir_list": {Text: `{"entries":[{"name":"work","path":"/work","git":false},{"name":"docs","path":"/docs","git":true}],"truncated":false}`},
 	}
 }

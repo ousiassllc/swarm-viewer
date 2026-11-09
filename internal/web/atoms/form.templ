@@ -146,6 +146,8 @@ type TextareaProps struct {
 	Rows string
 	// Label はスクリーンリーダー用の名前（aria-label）。
 	Label string
+	// Value は初期値（確認画面から戻ったときの入力など）。既定は空。
+	Value string
 	// Attrs は追加の属性（hx-preserve など）。
 	Attrs templ.Attributes
 }
@@ -157,7 +159,7 @@ func textareaRows(r string) string {
 	return r
 }
 
-// Textarea は共通の複数行入力（FieldClass）。値は戻さない（送信後は空）。
+// Textarea は共通の複数行入力（FieldClass）。Value が空なら空の入力欄（送信後は空）。
 templ Textarea(p TextareaProps) {
 	<textarea
 		id={ p.ID }
@@ -168,5 +170,5 @@ templ Textarea(p TextareaProps) {
 		spellcheck="false"
 		class={ FieldClass, "w-full px-3 py-2" }
 		{ p.Attrs... }
-	></textarea>
+	>{ p.Value }</textarea>
 }

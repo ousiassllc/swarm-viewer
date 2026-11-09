@@ -5,16 +5,16 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
 	"github.com/ousiassllc/swarm-viewer/internal/domain/ops"
 )
 
 // 操作モードのテストベクタ（toolresult.json・opsinput.json）。Android 版（Kotlin）と共有する。形式は testdata/vectors/README.md。
-
 const (
-	minToolResultCases = 55
-	minOpsInputCases   = 28
+	minToolResultCases = 68
+	minOpsInputCases   = 43
 )
 
 // 解析後の値（ベクタの want）。ask_pick の picked は平らにする。
@@ -70,6 +70,16 @@ type (
 		Path string `json:"path"`
 		Git  bool   `json:"git"`
 	}
+	wantSkill struct {
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Invoke      string `json:"invoke"`
+	}
+	wantSkills struct {
+		Agent     string      `json:"agent"`
+		Skills    []wantSkill `json:"skills"`
+		Truncated bool        `json:"truncated"`
+	}
 	wantDirs struct {
 		Path      string      `json:"path"`
 		Entries   []wantEntry `json:"entries"`
@@ -112,6 +122,7 @@ func TestVectorsToolResults(t *testing.T) {
 		PaneStart   resultCases[wantStart]  `json:"pane_start"`
 		PaneClose   resultCases[wantClose]  `json:"pane_close"`
 		DirList     resultCases[wantDirs]   `json:"dir_list"`
+		SkillList   resultCases[wantSkills] `json:"skill_list"`
 		Invalid     []struct {
 			Name     string `json:"name"`
 			Tool     string `json:"tool"`
@@ -142,6 +153,13 @@ func TestVectorsToolResults(t *testing.T) {
 		}
 		return w
 	})
+	n += checkResults(t, f.SkillList, ops.ParseSkillList, func(r ops.SkillList) wantSkills {
+		w := wantSkills{Agent: r.Agent, Skills: []wantSkill{}, Truncated: r.Truncated}
+		for _, k := range r.Skills {
+			w.Skills = append(w.Skills, wantSkill(k))
+		}
+		return w
+	})
 	requireMinCases(t, "toolresult.json", n+len(f.Invalid), minToolResultCases)
 	checkInvalidResults(t, f.Invalid)
 }
@@ -162,6 +180,7 @@ func checkInvalidResults(t *testing.T, cases []struct {
 		"pane_start":  func(b []byte) error { _, err := ops.ParseStart(b); return err },
 		"pane_close":  func(b []byte) error { _, err := ops.ParseClose(b); return err },
 		"dir_list":    func(b []byte) error { _, err := ops.ParseDirList(b); return err },
+		"skill_list":  func(b []byte) error { _, err := ops.ParseSkillList(b); return err },
 	}
 	for _, c := range cases {
 		parse, ok := parsers[c.Tool]
@@ -209,6 +228,21 @@ func TestVectorsOpsInput(t *testing.T) {
 			Input string  `json:"input"`
 			Want  *string `json:"want"`
 		} `json:"title_cases"`
+		FirstTaskCases []struct {
+			Name       string `json:"name"`
+			Skill      string `json:"skill"`
+			Task       string `json:"task"`
+			TaskRepeat *struct {
+				Char  string `json:"char"`
+				Count int    `json:"count"`
+			} `json:"task_repeat"`
+			Want struct {
+				Empty      bool   `json:"empty"`
+				Text       string `json:"text"`
+				TextLength *int   `json:"text_length"`
+				Code       string `json:"code"`
+			} `json:"want"`
+		} `json:"first_task_cases"`
 		TailLinesCases []struct {
 			Name  string `json:"name"`
 			Lines int    `json:"lines"`
@@ -216,7 +250,7 @@ func TestVectorsOpsInput(t *testing.T) {
 		} `json:"tail_lines_cases"`
 	}
 	loadVectors(t, "opsinput.json", &f)
-	requireMinCases(t, "opsinput.json", len(f.TextCases)+len(f.TitleCases)+len(f.TailLinesCases), minOpsInputCases)
+	requireMinCases(t, "opsinput.json", len(f.TextCases)+len(f.TitleCases)+len(f.TailLinesCases)+len(f.FirstTaskCases), minOpsInputCases)
 
 	for _, c := range f.TextCases {
 		if got := ops.CheckText(c.value()); got != c.Want {
@@ -239,6 +273,28 @@ func TestVectorsOpsInput(t *testing.T) {
 	for _, c := range f.TailLinesCases {
 		if got := ops.NormalizeTailLines(c.Lines); got != c.Want {
 			t.Errorf("tail lines: %s: got %d; want %d", c.Name, got, c.Want)
+		}
+	}
+	for _, c := range f.FirstTaskCases {
+		task := c.Task
+		if c.TaskRepeat != nil {
+			task = strings.Repeat(c.TaskRepeat.Char, c.TaskRepeat.Count)
+		}
+		first := ops.FirstTask{Skill: c.Skill, Task: task}
+		if first.Empty() != c.Want.Empty {
+			t.Errorf("first task: %s: Empty = %v; want %v", c.Name, first.Empty(), c.Want.Empty)
+		}
+		text, code := first.Text()
+		if code != c.Want.Code {
+			t.Errorf("first task: %s: code = %q; want %q", c.Name, code, c.Want.Code)
+		}
+		switch {
+		case c.Want.TextLength != nil:
+			if n := utf8.RuneCountInString(text); n != *c.Want.TextLength {
+				t.Errorf("first task: %s: 字数 = %d; want %d", c.Name, n, *c.Want.TextLength)
+			}
+		case text != c.Want.Text:
+			t.Errorf("first task: %s: text = %q; want %q", c.Name, text, c.Want.Text)
 		}
 	}
 }

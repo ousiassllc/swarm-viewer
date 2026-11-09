@@ -1,10 +1,10 @@
-// Package paneservice はペイン詳細の閲覧（pane_tail・ask_card）と、操作の接続でだけ使える操作（選択・送信・中断・起動・終了・フォルダ一覧）を扱う
+// Package paneservice はペイン詳細の閲覧（pane_tail・ask_card）と、操作の接続でだけ使える操作（選択・送信・中断・起動（最初のタスクを含む）・終了・フォルダ一覧・スキル一覧）を扱う
 // （Issue #97。linterly の 1 ディレクトリの行数上限のため、service とは別のパッケージ）。
 //
 //   - 操作は接続の種類（URL の path）が操作のときだけ行い、見るだけは通信せず ErrOpsRequired で拒否する。
 //   - 同じ (接続, セッション, ペイン) への操作は同時に 1 つだけ。実行中に次が来たら通信せず ErrBusy。
 //   - 401/403 は needs_repair を立てる（その接続のポーリングと操作を止め、再ペアリングへ）。needs_repair の接続は通信しない。
-//   - ログは接続 ID・ツール名・セッション・ペイン位置・種別・コードまで。token・送信本文・pane_tail・ask_card の本文は出さない。
+//   - ログは接続 ID・ツール名・セッション・ペイン位置・種別・コードまで。token・送信本文（最初のタスクの本文を含む）・スキル名・invoke・pane_tail・ask_card の本文は出さない。
 package paneservice
 
 import (
@@ -37,6 +37,7 @@ type Client interface {
 	PaneStart(ctx context.Context, conn domain.Connection, session, pane string, req ops.StartRequest) (ops.StartResult, error)
 	PaneClose(ctx context.Context, conn domain.Connection, session, pane string) (ops.CloseResult, error)
 	DirList(ctx context.Context, conn domain.Connection, path string) (ops.DirList, error)
+	SkillList(ctx context.Context, conn domain.Connection, agent string) (ops.SkillList, error)
 }
 
 // PaneService はペインの閲覧と操作。並行に使える。
@@ -108,20 +109,25 @@ func call[T any](ctx context.Context, s *PaneService, connID, tool, session, pan
 	}
 	v, err := do(conn)
 	if err != nil {
-		fe := domain.Classify(err, 0, "")
-		if fe == nil {
-			fe = &domain.FetchError{Kind: domain.ErrProtocol}
-		}
-		if fe.Kind == domain.ErrUnauthorized || fe.Kind == domain.ErrForbiddenScope {
-			s.conns.MarkNeedsRepair(connID)
-		}
-		s.log.Warn("pane call failed", "connection_id", connID, "tool", tool, "session", session, "pane", pane, "kind", fe.Kind.String(), "code", fe.Code)
-		return zero, fe
+		return zero, s.failure(connID, tool, session, pane, err)
 	}
 	if mode == opsWrite {
 		s.log.Info("pane operation done", "connection_id", connID, "tool", tool, "session", session, "pane", pane)
 	}
 	return v, nil
+}
+
+// failure は呼び出しの失敗を *domain.FetchError に分類してログに残す。401・403 は needs_repair を立てる。
+func (s *PaneService) failure(connID, tool, session, pane string, err error) *domain.FetchError {
+	fe := domain.Classify(err, 0, "")
+	if fe == nil {
+		fe = &domain.FetchError{Kind: domain.ErrProtocol}
+	}
+	if fe.Kind == domain.ErrUnauthorized || fe.Kind == domain.ErrForbiddenScope {
+		s.conns.MarkNeedsRepair(connID)
+	}
+	s.log.Warn("pane call failed", "connection_id", connID, "tool", tool, "session", session, "pane", pane, "kind", fe.Kind.String(), "code", fe.Code)
+	return fe
 }
 
 // Tail は pane_tail（最後の lines 行）を取得する。見るだけの接続でも使える。
@@ -163,10 +169,76 @@ func (s *PaneService) Escape(ctx context.Context, connID, session, pane string, 
 	})
 }
 
-// Start は shell のペインでエージェントを起動する。操作の接続だけ。
-func (s *PaneService) Start(ctx context.Context, connID, session, pane string, req ops.StartRequest) (ops.StartResult, error) {
-	return call(ctx, s, connID, "pane_start", session, pane, opsWrite, func(c domain.Connection) (ops.StartResult, error) {
-		return s.client.PaneStart(ctx, c, session, pane, req)
+// TaskStatus は新しいセッションの起動時の、最初のタスクの扱い。
+type TaskStatus int
+
+// TaskStatus の値。
+const (
+	// TaskNone は最初のタスクが無い（起動だけ）、または pane_start が ok: false で送らなかった。
+	TaskNone TaskStatus = iota
+	// TaskSent は send_text が成功した（accepted: true）。
+	TaskSent
+	// TaskNotIdle は pane_start に成功したが state が idle 以外のため、送らなかった。
+	TaskNotIdle
+	// TaskFailed は send_text が失敗または accepted: false だった。起動は取り消していない。
+	TaskFailed
+)
+
+// StartOutcome は pane_start の結果と、最初のタスクの扱い。pane_start の失敗は error で返し、最初のタスクは送らない。
+type StartOutcome struct {
+	Start ops.StartResult
+	Task  TaskStatus
+	// Send は Task が TaskSent・TaskFailed のときの send_text の結果（Err があるときは零値）。
+	Send ops.SendResult
+	// Err は Task が TaskFailed のときの send_text の失敗（*domain.FetchError）。accepted: false のときは nil。
+	Err error
+}
+
+// Start は shell のペインでエージェントを起動する。操作の接続だけ。first が空でなければ、pane_start が ok: true で state が
+// idle のときだけ、同じ排他を保ったまま続けて send_text で最初のタスクを送る（自動の再送はしない。send_text が失敗しても
+// pane_close は呼ばず、起動を取り消さない）。first の検査（長さ・制御文字）は pane_start より前に行い、違反なら何も呼ばない。
+func (s *PaneService) Start(ctx context.Context, connID, session, pane string, req ops.StartRequest, first ops.FirstTask) (StartOutcome, error) {
+	return call(ctx, s, connID, "pane_start", session, pane, opsWrite, func(c domain.Connection) (StartOutcome, error) {
+		text, code := first.Text()
+		if code != "" {
+			return StartOutcome{}, ops.Error(code)
+		}
+		res, err := s.client.PaneStart(ctx, c, session, pane, req)
+		out := StartOutcome{Start: res}
+		switch {
+		case err != nil:
+			return StartOutcome{}, err
+		case text == "" || !res.OK:
+			return out, nil
+		case res.State != string(domain.StateIdle):
+			out.Task = TaskNotIdle
+			return out, nil
+		}
+		send, err := s.client.SendText(ctx, c, session, pane, text)
+		switch {
+		case err != nil:
+			out.Task, out.Err = TaskFailed, s.failure(connID, "send_text", session, pane, err)
+		case !send.Accepted:
+			out.Task, out.Send = TaskFailed, send
+		default:
+			out.Task, out.Send = TaskSent, send
+		}
+		return out, nil
+	})
+}
+
+// Resend は最初のタスクを send_text だけで送り直す（「もう一度送る」。pane_start は呼ばない）。操作の接続だけ。
+// ペインが idle かの検査は、送る前に呼び出し側が最新の report で行う。
+func (s *PaneService) Resend(ctx context.Context, connID, session, pane string, first ops.FirstTask) (ops.SendResult, error) {
+	return call(ctx, s, connID, "send_text", session, pane, opsWrite, func(c domain.Connection) (ops.SendResult, error) {
+		text, code := first.Text()
+		if code == "" && text == "" {
+			code = "invalid_args"
+		}
+		if code != "" {
+			return ops.SendResult{}, ops.Error(code)
+		}
+		return s.client.SendText(ctx, c, session, pane, text)
 	})
 }
 
@@ -185,5 +257,13 @@ func (s *PaneService) Close(ctx context.Context, connID, session, pane string, c
 func (s *PaneService) Dirs(ctx context.Context, connID, path string) (ops.DirList, error) {
 	return call(ctx, s, connID, "dir_list", "", "", opsRead, func(c domain.Connection) (ops.DirList, error) {
 		return s.client.DirList(ctx, c, path)
+	})
+}
+
+// Skills は skill_list（新しいセッションの最初のタスクに選べるスキル）を取得する。操作の接続だけ。ペインに何も送らないので
+// 排他は取らない。結果は保持しない（呼び出し側が画面を開いている間のメモリだけに持つ）。
+func (s *PaneService) Skills(ctx context.Context, connID, agent string) (ops.SkillList, error) {
+	return call(ctx, s, connID, "skill_list", "", "", opsRead, func(c domain.Connection) (ops.SkillList, error) {
+		return s.client.SkillList(ctx, c, agent)
 	})
 }

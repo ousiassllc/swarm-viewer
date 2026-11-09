@@ -90,3 +90,32 @@ func TestKindLabel_UsesTextNotOnlyColor(t *testing.T) {
 		t.Error("種類で色も変える")
 	}
 }
+
+func TestSkillListFailureMessage_UnknownToolHasNoReloadOthersDo(t *testing.T) {
+	t.Parallel()
+	msg, reload := format.SkillListFailureMessage(&domain.FetchError{Kind: domain.ErrOperation, Code: "unknown_tool"})
+	if msg != "スキルの一覧を取得できません（ホストの swarm-console が古い可能性があります）" || reload {
+		t.Errorf("unknown_tool: %q, reload=%v", msg, reload)
+	}
+	for _, err := range []error{
+		&domain.FetchError{Kind: domain.ErrOperation, Code: "invalid_args"},
+		&domain.FetchError{Kind: domain.ErrUnreachable},
+		&domain.FetchError{Kind: domain.ErrProtocol},
+		domain.ErrInvalidResponse,
+	} {
+		msg, reload := format.SkillListFailureMessage(err)
+		if msg != "スキルの一覧を読み込めませんでした" || !reload {
+			t.Errorf("%v: %q, reload=%v", err, msg, reload)
+		}
+	}
+}
+
+func TestFirstTaskMessages(t *testing.T) {
+	t.Parallel()
+	if got := format.FirstTaskNotIdleMessage("working"); got != "起動しました。最初のタスクはまだ送っていません（状態: working）。ペイン詳細から送れます" {
+		t.Errorf("not idle = %q", got)
+	}
+	if format.FirstTaskFailedMessage != "起動しました。最初のタスクを送れませんでした" {
+		t.Errorf("failed = %q", format.FirstTaskFailedMessage)
+	}
+}

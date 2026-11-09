@@ -2,7 +2,7 @@
 // テストコードからだけ使う（本番コードは import しない）。
 //
 // 偽 console は swarm-console と同じ形の stateless な Streamable HTTP（go-sdk のサーバー実装）で、`/report` には
-// 見るだけの 4 ツール、`/ops` には操作の 10 ツールを出す。受けたリクエストを path 別に記録する。
+// 見るだけの 4 ツール、`/ops` には操作の 11 ツール（見るだけの 4 つ ＋ 7 つ）を出す。受けたリクエストを path 別に記録する。
 package opsconsole
 
 import (
@@ -47,10 +47,10 @@ type Console struct {
 	entered map[string]chan struct{} // ツール名 → 呼ばれたことの通知
 }
 
-// 操作の 6 ツール。`/report` には出さない。
-var opsOnly = map[string]bool{"ask_pick": true, "send_text": true, "send_escape": true, "pane_start": true, "pane_close": true, "dir_list": true}
+// 操作の 7 ツール。`/report` には出さない。
+var opsOnly = map[string]bool{"ask_pick": true, "send_text": true, "send_escape": true, "pane_start": true, "pane_close": true, "dir_list": true, "skill_list": true}
 
-var allTools = []string{"sessions_list", "report", "pane_tail", "ask_card", "ask_pick", "send_text", "send_escape", "pane_start", "pane_close", "dir_list"}
+var allTools = []string{"sessions_list", "report", "pane_tail", "ask_card", "ask_pick", "send_text", "send_escape", "pane_start", "pane_close", "dir_list", "skill_list"}
 
 // New は偽 console を起動する。t.Cleanup で止める。応答は既定（fixtures.go）で、On で差し替える。
 func New(t testing.TB) *Console {
