@@ -74,6 +74,13 @@ push 前は `./gradlew lint ktlintCheck test` がクリーンに通ることを�
 - `MainActivity` は `launchMode="singleTask"` で、`swarm-viewer://pair?...` の intent-filter（`VIEW`・`DEFAULT`・`BROWSABLE`）を 1 つだけ公開する。リンクは信頼できない入力として `parsePairing` で検証し、利用者が確認画面で確定するまで保存しない（処理後は Intent のデータを消す）。
 - cleartext（http）はアプリ全体で許可する（`res/xml/network_security_config.xml`）。tailnet の IP は範囲指定できないため。接続先 URL の検証は domain 層が担う。
 
+## フォント
+
+- UI の書体は、Sora → Noto Sans JP（JIS X 0208 のサブセット）→ Symbols Nerd Font Mono → システムのフォントの順に代替する（`ui/theme/Type.kt` の `UiFontFamily`。デスクトップの `font-sans` と同じ順）。いずれも `app/src/main/res/font/` に TTF で同梱する。
+- Symbols Nerd Font Mono（Nerd Fonts v3.5.1 の Symbols Only・Mono。`symbols_nerd_font_mono_regular.ttf`）は、omp のペインタイトルに入る Nerd Font のアイコン（私用領域 PUA）を □ にしないためだけに同梱する。日本語・欧文のグリフは持たず、日本語は Noto Sans JP と OS のフォントに任せる（デスクトップ版の [#9](https://github.com/ousiassllc/swarm-viewer/issues/9) と同じ方針。フル Nerd Font の日本語版は入れない）。
+- APK のサイズはこの TTF の分（約 2.6 MB。APK 内で圧縮される）だけ増える。
+- ライセンス（MIT）は [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md)、原文は [`static/src/fonts/LICENSE-NerdFonts.txt`](../static/src/fonts/LICENSE-NerdFonts.txt)。
+
 ## リリース署名
 
 署名設定・keystore・パスワードはこのディレクトリに置かない（`app/build.gradle.kts` の release に `signingConfig` はない）。`./gradlew assembleRelease` は署名なしの APK を作り、署名は release.yml の `build-android`（`.github/scripts/sign-android-apk.sh`）が `apksigner` で行う。版は `-PappVersionName=X.Y.Z -PappVersionCode=N` で渡す（タグから `.github/scripts/android-version.sh` が決める。渡さないときは `0.1.0` / `1`）。鍵の作り方・シークレット・検証手順は [環境構築 §11.3・§11.4](../docs/environment/setup.md)。

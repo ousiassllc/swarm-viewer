@@ -6,9 +6,10 @@ swarm-viewer が同梱する第三者の成果物と、そのライセンス。
 
 | 項目 | 内容 |
 |------|------|
-| 同梱物 | `static/src/fonts/SymbolsNerdFontMono-Regular.woff2`（ビルドで `static/dist/fonts/` へコピーし、バイナリに埋め込む） |
+| 同梱物（Web） | `static/src/fonts/SymbolsNerdFontMono-Regular.woff2`（ビルドで `static/dist/fonts/` へコピーし、バイナリに埋め込む） |
+| 同梱物（Android） | `android/app/src/main/res/font/symbols_nerd_font_mono_regular.ttf`（アーカイブの `SymbolsNerdFontMono-Regular.ttf` をそのまま。APK に含む） |
 | 元 | [Nerd Fonts](https://github.com/ryanoasis/nerd-fonts) v3.5.1 の `NerdFontsSymbolsOnly.tar.xz` に入っている `SymbolsNerdFontMono-Regular.ttf` |
-| 加工 | TTF を woff2 に変換しただけ（fontTools + brotli）。字形の追加・削除・サブセット化はしていない |
+| 加工 | Web は TTF を woff2 に変換しただけ（fontTools + brotli）。Android は加工なしの TTF。どちらも字形の追加・削除・サブセット化はしていない |
 | 用途 | omp のペインタイトルに入る Nerd Font のアイコン（私用領域 PUA）の表示 |
 | ライセンス | MIT（Copyright (c) 2014 Ryan L McIntyre）。原文は [`static/src/fonts/LICENSE-NerdFonts.txt`](static/src/fonts/LICENSE-NerdFonts.txt)（アーカイブの `LICENSE`） |
 
