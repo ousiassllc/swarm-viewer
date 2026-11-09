@@ -22,6 +22,12 @@ type fakeClient struct {
 	err     error
 	gate    chan struct{} // 非 nil の間、SendText は閉じるまで待つ
 	entered chan struct{}
+
+	// 最初のタスクのテスト用。startRes が非 nil なら PaneStart の結果、sendRes・sendErr が非 nil なら SendText の結果。
+	startRes *ops.StartResult
+	sendRes  *ops.SendResult
+	sendErr  error
+	texts    []string // SendText で送られた本文
 }
 
 func (f *fakeClient) record(tool string) error {
@@ -49,14 +55,24 @@ func (f *fakeClient) AskPick(context.Context, domain.Connection, string, string,
 	return ops.PickResult{OK: true}, f.record("ask_pick")
 }
 
-func (f *fakeClient) SendText(context.Context, domain.Connection, string, string, string) (ops.SendResult, error) {
+func (f *fakeClient) SendText(_ context.Context, _ domain.Connection, _, _, text string) (ops.SendResult, error) {
 	if f.entered != nil {
 		f.entered <- struct{}{}
 	}
 	if f.gate != nil {
 		<-f.gate
 	}
-	return ops.SendResult{OK: true, Accepted: true}, f.record("send_text")
+	f.mu.Lock()
+	f.texts = append(f.texts, text)
+	res, sendErr := ops.SendResult{OK: true, Accepted: true}, f.sendErr
+	if f.sendRes != nil {
+		res = *f.sendRes
+	}
+	f.mu.Unlock()
+	if err := f.record("send_text"); err != nil {
+		return res, err
+	}
+	return res, sendErr
 }
 
 func (f *fakeClient) SendEscape(context.Context, domain.Connection, string, string, bool) (ops.EscapeResult, error) {
@@ -64,7 +80,15 @@ func (f *fakeClient) SendEscape(context.Context, domain.Connection, string, stri
 }
 
 func (f *fakeClient) PaneStart(context.Context, domain.Connection, string, string, ops.StartRequest) (ops.StartResult, error) {
-	return ops.StartResult{OK: true}, f.record("pane_start")
+	res := ops.StartResult{OK: true}
+	if f.startRes != nil {
+		res = *f.startRes
+	}
+	return res, f.record("pane_start")
+}
+
+func (f *fakeClient) SkillList(context.Context, domain.Connection, string) (ops.SkillList, error) {
+	return ops.SkillList{Skills: []ops.Skill{{Name: "impl", Invoke: "/impl"}}}, f.record("skill_list")
 }
 
 func (f *fakeClient) PaneClose(context.Context, domain.Connection, string, string) (ops.CloseResult, error) {
@@ -104,9 +128,11 @@ func TestViewConnection_ReadsAreAllowedAndOperationsAreRefusedWithoutCommunicati
 	_, refused["pick"] = f.svc.Pick(ctx, "view", "0", "T1", ops.Pick{N: 1})
 	_, refused["send"] = f.svc.Send(ctx, "view", "0", "T1", "x")
 	_, refused["escape"] = f.svc.Escape(ctx, "view", "0", "T1", true)
-	_, refused["start"] = f.svc.Start(ctx, "view", "0", "T1", ops.StartRequest{Agent: "omp", Cwd: "/w", Title: "t"})
+	_, refused["start"] = f.svc.Start(ctx, "view", "0", "T1", ops.StartRequest{Agent: "omp", Cwd: "/w", Title: "t"}, ops.FirstTask{Task: "x"})
 	_, refused["close"] = f.svc.Close(ctx, "view", "0", "T1", true)
 	_, refused["dirs"] = f.svc.Dirs(ctx, "view", "")
+	_, refused["skills"] = f.svc.Skills(ctx, "view", "omp")
+	_, refused["resend"] = f.svc.Resend(ctx, "view", "0", "T1", ops.FirstTask{Task: "x"})
 	for name, err := range refused {
 		if !errors.Is(err, paneservice.ErrOpsRequired) {
 			t.Errorf("%s: err = %v; want ErrOpsRequired", name, err)
@@ -123,10 +149,11 @@ func TestOpsConnection_OperationsReachTheClient(t *testing.T) {
 	_, _ = f.svc.Pick(ctx, "ops", "0", "T1", ops.Pick{N: 1})
 	_, _ = f.svc.Send(ctx, "ops", "0", "T1", "x")
 	_, _ = f.svc.Escape(ctx, "ops", "0", "T1", true)
-	_, _ = f.svc.Start(ctx, "ops", "0", "T1", ops.StartRequest{Agent: "omp", Cwd: "/w", Title: "t"})
+	_, _ = f.svc.Start(ctx, "ops", "0", "T1", ops.StartRequest{Agent: "omp", Cwd: "/w", Title: "t"}, ops.FirstTask{})
 	_, _ = f.svc.Close(ctx, "ops", "0", "T1", true)
 	_, _ = f.svc.Dirs(ctx, "ops", "")
-	want := []string{"ask_pick", "send_text", "send_escape", "pane_start", "pane_close", "dir_list"}
+	_, _ = f.svc.Skills(ctx, "ops", "omp")
+	want := []string{"ask_pick", "send_text", "send_escape", "pane_start", "pane_close", "dir_list", "skill_list"}
 	if got := f.cli.Calls(); len(got) != len(want) {
 		t.Fatalf("calls = %v; want %v", got, want)
 	}

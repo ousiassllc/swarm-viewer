@@ -8,10 +8,11 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
 )
 
-// StartID は新しいセッション画面の本文（差し替え先）の id。DirPickerID はフォルダピッカーの id。
+// StartID は新しいセッション画面の本文（差し替え先）の id。DirPickerID はフォルダピッカー、SkillPickerID はスキルの選択部品の id。
 const (
-	StartID     = "pane-start"
-	DirPickerID = "dir-picker"
+	StartID       = "pane-start"
+	DirPickerID   = "dir-picker"
+	SkillPickerID = "skill-picker"
 )
 
 // FieldEdit・FieldPick は新しいセッションの段階を表す form 値・クエリ。FieldConfirm（pane_action.go）があるときだけ pane_start を呼ぶ（無ければ確認画面を返すだけ）。
@@ -27,6 +28,9 @@ type StartFormProps struct {
 	Agent string
 	Cwd   string
 	Title string
+	// Skill（skill_list の invoke）・Task（本文）は最初のタスクの入力済みの値（任意）。Skill が空でなければ選択済みの表示で出す。
+	Skill string
+	Task  string
 	// Notice は失敗の固定文言（インラインのアラート）。
 	Notice string
 	// Recent は「最近使ったフォルダ」（ピッカーの最上位に出す）。
@@ -37,11 +41,13 @@ type StartFormProps struct {
 type StartConfirmProps struct {
 	Ref               Ref
 	Agent, Cwd, Title string
+	// Skill・Task は最初のタスク（任意）。確認画面の要約に出し、hidden で持ち回る。
+	Skill, Task string
 	// Notice は起動に失敗したときの固定文言（ok:false・操作の失敗）。
 	Notice string
 }
 
-// StartForm は新しいセッションの入力画面（エージェント → フォルダ → タイトル）。まだ何も送らず、「確認へ」で確認画面に進む。
+// StartForm は新しいセッションの入力画面（エージェント → フォルダ → スキル → 本文 → タイトル）。まだ何も送らず、「確認へ」で確認画面に進む。
 templ StartForm(p StartFormProps) {
 	<div id={ StartID } class="flex min-w-0 flex-col gap-4">
 		if p.Notice != "" {
@@ -59,7 +65,7 @@ templ StartForm(p StartFormProps) {
 				<div class="grid gap-2 sm:grid-cols-3">
 					for _, a := range ops.StartAgents {
 						<label class="flex min-h-12 cursor-pointer items-center gap-2 rounded-md border border-border px-4 py-2 text-base text-ink has-checked:border-accent has-checked:bg-accent-soft has-focus-visible:ring-2 has-focus-visible:ring-(color:--ring)">
-							<input type="radio" name={ FieldAgent } value={ a } checked?={ a == p.Agent } required class="size-4 accent-(--accent)"/>
+							<input type="radio" name={ FieldAgent } value={ a } checked?={ a == p.Agent } required class="size-4 accent-(--accent)" { skillsGet(p.Ref, a, "change")... }/>
 							<span>{ a }</span>
 						</label>
 					}
@@ -75,13 +81,29 @@ templ StartForm(p StartFormProps) {
 					}
 				</div>
 			</section>
+			<section class="flex flex-col gap-2" aria-label="スキル">
+				<h2 class="text-sm font-semibold text-ink">3. スキル（任意）</h2>
+				<div id={ SkillPickerID } aria-live="polite">
+					if p.Agent == "" {
+						<p class="text-sm text-mute">エージェントを選ぶと、スキルを選べます</p>
+					} else if p.Skill != "" {
+						@SkillSelected(p.Ref, p.Agent, p.Skill)
+					} else {
+						@SkillPickerLoad(p.Ref, p.Agent)
+					}
+				</div>
+			</section>
 			<div class="flex flex-col gap-2">
-				<label for="pane-start-title" class="text-sm font-semibold text-ink">3. タイトル（1〜80 字）</label>
+				<label for="pane-start-task" class="text-sm font-semibold text-ink">4. 本文（任意）</label>
+				@atoms.Textarea(atoms.TextareaProps{ID: "pane-start-task", Name: FieldTask, Rows: "4", Value: p.Task})
+			</div>
+			<div class="flex flex-col gap-2">
+				<label for="pane-start-title" class="text-sm font-semibold text-ink">5. タイトル（1〜80 字）</label>
 				<input id="pane-start-title" name={ FieldTitle } value={ p.Title } required maxlength="80" autocomplete="off" class={ atoms.FieldClass, "w-full px-3" }/>
 			</div>
 			<div class="flex flex-wrap items-center gap-3">
 				@atoms.Button(atoms.ButtonProps{Label: "確認へ", Type: "submit", Variant: atoms.ButtonPrimary})
-				<a href={ templ.SafeURL(paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos)) } hx-get={ paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos) } hx-target="#main" class="text-link hover-fade text-sm text-ink">やめる</a>
+				<a href={ templ.SafeURL(paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos)) } hx-get={ paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos) } hx-target="#main" hx-swap="innerHTML" class="text-link hover-fade text-sm text-ink">やめる</a>
 			</div>
 		</form>
 	</div>
@@ -110,7 +132,7 @@ templ DirSelected(ref Ref, cwd string) {
 	</div>
 }
 
-// StartConfirm は確認画面（エージェント・フォルダ・タイトルの要約）。「起動する」で初めて pane_start を呼ぶ。
+// StartConfirm は確認画面（エージェント・フォルダ・タイトル・スキル・本文の先頭の要約）。「起動する」で初めて pane_start を呼ぶ。
 // 値は hidden で持ち回り、「戻って直す」で入力画面に戻る。
 templ StartConfirm(p StartConfirmProps) {
 	<div id={ StartID } class="flex min-w-0 flex-col gap-4">
@@ -128,7 +150,9 @@ templ StartConfirm(p StartConfirmProps) {
 			<input type="hidden" name={ FieldAgent } value={ p.Agent }/>
 			<input type="hidden" name={ FieldCwd } value={ p.Cwd }/>
 			<input type="hidden" name={ FieldTitle } value={ p.Title }/>
-			<h2 class="text-sm font-semibold text-ink">4. 確認</h2>
+			<input type="hidden" name={ FieldSkill } value={ p.Skill }/>
+			<input type="hidden" name={ FieldTask } value={ p.Task }/>
+			<h2 class="text-sm font-semibold text-ink">6. 確認</h2>
 			<dl class="grid grid-cols-[6rem_1fr] gap-x-3 gap-y-2 rounded-md border border-border bg-bone p-4 text-sm" data-start-summary>
 				<dt class="text-mute">エージェント</dt>
 				<dd class="text-ink">{ p.Agent }</dd>
@@ -136,6 +160,14 @@ templ StartConfirm(p StartConfirmProps) {
 				<dd class="break-all font-mono text-ink">{ p.Cwd }</dd>
 				<dt class="text-mute">タイトル</dt>
 				<dd class="break-words text-ink">{ p.Title }</dd>
+				if p.Skill != "" {
+					<dt class="text-mute">スキル</dt>
+					<dd class="break-all font-mono text-ink" data-start-skill>{ p.Skill }</dd>
+				}
+				if p.Task != "" {
+					<dt class="text-mute">本文</dt>
+					<dd class="whitespace-pre-wrap break-words text-ink" data-start-task>{ taskPreview(p.Task) }</dd>
+				}
 			</dl>
 			<div class="flex flex-wrap items-center gap-3">
 				@atoms.Spinner(atoms.SpinnerProps{ID: "pane-start-spinner"})
@@ -212,7 +244,7 @@ templ DirPicker(p DirPickerProps) {
 			}
 		}
 		if p.Path == "" && len(p.Recent) > 0 {
-			<h3 class="mt-2 text-sm font-semibold text-ink">最近使ったフォルダ</h3>
+			<h3 class="mt-2 text-sm text-ink">最近使ったフォルダ</h3>
 			<ul class="flex flex-col gap-2" data-recent-folders>
 				for _, r := range p.Recent {
 					<li>

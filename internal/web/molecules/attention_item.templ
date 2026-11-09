@@ -36,6 +36,7 @@ templ AttentionItem(p AttentionItemProps) {
 					href={ templ.SafeURL(p.PaneHref) }
 					hx-get={ p.PaneHref }
 					hx-target="#main"
+					hx-swap="innerHTML"
 					data-attention-link
 					aria-label={ "ペイン " + p.Attention.Pane + " の詳細を開く" }
 					class="hover-fade font-mono text-xs text-ink underline underline-offset-2"

@@ -200,3 +200,15 @@ func TestSnapshotView_NoSecrets(t *testing.T) {
 	html := webtest.Render(t, organisms.SnapshotView(baseProps()))
 	webtest.MustNotContain(t, html, "token", "Bearer", "Authorization")
 }
+
+// ポーリング領域（hx-swap="outerHTML"）の中の #main へのリンクは、hx-swap を継承すると <main> ごと差し替えて、
+// ペイン詳細の「メイン画面へ」（#main へ描画する）が効かなくなる（Issue #100）。
+func TestSnapshotView_MainLinksDoNotInheritOuterHTMLSwap(t *testing.T) {
+	t.Parallel()
+	p := baseProps()
+	p.Kind = domain.KindOps
+	p.Snapshot.Report.Panes = append(p.Snapshot.Report.Panes, domain.Pane{Pos: "T4", State: domain.StateShell})
+	html := webtest.Render(t, organisms.SnapshotView(p))
+	webtest.MustContain(t, html, "data-pane-link", "data-attention-link", "data-pane-start")
+	webtest.MustSwapMainInner(t, html)
+}

@@ -162,7 +162,7 @@ func readRequestBody(req *http.Request) ([]byte, error) {
 }
 
 // checkRPC は JSON-RPC リクエストが許可されたメソッド（`tools/call` は kind の許可リストのツール）かを確かめる。
-// kind は送信先 URL の path（`/report` なら見るだけの 4 つ、`/ops` なら 10 個）。
+// kind は送信先 URL の path（`/report` なら見るだけの 4 つ、`/ops` なら 11 個）。
 // バッチ・応答メッセージ・不明なメソッドは通さない。
 func checkRPC(kind domain.ConnectionKind, body []byte) error {
 	var msg struct {

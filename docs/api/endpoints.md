@@ -375,6 +375,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | スナップショット領域 | `hx-get=".../snapshot"` `hx-trigger="load, every Ns, refresh from:body"` `hx-sync="this:drop"` | 画面更新ポーリング。`N` は `settings.screen_poll_seconds` をサーバーがレンダリング。前のリクエスト中は破棄（NFR-PERF-5）。**フィルタ式 `[…]` は使わない**（htmx が eval で評価するため、`unsafe-eval` なしの CSP で動かない） |
 | 更新ボタン | `hx-get="/connections/{cid}/sessions/{sid}"` `hx-target="#main"` | タブも再取得して全体を再描画（FR-POLL-2） |
 | セッションタブ | `hx-get="/connections/{cid}/sessions/{sid}"` `hx-target="#main"` | 切り替え（FR-SESS-2） |
+| `#main` へ描画するリンク（ペイン詳細・新しいセッション・再ペアリングなど） | `hx-get` `hx-target="#main"` `hx-swap="innerHTML"` | `hx-swap` は祖先から継承される。ポーリング領域（`#snapshot`・`#pane-live`）やフォーム（`outerHTML`）の中のリンクは `innerHTML` を自分で持たせる（持たないと `<main id="main">` ごと差し替わり、以降の「メイン画面へ」が `htmx:targetError` で効かなくなる。Issue #100） |
 | 接続切替 | `hx-get="/connections/{cid}"` `hx-target="#main"` | 切り替え（`last_session` のメイン画面フラグメントを返す） |
 | 非表示中の停止・復帰時の即時取得 | 同梱の静的 `app.js`（下記） | フィルタ式の代わりにクライアントで制御する |
 | 設定フォーム | `hx-put="/settings"` `hx-target="#settings-form"` `hx-target-422="#settings-form"` | `response-targets` 拡張で 422 のとき再描画先を分ける |

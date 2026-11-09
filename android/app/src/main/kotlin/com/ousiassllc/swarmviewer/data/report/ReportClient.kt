@@ -11,8 +11,10 @@ import com.ousiassllc.swarmviewer.domain.InvalidResponseException
 import com.ousiassllc.swarmviewer.domain.PaneTail
 import com.ousiassllc.swarmviewer.domain.PickResult
 import com.ousiassllc.swarmviewer.domain.Report
+import com.ousiassllc.swarmviewer.domain.START_AGENTS
 import com.ousiassllc.swarmviewer.domain.SendResult
 import com.ousiassllc.swarmviewer.domain.Session
+import com.ousiassllc.swarmviewer.domain.SkillList
 import com.ousiassllc.swarmviewer.domain.StartResult
 import com.ousiassllc.swarmviewer.domain.normalizeTailLines
 import com.ousiassllc.swarmviewer.domain.parseAskCard
@@ -24,6 +26,7 @@ import com.ousiassllc.swarmviewer.domain.parsePick
 import com.ousiassllc.swarmviewer.domain.parseReport
 import com.ousiassllc.swarmviewer.domain.parseSend
 import com.ousiassllc.swarmviewer.domain.parseSessions
+import com.ousiassllc.swarmviewer.domain.parseSkillList
 import com.ousiassllc.swarmviewer.domain.parseStart
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
@@ -67,7 +70,7 @@ fun newReportHttpClient(): OkHttpClient =
  * swarm-console（`/report`・`/ops`。MCP Streamable HTTP、JSON-RPC 2.0）のクライアント。
  *
  * 呼べるツールは接続の種類（URL の path）ごとの許可リストだけ（[ReportTools]、NFR-SEC-1）。見るだけは `sessions_list`・`report`・
- * `pane_tail`・`ask_card`、操作はそれに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`。
+ * `pane_tail`・`ask_card`、操作はそれに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list`。
  * 見るだけの接続で操作ツールを呼ぶと、通信せず `protocol`（`tool_not_allowed`）。
  * `POST` のみで、`initialize` → `notifications/initialized` → `tools/call` の順に送る（API 仕様 §1.6、デスクトップの `internal/repository/report` と同じ手順）。
  * セッション ID が返ったときだけ終了時に `DELETE` を送るが、その応答（405 を含む）は失敗にしない。`GET`（常駐 SSE）は開かない。
@@ -196,6 +199,15 @@ class ReportClient(
         conn: Connection,
         path: String?,
     ): DirList = tool(conn, ReportTools.DIR_LIST, buildJsonObject { path?.let { put("path", it) } }, ::parseDirList)
+
+    /** `session` は取らない。[agent] は通信前に検査する。スキル名・説明・invoke はログにもエラーにも出さない。 */
+    override suspend fun skillList(
+        conn: Connection,
+        agent: String,
+    ): SkillList {
+        if (agent !in START_AGENTS) throw logged(conn.id, ReportTools.SKILL_LIST, FetchException(ErrKind.Operation, "invalid_args"))
+        return tool(conn, ReportTools.SKILL_LIST, buildJsonObject { put("agent", agent) }, ::parseSkillList)
+    }
 
     // ペインを取るツールの共通呼び出し。session・pane は常に明示する（空なら通信せず拒否）。
     private fun paneArgs(

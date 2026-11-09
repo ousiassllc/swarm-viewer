@@ -18,6 +18,7 @@ const (
 	toolPaneStart    = "pane_start"
 	toolPaneClose    = "pane_close"
 	toolDirList      = "dir_list"
+	toolSkillList    = "skill_list"
 )
 
 // viewTools は見るだけの接続（`/report`）で呼んでよいツール。
@@ -25,10 +26,11 @@ var viewTools = map[string]struct{}{
 	toolSessionsList: {}, toolReport: {}, toolPaneTail: {}, toolAskCard: {},
 }
 
-// opsTools は操作の接続（`/ops`）で呼んでよいツール（見るだけの 4 つ ＋ 操作の 6 つ）。
+// opsTools は操作の接続（`/ops`）で呼んでよいツール（見るだけの 4 つ ＋ 操作の 7 つ。計 11 個）。
 var opsTools = map[string]struct{}{
 	toolSessionsList: {}, toolReport: {}, toolPaneTail: {}, toolAskCard: {},
 	toolAskPick: {}, toolSendText: {}, toolSendEscape: {}, toolPaneStart: {}, toolPaneClose: {}, toolDirList: {},
+	toolSkillList: {},
 }
 
 // toolAllowed は接続の種類ごとの許可リストに name があるか。callTool が送信前に、roundTripper が送信内容に対して

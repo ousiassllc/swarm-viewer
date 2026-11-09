@@ -224,7 +224,7 @@ internal fun okTools(): (String) -> ToolReply =
         }
     }
 
-/** 操作モードのツールの既定の応答（見るだけの 4 つと、操作の 6 つ）。 */
+/** 操作モードのツールの既定の応答（見るだけの 4 つと、操作の 7 つ）。 */
 internal fun opsTools(): (String) -> ToolReply =
     { name ->
         when (name) {
@@ -243,9 +243,14 @@ internal fun opsTools(): (String) -> ToolReply =
                 ToolReply(
                     """{"path":"/work","entries":[{"name":"app","path":"/work/app","git":true},{"name":"docs","path":"/work/docs"}],"truncated":false}""",
                 )
+            "skill_list" -> ToolReply(SKILL_LIST_BODY)
             else -> okTools()(name)
         }
     }
+
+/** `skill_list` の既定の応答。スキル名・説明・invoke はログ・エラーに出てはいけない値。 */
+internal const val SKILL_LIST_BODY =
+    """{"agent":"omp","skills":[{"name":"secret-skill-name","description":"secret-skill-desc","invoke":"/secret-invoke"}],"truncated":false}"""
 
 /** `pane_tail` の本文（ログ・エラーに出てはいけない値）。 */
 internal const val PANE_BODY = "secret-pane-body-do-not-leak"

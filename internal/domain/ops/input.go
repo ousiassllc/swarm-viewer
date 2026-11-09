@@ -80,7 +80,7 @@ type StartRequest struct {
 func (r StartRequest) Normalize() (out StartRequest, code string) {
 	out = StartRequest{Agent: r.Agent, Cwd: r.Cwd, Title: strings.TrimSpace(r.Title)}
 	n := utf8.RuneCountInString(out.Title)
-	valid := isAgent(out.Agent) && out.Cwd != "" && n >= 1 && n <= MaxTitleChars &&
+	valid := IsAgent(out.Agent) && out.Cwd != "" && n >= 1 && n <= MaxTitleChars &&
 		!strings.ContainsFunc(out.Cwd, unicode.IsControl) && !strings.ContainsFunc(out.Title, unicode.IsControl)
 	if !valid {
 		return out, "invalid_args"
@@ -88,13 +88,45 @@ func (r StartRequest) Normalize() (out StartRequest, code string) {
 	return out, ""
 }
 
-func isAgent(s string) bool {
+// IsAgent は s が StartAgents のいずれかか。
+func IsAgent(s string) bool {
 	for _, a := range StartAgents {
 		if a == s {
 			return true
 		}
 	}
 	return false
+}
+
+// FirstTask は新しいセッションの最初のタスク（機能要件 FR-OPS-11）。Skill は skill_list が返した invoke の文字列、
+// Task は本文で、どちらも任意。skill_list の結果との照合はしない（任意の文字列は本文欄からも送れるため、権限は増えない）。
+type FirstTask struct {
+	Skill string
+	Task  string
+}
+
+// Empty は最初のタスクが無いか（前後の空白を除いて、スキルも本文も空）。空なら今までどおり起動だけ。
+func (f FirstTask) Empty() bool {
+	return strings.TrimSpace(f.Skill) == "" && strings.TrimSpace(f.Task) == ""
+}
+
+// Text は最初のタスクとして send_text で送る文字列と、CheckText の検査結果（問題がなければ code は空）を返す。
+// スキルと本文の両方なら `<invoke> <本文>`（半角スペース 1 つ）、スキルだけなら `<invoke>`、本文だけなら `<本文>`。
+// スキル・本文は前後の空白を除く。Empty のときは ("", "")。呼び出し側は改行を \n に揃えてから渡す。
+func (f FirstTask) Text() (text, code string) {
+	if f.Empty() {
+		return "", ""
+	}
+	skill, task := strings.TrimSpace(f.Skill), strings.TrimSpace(f.Task)
+	switch {
+	case skill == "":
+		text = task
+	case task == "":
+		text = skill
+	default:
+		text = skill + " " + task
+	}
+	return text, CheckText(text)
 }
 
 // NormalizeTailLines は pane_tail の lines を 1〜200 に収める。0 以下は既定の 30。

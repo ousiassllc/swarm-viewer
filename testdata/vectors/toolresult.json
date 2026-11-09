@@ -43,6 +43,16 @@
     {"name": "entries 欠落", "input": "{\"path\":\"/x\"}", "want": {"path": "/x", "entries": [], "truncated": false}},
     {"name": "name か path が空の項目は捨てる", "input": "{\"entries\":[{\"name\":\"\",\"path\":\"/a\"},{\"name\":\"b\",\"path\":\"\"},{\"name\":\"c\",\"path\":\"/c\",\"git\":true}]}", "want": {"path": "", "entries": [{"name": "c", "path": "/c", "git": true}], "truncated": false}}
   ],
+  "skill_list": [
+    {"name": "一覧", "input": "{\"agent\":\"omp\",\"skills\":[{\"name\":\"impl\",\"description\":\"実装する\",\"invoke\":\"/impl\"},{\"name\":\"bug-fix\",\"description\":\"バグを直す\",\"invoke\":\"/bug-fix\"}],\"truncated\":false}", "want": {"agent": "omp", "skills": [{"name": "impl", "description": "実装する", "invoke": "/impl"}, {"name": "bug-fix", "description": "バグを直す", "invoke": "/bug-fix"}], "truncated": false}},
+    {"name": "一部のみ", "input": "{\"agent\":\"claude\",\"skills\":[{\"name\":\"a\",\"description\":\"d\",\"invoke\":\"/a\"}],\"truncated\":true}", "want": {"agent": "claude", "skills": [{"name": "a", "description": "d", "invoke": "/a"}], "truncated": true}},
+    {"name": "空の一覧", "input": "{\"agent\":\"codex\",\"skills\":[],\"truncated\":false}", "want": {"agent": "codex", "skills": [], "truncated": false}},
+    {"name": "skills 欠落", "input": "{\"agent\":\"omp\"}", "want": {"agent": "omp", "skills": [], "truncated": false}},
+    {"name": "description 欠落・null は空文字", "input": "{\"agent\":\"omp\",\"skills\":[{\"name\":\"a\",\"invoke\":\"/a\"},{\"name\":\"b\",\"description\":null,\"invoke\":\"/b\"}]}", "want": {"agent": "omp", "skills": [{"name": "a", "description": "", "invoke": "/a"}, {"name": "b", "description": "", "invoke": "/b"}], "truncated": false}},
+    {"name": "name か invoke が空の項目は捨てる", "input": "{\"agent\":\"omp\",\"skills\":[{\"name\":\"\",\"description\":\"x\",\"invoke\":\"/x\"},{\"name\":\"y\",\"description\":\"x\",\"invoke\":\"\"},{\"name\":\"ok\",\"description\":\"\",\"invoke\":\"/ok\"}]}", "want": {"agent": "omp", "skills": [{"name": "ok", "description": "", "invoke": "/ok"}], "truncated": false}},
+    {"name": "HTML 風の文字列もそのまま", "input": "{\"agent\":\"omp\",\"skills\":[{\"name\":\"<b>x</b>\",\"description\":\"<script>1</script> & \\\"q\\\"\",\"invoke\":\"/x\"}]}", "want": {"agent": "omp", "skills": [{"name": "<b>x</b>", "description": "<script>1</script> & \"q\"", "invoke": "/x"}], "truncated": false}},
+    {"name": "未知のキーは無視", "input": "{\"agent\":\"omp\",\"skills\":[{\"name\":\"a\",\"description\":\"\",\"invoke\":\"/a\",\"future\":1}],\"x\":{\"y\":1}}", "want": {"agent": "omp", "skills": [{"name": "a", "description": "", "invoke": "/a"}], "truncated": false}}
+  ],
   "invalid": [
     {"name": "pane_tail: JSON ではない", "tool": "pane_tail", "input_raw": "not json"},
     {"name": "pane_tail: 空文字", "tool": "pane_tail", "input_raw": ""},
@@ -75,6 +85,11 @@
     {"name": "dir_list: JSON ではない", "tool": "dir_list", "input_raw": "not json"},
     {"name": "dir_list: 空文字", "tool": "dir_list", "input_raw": ""},
     {"name": "dir_list: 配列", "tool": "dir_list", "input_raw": "[1,2]"},
-    {"name": "dir_list: 文字列", "tool": "dir_list", "input_raw": "\"ok\""}
+    {"name": "dir_list: 文字列", "tool": "dir_list", "input_raw": "\"ok\""},
+    {"name": "skill_list: JSON ではない", "tool": "skill_list", "input_raw": "not json"},
+    {"name": "skill_list: 空文字", "tool": "skill_list", "input_raw": ""},
+    {"name": "skill_list: 配列", "tool": "skill_list", "input_raw": "[1,2]"},
+    {"name": "skill_list: 文字列", "tool": "skill_list", "input_raw": "\"ok\""},
+    {"name": "skill_list: skills が配列でない", "tool": "skill_list", "input_raw": "{\"skills\":\"x\"}"}
   ]
 }

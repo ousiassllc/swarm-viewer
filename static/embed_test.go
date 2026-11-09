@@ -225,3 +225,24 @@ func TestAppCSS_DefinesDurationTokens(t *testing.T) {
 		}
 	}
 }
+
+// ペイン詳細のコンソール本文（<pre class="font-mono">）に出る Nerd Font のアイコンは、font-mono の並びに
+// Symbols Nerd Font が無いと字形にならない（OS の等幅フォントに代替もされず □ になる。Issue #102）。
+func TestAppCSS_FontStacksFallBackToSymbolsNerdFont(t *testing.T) {
+	t.Parallel()
+
+	data, err := fs.ReadFile(static.FS(), "css/app.css")
+	if err != nil {
+		t.Fatalf("css/app.css を読めない（先に task generate を実行する）: %v", err)
+	}
+	for _, token := range []string{"--font-sans", "--font-mono"} {
+		m := regexp.MustCompile(token + `:([^;}]*)`).FindStringSubmatch(string(data))
+		if m == nil {
+			t.Errorf("app.css に %s が無い", token)
+			continue
+		}
+		if !strings.Contains(m[1], `"Symbols Nerd Font"`) {
+			t.Errorf("%s = %s; want Symbols Nerd Font を含む（PUA の代替）", token, m[1])
+		}
+	}
+}

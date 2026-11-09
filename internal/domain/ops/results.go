@@ -1,5 +1,5 @@
 // Package ops は swarm-console のペインを見る・操作するツール（pane_tail・ask_card・ask_pick・send_text・send_escape・
-// pane_start・pane_close・dir_list）の入力の検査と結果の解析を持つ（API 仕様 §5.1・§5.2）。
+// pane_start・pane_close・dir_list・skill_list）の入力の検査と結果の解析を持つ（API 仕様 §5.1・§5.2）。
 //
 // domain と同じく純粋で、標準ライブラリと domain だけを使う（linterly の 1 ディレクトリの行数上限のため domain とは別のパッケージ）。
 // 結果の解析は、未知のキーを無視し、欠落・null の項目は零値、JSON が壊れている・型が想定外なら domain.ErrInvalidResponse にする（応答本文はエラーに含めない）。
@@ -85,6 +85,21 @@ type DirEntry struct {
 type DirList struct {
 	Path      string
 	Entries   []DirEntry
+	Truncated bool
+}
+
+// Skill は skill_list の 1 件。Name・Description はホスト由来の信頼できない入力（HTML として解釈しない）。
+// Invoke はそのスキルを呼ぶために送る入力文字列（例 /impl）で、エージェントごとの呼び出し構文は持たずそのまま使う。
+type Skill struct {
+	Name        string
+	Description string
+	Invoke      string
+}
+
+// SkillList は skill_list の結果。Agent は問い合わせたエージェント。Truncated は一部のみ（件数上限）。
+type SkillList struct {
+	Agent     string
+	Skills    []Skill
 	Truncated bool
 }
 
@@ -228,6 +243,30 @@ func ParseDirList(data []byte) (DirList, error) {
 			continue
 		}
 		out.Entries = append(out.Entries, DirEntry{Name: e.Name, Path: e.Path, Git: e.Git})
+	}
+	return out, nil
+}
+
+// ParseSkillList は skill_list の応答を解析する。name か invoke が空の項目は捨てる（送れないスキルは出さない）。
+func ParseSkillList(data []byte) (SkillList, error) {
+	var w struct {
+		Agent  string `json:"agent"`
+		Skills []struct {
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			Invoke      string `json:"invoke"`
+		} `json:"skills"`
+		Truncated bool `json:"truncated"`
+	}
+	if err := decode(data, &w); err != nil {
+		return SkillList{}, err
+	}
+	out := SkillList{Agent: w.Agent, Skills: make([]Skill, 0, len(w.Skills)), Truncated: w.Truncated}
+	for _, s := range w.Skills {
+		if s.Name == "" || s.Invoke == "" {
+			continue
+		}
+		out.Skills = append(out.Skills, Skill{Name: s.Name, Description: s.Description, Invoke: s.Invoke})
 	}
 	return out, nil
 }

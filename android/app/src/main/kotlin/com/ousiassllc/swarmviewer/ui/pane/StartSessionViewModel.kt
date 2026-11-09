@@ -3,18 +3,20 @@ package com.ousiassllc.swarmviewer.ui.pane
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ousiassllc.swarmviewer.domain.ConnectionKind
-import com.ousiassllc.swarmviewer.domain.DirEntry
 import com.ousiassllc.swarmviewer.domain.FetchException
+import com.ousiassllc.swarmviewer.domain.PaneState
 import com.ousiassllc.swarmviewer.domain.START_AGENTS
-import com.ousiassllc.swarmviewer.domain.normalizeTitle
+import com.ousiassllc.swarmviewer.domain.Skill
 import com.ousiassllc.swarmviewer.domain.recentFolders
-import com.ousiassllc.swarmviewer.service.ConnectionGoneException
 import com.ousiassllc.swarmviewer.service.PaneService
 import com.ousiassllc.swarmviewer.service.PaneTarget
 import com.ousiassllc.swarmviewer.service.SnapshotService
+import com.ousiassllc.swarmviewer.service.StartOutcome
 import com.ousiassllc.swarmviewer.ui.UNEXPECTED_ERROR_MESSAGE
 import com.ousiassllc.swarmviewer.ui.fetchErrorMessage
+import com.ousiassllc.swarmviewer.ui.operationErrorMessage
 import com.ousiassllc.swarmviewer.ui.rejectionMessage
+import com.ousiassllc.swarmviewer.ui.sendToast
 import com.ousiassllc.swarmviewer.ui.startToast
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -28,43 +30,11 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** フォルダピッカーの 1 階層。[path] が null のときは `allowed_roots`（根の一覧）。 */
-data class FolderListing(
-    val path: String? = null,
-    val entries: List<DirEntry> = emptyList(),
-    val truncated: Boolean = false,
-)
-
-/**
- * 新しいセッション（`pane_start`）の画面の状態（機能要件 §4.7）。手順: エージェント → フォルダ → タイトル → 確認。
- * [viewOnly] の接続では何も選べず、操作の部品を描画しない（この画面に入る導線も出ない）。
- * [folder] は選択済みのフォルダ（`dir_list` の `path`、または最近使ったフォルダ）。[listing] はピッカーの現在の階層。
- */
-data class StartSessionUiState(
-    val target: PaneTarget? = null,
-    val viewOnly: Boolean = false,
-    val agent: String? = null,
-    val listing: FolderListing? = null,
-    val listingLoading: Boolean = false,
-    val canGoUp: Boolean = false,
-    val folder: String? = null,
-    val recent: List<String> = emptyList(),
-    val title: String = "",
-    val confirming: Boolean = false,
-    val busy: Boolean = false,
-    val message: String? = null,
-    val needsRepair: Boolean = false,
-) {
-    /** 確認へ進める: エージェント・フォルダ・タイトルが揃っている（タイトルは検査済み）。 */
-    val canConfirm: Boolean get() = !viewOnly && agent != null && folder != null && normalizeTitle(title) != null
-
-    /** 「このフォルダを選ぶ」を出せる階層か（根の一覧では選べない）。 */
-    val canChooseListed: Boolean get() = listing?.path != null
-}
-
 /**
  * 新しいセッションの ViewModel。フォルダは `dir_list` を 1 階層ずつたどる（[browse]・[up]）。戻る（1 つ上へ）はたどった履歴で戻る。
- * 送信中（[StartSessionUiState.busy]）は全ボタンを無効にする。`pane_start` が成功したら [started] が 1 回届く。
+ * エージェントを選ぶと `skill_list` でスキルを取る（[retrySkills]）。取れなくても、スキルなしで本文だけ・タスクなしの起動はできる。
+ * 送信中（[StartSessionUiState.busy]）は全ボタンを無効にする。起動して最初のタスクも送れた（または無かった）ら [started] が 1 回届く。
+ * 最初のタスクを送っていない・送れなかったときは [StartSessionUiState.notice] を出し、[resend]（`send_text` だけ）か [openPane] へ進める。
  */
 class StartSessionViewModel(
     private val panes: PaneService,
@@ -82,6 +52,7 @@ class StartSessionViewModel(
 
     private var loadJob: Job? = null
     private var startJob: Job? = null
+    private var skillJob: Job? = null
 
     /** [target] の `shell` ペインで始める画面を開く。同じペインなら何もしない（構成変更）。前の画面で未消費の [started] は捨てる。 */
     fun open(target: PaneTarget) {
@@ -92,14 +63,11 @@ class StartSessionViewModel(
     }
 
     /**
-     * 画面を離れたときの後始末（ナビゲーションが呼ぶ）。実行中の読み込み・起動を止め、状態（エージェント・フォルダ・タイトル）と
-     * 未消費の [started] を捨てる。再び開いたとき、前の入力を引き継がない。
+     * 画面を離れたときの後始末（ナビゲーションが呼ぶ）。実行中の読み込み・起動を止め、状態（エージェント・フォルダ・スキル・本文・
+     * タイトル・取得済みのスキル一覧・結果の表示）と未消費の [started] を捨てる。再び開いたとき、前の入力を引き継がない。
      */
     fun reset() {
-        loadJob?.cancel()
-        startJob?.cancel()
-        loadJob = null
-        startJob = null
+        listOf(loadJob, startJob, skillJob).forEach { it?.cancel() }
         history.clear()
         mutableStarted.drain()
         mutableState.value = StartSessionUiState()
@@ -130,9 +98,30 @@ class StartSessionViewModel(
             }
     }
 
+    /** エージェントを選ぶ。変えたときは、選んでいたスキルを外してスキル一覧を取り直す。 */
     fun selectAgent(agent: String) {
-        if (agent in START_AGENTS && !mutableState.value.busy) mutableState.update { it.copy(agent = agent) }
+        val current = mutableState.value
+        if (agent !in START_AGENTS || current.busy || current.viewOnly || current.notice != null || agent == current.agent) return
+        mutableState.update { it.copy(agent = agent, skill = null) }
+        loadSkills(agent)
     }
+
+    /** スキル一覧を読み込めなかったとき（`unknown_tool` を除く）の「再読み込み」。 */
+    fun retrySkills() {
+        val current = mutableState.value
+        val agent = current.agent ?: return
+        if ((current.skills as? SkillListing.Failed)?.reload == true && !current.busy) loadSkills(agent)
+    }
+
+    /** スキルを選ぶ。null は「スキルなし」。一覧に無いスキルは選べない。 */
+    fun selectSkill(skill: Skill?) {
+        val listing = mutableState.value.skills
+        if (mutableState.value.busy || (skill != null && (listing as? SkillListing.Loaded)?.skills?.contains(skill) != true)) return
+        mutableState.update { it.copy(skill = skill) }
+    }
+
+    /** 本文（任意）。改行は `\n` に揃える（`\r` は制御文字として拒否されるため）。 */
+    fun onTaskChange(task: String) = mutableState.update { it.copy(task = task.replace("\r\n", "\n").replace('\r', '\n')) }
 
     fun onTitleChange(title: String) = mutableState.update { it.copy(title = title) }
 
@@ -170,7 +159,7 @@ class StartSessionViewModel(
 
     fun dismissConfirm() = mutableState.update { it.copy(confirming = false) }
 
-    /** 確認ダイアログの確定。`pane_start` を送る。 */
+    /** 確認ダイアログの確定。`pane_start` を送り、最初のタスクがあれば（`idle` のときだけ）続けて `send_text` を送る。 */
     fun start() {
         val current = mutableState.value
         val target = current.target ?: return
@@ -181,21 +170,61 @@ class StartSessionViewModel(
         startJob =
             viewModelScope.launch {
                 try {
-                    val result = panes.start(target, agent, folder, current.title)
-                    if (result.ok) mutableStarted.trySend(Unit)
-                    mutableState.update { it.copy(message = startToast(result)) }
+                    started(panes.start(target, agent, folder, current.title, current.firstTask))
                 } catch (e: CancellationException) {
                     throw e
-                } catch (e: FetchException) {
-                    failed(e)
-                } catch (e: ConnectionGoneException) {
-                    mutableState.update { it.copy(message = UNEXPECTED_ERROR_MESSAGE) }
                 } catch (e: Exception) {
-                    mutableState.update { it.copy(message = rejectionMessage(e) ?: UNEXPECTED_ERROR_MESSAGE) }
+                    showFailure(e)
                 } finally {
                     mutableState.update { it.copy(busy = false) }
                 }
             }
+    }
+
+    /**
+     * 「もう一度送る」。最初のタスクを `send_text` だけで送り直す（`pane_start` は呼ばない。自動の再送はしない）。送る前に最新の
+     * `report` でペインが `idle` かを確かめ、`idle` でなければ通信せず断る。成功したら [started] が届く。
+     */
+    fun resend() {
+        val current = mutableState.value
+        val target = current.target ?: return
+        val notice = current.notice?.takeIf { it.canResend } ?: return
+        if (mutableState.getAndUpdate { it.copy(busy = true, message = null) }.busy) return
+        startJob =
+            viewModelScope.launch {
+                try {
+                    val pane =
+                        snapshots
+                            .refresh(target.connectionId, target.session)
+                            .report.panes
+                            .firstOrNull { it.pos == target.pos }
+                    val rejected =
+                        when {
+                            pane == null -> operationErrorMessage("pane_not_found")
+                            pane.state != PaneState.Idle -> operationErrorMessage("invalid_state")
+                            else -> panes.resend(target, current.firstTask).let { if (it.accepted) null else sendToast(it) }
+                        }
+                    if (rejected ==
+                        null
+                    ) {
+                        mutableStarted.trySend(Unit)
+                    } else {
+                        mutableState.update { it.copy(notice = notice.copy(reason = rejected)) }
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    val text = failureText(e)
+                    mutableState.update { it.copy(notice = notice.copy(reason = text)) }
+                } finally {
+                    mutableState.update { it.copy(busy = false) }
+                }
+            }
+    }
+
+    /** 結果の表示の「ペイン詳細を開く」。最初のタスクの本文はここで破棄される（ナビゲーションが [reset] を呼ぶ）。 */
+    fun openPane() {
+        if (mutableState.value.notice != null && !mutableState.value.busy) mutableStarted.trySend(Unit)
     }
 
     fun messageShown() = mutableState.update { it.copy(message = null) }
@@ -216,18 +245,53 @@ class StartSessionViewModel(
             return true
         } catch (e: CancellationException) {
             throw e
-        } catch (e: FetchException) {
-            failed(e)
         } catch (e: Exception) {
-            mutableState.update { it.copy(message = rejectionMessage(e) ?: UNEXPECTED_ERROR_MESSAGE) }
+            showFailure(e)
         } finally {
             mutableState.update { it.copy(listingLoading = false) }
         }
         return false
     }
 
-    private fun failed(e: FetchException) {
-        mutableState.update { it.copy(message = fetchErrorMessage(e), needsRepair = it.needsRepair || e.requiresRepair) }
+    // エージェントのスキル一覧。古い応答（エージェントを変えたあと）は捨てる。
+    private fun loadSkills(agent: String) {
+        val target = mutableState.value.target ?: return
+        skillJob?.cancel()
+        mutableState.update { it.copy(skills = SkillListing.Loading) }
+        skillJob =
+            viewModelScope.launch {
+                val listing =
+                    try {
+                        panes.skills(target.connectionId, agent).let { SkillListing.Loaded(it.skills, it.truncated) }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        val text = failureText(e)
+                        if (e is FetchException) SkillListing.failed(e) else SkillListing.Failed(text, reload = true)
+                    }
+                mutableState.update { if (it.agent == agent) it.copy(skills = listing) else it }
+            }
+    }
+
+    // 起動の結果。最初のタスクを送っていない・送れなかったときは、遷移せずに結果の表示を出す（本文は state に残る）。
+    private fun started(outcome: StartOutcome) {
+        val notice = outcome.notice(outcome.error?.let(::failureText))
+        if (outcome.start.ok && notice == null) mutableStarted.trySend(Unit)
+        mutableState.update { it.copy(notice = notice, message = if (notice == null) startToast(outcome.start) else null) }
+    }
+
+    private fun showFailure(e: Exception) {
+        val text = failureText(e)
+        mutableState.update { it.copy(message = text) }
+    }
+
+    // 失敗の固定文言。401・403 は再ペアリングの案内を出す。
+    private fun failureText(e: Exception): String {
+        if (e is FetchException) {
+            mutableState.update { it.copy(needsRepair = it.needsRepair || e.requiresRepair) }
+            return fetchErrorMessage(e)
+        }
+        return rejectionMessage(e) ?: UNEXPECTED_ERROR_MESSAGE
     }
 
     private suspend fun <T> attempt(block: suspend () -> T): T? =

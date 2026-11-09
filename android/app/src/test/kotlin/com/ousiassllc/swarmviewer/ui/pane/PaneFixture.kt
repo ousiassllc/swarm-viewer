@@ -41,6 +41,9 @@ internal abstract class PaneFixture {
     protected val connections = ConnectionService(store, tokens, io = Dispatchers.Unconfined)
     protected val panes = PaneService(api, store, connections)
     protected var state = PaneState.Idle
+
+    /** 新しいセッションを始める空きペイン（B1）の report 上の状態。起動後の再送の検査（最新の `report` で `idle` か）に使う。 */
+    protected var startedPaneState = PaneState.Shell
     protected var reportFailure: FetchException? = null
     protected var reportCalls = 0
 
@@ -56,7 +59,7 @@ internal abstract class PaneFixture {
                             listOf(
                                 Pane(pos = "T1", id = "%1", agent = "omp", state = state, title = "work", cwd = "/work/app"),
                                 Pane(pos = "T2", id = "%2", agent = "claude", state = PaneState.Idle, title = "other", cwd = "/work/app"),
-                                Pane(pos = "B1", id = "%3", agent = null, state = PaneState.Shell, title = "", cwd = "/home/x"),
+                                Pane(pos = "B1", id = "%3", agent = null, state = startedPaneState, title = "", cwd = "/home/x"),
                             ),
                     )
                 },

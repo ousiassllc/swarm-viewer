@@ -63,6 +63,9 @@ func PaneStart(cid, sid, pos string) string { return Pane(cid, sid, pos) + "/sta
 // PaneStartDirs は `…/panes/{pos}/start/dirs`（フォルダピッカーの部分描画。クエリ path が一覧するフォルダ）。
 func PaneStartDirs(cid, sid, pos string) string { return PaneStart(cid, sid, pos) + "/dirs" }
 
+// PaneStartSkills は `…/panes/{pos}/start/skills`（スキルの選択部品の部分描画。クエリ agent が対象のエージェント）。
+func PaneStartSkills(cid, sid, pos string) string { return PaneStart(cid, sid, pos) + "/skills" }
+
 // Draft は `/pairing/drafts/{did}`。
 func Draft(did string) string {
 	return Pairing + "/drafts/" + url.PathEscape(did)

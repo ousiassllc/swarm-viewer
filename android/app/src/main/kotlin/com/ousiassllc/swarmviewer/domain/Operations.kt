@@ -82,6 +82,23 @@ data class DirList(
     val truncated: Boolean = false,
 )
 
+/**
+ * `skill_list` の 1 件（仮称。swarm-console 側は未実装）。[name]・[description] はホスト由来の信頼できない入力（テキストとして描画する）。
+ * [invoke] はそのスキルを呼ぶために送る入力文字列（例 `/impl`）で、エージェントごとの呼び出し構文は持たずそのまま使う。
+ */
+data class Skill(
+    val name: String = "",
+    val description: String = "",
+    val invoke: String = "",
+)
+
+/** `skill_list`。[agent] は問い合わせたエージェント。[truncated] は件数の上限で一部しか返していない。 */
+data class SkillList(
+    val agent: String = "",
+    val skills: List<Skill> = emptyList(),
+    val truncated: Boolean = false,
+)
+
 fun parsePaneTail(data: String): PaneTail {
     val root = parseJsonObject(data)
     return PaneTail(text = root["text"].string(), truncated = root["truncated"].bool())
@@ -167,3 +184,26 @@ private fun JsonObject?.toAskOption(): AskOption =
 
 private fun JsonObject?.toDirEntry(): DirEntry =
     if (this == null) DirEntry() else DirEntry(name = get("name").string(), path = get("path").string(), git = get("git").bool())
+
+/** `name` か `invoke` が空の項目は捨てる（送れないスキルを出さない）。`description` の欠落・null は空文字。 */
+fun parseSkillList(data: String): SkillList {
+    val root = parseJsonObject(data)
+    return SkillList(
+        agent = root["agent"].string(),
+        skills =
+            root["skills"]
+                .listOrEmpty()
+                .map { it.objectOrNull().toSkill() }
+                .filter { it.name.isNotEmpty() && it.invoke.isNotEmpty() },
+        truncated = root["truncated"].bool(),
+    )
+}
+
+private fun JsonObject?.toSkill(): Skill =
+    if (this ==
+        null
+    ) {
+        Skill()
+    } else {
+        Skill(name = get("name").string(), description = get("description").string(), invoke = get("invoke").string())
+    }

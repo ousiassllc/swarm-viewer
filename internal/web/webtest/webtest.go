@@ -91,3 +91,33 @@ func AllAttrKeys(t testing.TB, htmlText string) map[string]bool {
 	walk(root)
 	return keys
 }
+
+// MustSwapMainInner は html の hx-target="#main" を持つ要素がすべて hx-swap="innerHTML" を自分で持つことを確認する。
+// htmx は hx-swap を祖先から継承する。ポーリング領域（outerHTML）の中のリンクが継承すると、<main id="main"> ごと差し替わって
+// 以降の #main への遷移（戻るリンクなど）が targetError になる。
+func MustSwapMainInner(t testing.TB, htmlText string) {
+	t.Helper()
+	root, err := html.Parse(strings.NewReader(htmlText))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	found := 0
+	var walk func(n *html.Node)
+	walk = func(n *html.Node) {
+		if n.Type == html.ElementNode {
+			if target, _ := Attr(n, "hx-target"); target == "#main" {
+				found++
+				if swap, _ := Attr(n, "hx-swap"); swap != "innerHTML" {
+					t.Errorf("<%s hx-target=\"#main\"> の hx-swap = %q; want %q（祖先の hx-swap を継承させない）", n.Data, swap, "innerHTML")
+				}
+			}
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+	}
+	walk(root)
+	if found == 0 {
+		t.Errorf("hx-target=\"#main\" を持つ要素が無い:\n%s", htmlText)
+	}
+}

@@ -1,6 +1,7 @@
 package format
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/ousiassllc/swarm-viewer/internal/domain"
@@ -18,6 +19,8 @@ const (
 	OpsLeakNote = "token が漏れると、この Tailscale 内からペインを操作されます。紛失したらホストで `swarm-console token revoke <名前>` を実行してください"
 	// ViewOnlyAskNote は見るだけの接続の質問カードに添える 1 行。
 	ViewOnlyAskNote = "この質問には、操作できる接続から答えられます"
+	// ViewOnlyPromptNote は見るだけの接続のペイン詳細に添える 1 行（指示の入力欄が無い理由と、出すための方法）。
+	ViewOnlyPromptNote = "この接続は見るだけです。ペインへの指示は、操作の接続（/ops）で登録すると入力できます"
 )
 
 // operationMessages は ErrOperation の Code ごとの固定文言（機能要件 §10）。
@@ -40,6 +43,29 @@ var operationMessages = map[string]string{
 	"not_found":              "フォルダが見つかりません",
 	"unknown_tool":           "この接続では使えない操作です（ホストの swarm-console が古い可能性があります）",
 	"invalid_args":           "入力内容を受け付けられませんでした",
+}
+
+// 新しいセッションの最初のタスク（FR-OPS-11。機能要件 §10.1）の固定文言。スキル名・本文・invoke は文言に含めない。
+const (
+	// SkillUnsupportedMessage は skill_list が unknown_tool（ホストの swarm-console が古い）のとき。
+	SkillUnsupportedMessage = "スキルの一覧を取得できません（ホストの swarm-console が古い可能性があります）"
+	// SkillLoadFailedMessage は skill_list のそれ以外の失敗のとき（「再読み込み」を付ける）。
+	SkillLoadFailedMessage = "スキルの一覧を読み込めませんでした"
+	// FirstTaskFailedMessage は pane_start に成功したが、最初のタスクを送れなかったとき（理由を続けて出す）。
+	FirstTaskFailedMessage = "起動しました。最初のタスクを送れませんでした"
+)
+
+// SkillListFailureMessage は skill_list の失敗の固定文言と、「再読み込み」を付けるか。unknown_tool は再読み込みしても変わらない。
+func SkillListFailureMessage(err error) (message string, reload bool) {
+	if fe, ok := errors.AsType[*domain.FetchError](err); ok && fe.Kind == domain.ErrOperation && fe.Code == "unknown_tool" {
+		return SkillUnsupportedMessage, false
+	}
+	return SkillLoadFailedMessage, true
+}
+
+// FirstTaskNotIdleMessage は pane_start に成功したが state が idle 以外のため、最初のタスクを送らなかったとき。
+func FirstTaskNotIdleMessage(state string) string {
+	return "起動しました。最初のタスクはまだ送っていません（状態: " + state + "）。ペイン詳細から送れます"
 }
 
 // OperationMessage は ErrOperation の Code の固定文言。知らないコードは invalid_args と同じ文言（本文は出さない）。

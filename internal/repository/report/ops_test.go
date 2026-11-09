@@ -18,6 +18,7 @@ func opsServerTools() map[string]toolReply {
 	tools[toolPaneStart] = toolReply{text: `{"ok":true,"state":"idle","agent":"omp","cwd":"/w","title":"agent: t"}`}
 	tools[toolPaneClose] = toolReply{text: `{"ok":true,"state":"shell","note_archived":true}`}
 	tools[toolDirList] = toolReply{text: `{"path":"/w","entries":[{"name":"a","path":"/w/a","git":true}],"truncated":true}`}
+	tools[toolSkillList] = toolReply{text: `{"agent":"omp","skills":[{"name":"impl","description":"実装する","invoke":"/impl"},{"name":"","description":"x","invoke":"/x"}],"truncated":true}`}
 	return tools
 }
 
@@ -61,6 +62,9 @@ func TestOpsConnection_MethodsSendExpectedToolsAndArguments(t *testing.T) {
 	if _, err := c.DirList(t.Context(), conn, "/w"); err != nil {
 		t.Fatal(err)
 	}
+	if r, err := c.SkillList(t.Context(), conn, "omp"); err != nil || r.Agent != "omp" || len(r.Skills) != 1 || r.Skills[0].Invoke != "/impl" || !r.Truncated {
+		t.Fatalf("SkillList = %+v, %v", r, err)
+	}
 
 	type want struct {
 		tool string
@@ -78,6 +82,7 @@ func TestOpsConnection_MethodsSendExpectedToolsAndArguments(t *testing.T) {
 		{"pane_close", map[string]any{"session": "0", "pane": "T1"}},
 		{"dir_list", map[string]any{}},
 		{"dir_list", map[string]any{"path": "/w"}},
+		{"skill_list", map[string]any{"agent": "omp"}}, // session も cwd も取らない
 	}
 	var calls []recordedRequest
 	for _, r := range reqs.all() {
@@ -209,9 +214,55 @@ func TestOpsConnection_BadTokenIsUnauthorized(t *testing.T) {
 
 func TestToolTimeouts_OperationToolsWaitLongerThanReads(t *testing.T) {
 	c := &Client{timeout: 10 * 1_000_000_000}
-	for tool, scale := range map[string]int64{toolSessionsList: 1, toolReport: 1, toolPaneTail: 1, toolAskCard: 1, toolDirList: 1, toolAskPick: 3, toolSendText: 3, toolSendEscape: 3, toolPaneStart: 5, toolPaneClose: 5} {
+	for tool, scale := range map[string]int64{toolSessionsList: 1, toolReport: 1, toolPaneTail: 1, toolAskCard: 1, toolDirList: 1, toolSkillList: 1, toolAskPick: 3, toolSendText: 3, toolSendEscape: 3, toolPaneStart: 5, toolPaneClose: 5} {
 		if got := int64(c.timeoutFor(tool)); got != scale*int64(c.timeout) {
 			t.Errorf("%s: timeout = %v; want %d 倍", tool, got, scale)
+		}
+	}
+}
+
+// skill_list の agent は通信前に検査する。未実装のホスト（unknown_tool）は Code を保ち、スキル名などをログに出さない。
+func TestSkillList_InvalidAgentIsRejectedBeforeCommunicating(t *testing.T) {
+	ts, reqs := newStatelessServer(t, stubOptions{jsonResponse: true, tools: opsServerTools()})
+	c, _ := newTestClient(t)
+	conn := testConn(ts)
+	conn.URL = ts.URL + domain.OpsPath
+	for _, agent := range []string{"", "vim", "OMP"} {
+		_, err := c.SkillList(t.Context(), conn, agent)
+		if fe := assertFetchError(t, err, domain.ErrOperation); fe.Code != "invalid_args" {
+			t.Errorf("agent %q: code = %q", agent, fe.Code)
+		}
+	}
+	if reqs.count() != 0 {
+		t.Fatalf("requests = %d; want 0", reqs.count())
+	}
+}
+
+func TestSkillList_UnknownToolIsOperationWithCodeAndNothingLeaks(t *testing.T) {
+	ts, _ := newStatelessServer(t, stubOptions{jsonResponse: true, tools: map[string]toolReply{toolSkillList: toolError("unknown_tool")}})
+	c, logs := newTestClient(t)
+	conn := testConn(ts)
+	conn.URL = ts.URL + domain.OpsPath
+	_, err := c.SkillList(t.Context(), conn, "claude")
+	if fe := assertFetchError(t, err, domain.ErrOperation); fe.Code != "unknown_tool" {
+		t.Errorf("code = %q", fe.Code)
+	}
+	if strings.Contains(err.Error(), secretMessage) || strings.Contains(logs.String(), secretMessage) {
+		t.Error("エラー・ログに応答本文が含まれる")
+	}
+}
+
+func TestSkillList_NamesDescriptionsAndInvokeAreNotLogged(t *testing.T) {
+	ts, _ := newStatelessServer(t, stubOptions{jsonResponse: true, tools: opsServerTools()})
+	c, logs := newTestClient(t)
+	conn := testConn(ts)
+	conn.URL = ts.URL + domain.OpsPath
+	if _, err := c.SkillList(t.Context(), conn, "omp"); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{"実装する", "/impl"} {
+		if strings.Contains(logs.String(), s) {
+			t.Errorf("ログに %q が含まれる", s)
 		}
 	}
 }

@@ -43,7 +43,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AppTextField
 import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
 
 /**
- * 新しいセッション（機能要件 §4.7）。エージェント（omp / claude / codex）→ フォルダ（[FolderPicker]）→ タイトル → 確認 → `pane_start`。
+ * 新しいセッション（機能要件 §4.7）。エージェント（omp / claude / codex）→ フォルダ（[FolderPicker]）→ スキル（[SkillPicker]。任意）→ 本文（[TaskField]。任意）→ タイトル → 確認 → `pane_start`。
  * 見るだけの接続では何も出さず固定文言だけ（導線も出さない）。起動できたら [onStarted]（そのペインの詳細へ）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,10 +77,11 @@ fun StartSessionScreen(
                     AppAlert(NEEDS_REPAIR_LABEL) { AppButton(onClick = onRepair, modifier = Modifier.bigButton()) { Text("再ペアリング") } }
                 }
                 state.message?.let { AppAlert(it) }
-                if (state.viewOnly) {
-                    AppAlert(VIEW_ONLY_MESSAGE)
-                } else {
-                    StartForm(state, viewModel)
+                val notice = state.notice
+                when {
+                    state.viewOnly -> AppAlert(VIEW_ONLY_MESSAGE)
+                    notice != null -> FirstTaskNoticeCard(notice, state.busy, viewModel)
+                    else -> StartForm(state, viewModel)
                 }
             }
         }
@@ -103,6 +104,8 @@ private fun StartForm(
     }
     Text("フォルダ", style = MaterialTheme.typography.titleSmall)
     FolderPicker(state, viewModel)
+    SkillPicker(state, viewModel)
+    TaskField(state, viewModel)
     Text("タイトル", style = MaterialTheme.typography.titleSmall)
     AppTextField(
         value = state.title,
@@ -122,7 +125,7 @@ private fun StartForm(
     AppButton(onClick = viewModel::requestConfirm, enabled = state.canConfirm && enabled, modifier = Modifier.bigButton()) { Text("確認へ") }
 }
 
-/** 確認: エージェント・フォルダ・タイトルの要約。確定で `pane_start`。 */
+/** 確認: エージェント・フォルダ・スキル・本文の先頭・タイトルの要約。確定で `pane_start`（最初のタスクがあれば続けて `send_text`）。 */
 @Composable
 private fun StartConfirmDialog(
     state: StartSessionUiState,
@@ -136,6 +139,8 @@ private fun StartConfirmDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("エージェント: ${state.agent.orEmpty()}")
                 Text("フォルダ: ${state.folder.orEmpty()}")
+                Text("スキル: ${state.skill?.name ?: "なし"}")
+                if (state.task.isNotBlank()) Text("本文: ${state.taskHead}")
                 Text("タイトル: ${normalizeTitle(state.title).orEmpty()}")
             }
         },

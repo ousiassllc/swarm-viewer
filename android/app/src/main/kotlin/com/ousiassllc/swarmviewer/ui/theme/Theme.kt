@@ -4,6 +4,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
@@ -19,17 +20,24 @@ val MaterialTheme.extraColors: ExtraColors
     get() = LocalExtraColors.current
 
 private val GUTTER_COMPACT = 16.dp
-private val GUTTER_WIDE = 24.dp
+private val GUTTER_MEDIUM = 24.dp
+private val GUTTER_EXPANDED = 32.dp
 
 /**
- * 画面の左右・上下のガター（ガイド S5: モバイル `--s-4` 16・`md` 以上 `--s-6` 24）。
- * Android の `md` 相当は幅の区分が Compact でない幅（Medium 以上 = 600dp 以上）で、メインの 2 列表示の切替と同じ境目にする。
+ * 画面の四辺のガター（NFR-DSG-10）。幅の区分で Compact 16・Medium（600dp〜。メインの 2 列表示の切替と同じ境目）24・Expanded（840dp〜）32。
+ * Web は `layout/base.templ` の `p-4 medium:p-6 expanded:p-8` で同じ境目・同じ値にする。
+ * システムバー・切り欠きの inset はこの外側（Scaffold・[com.ousiassllc.swarmviewer.MainActivity]）が受け持ち、ガターは inset の内側に足す。
  * [SwarmViewerTheme] の外では 16dp。
  */
 val LocalGutter = staticCompositionLocalOf { GUTTER_COMPACT }
 
-/** 幅の区分（[wide] = Compact でない）に応じたガター。 */
-fun gutterFor(wide: Boolean) = if (wide) GUTTER_WIDE else GUTTER_COMPACT
+/** 幅の区分に応じたガター。 */
+fun gutterFor(widthClass: WindowWidthSizeClass) =
+    when (widthClass) {
+        WindowWidthSizeClass.Compact -> GUTTER_COMPACT
+        WindowWidthSizeClass.Medium -> GUTTER_MEDIUM
+        else -> GUTTER_EXPANDED
+    }
 
 /** ガイドの角丸: r-sm 4（タグ・チェック）/ r-md 8（入力・ボタン）/ r-lg 12（カード）/ r-xl 16（モーダル）。 */
 private val GuideShapes =

@@ -18,7 +18,7 @@ func callOf(t *testing.T, s *opsconsole.Stack, tool string) opsconsole.Request {
 	if r.Path != pathOps || r.Auth != "Bearer "+opsconsole.Token {
 		t.Errorf("%s: path=%q auth=%q; want /ops と Bearer", tool, r.Path, r.Auth)
 	}
-	if r.Args["session"] == nil && tool != "dir_list" {
+	if r.Args["session"] == nil && tool != "dir_list" && tool != "skill_list" {
 		t.Errorf("%s: session が明示されていない: %v", tool, r.Args)
 	}
 	return r
