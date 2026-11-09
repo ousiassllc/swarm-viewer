@@ -42,6 +42,7 @@ import com.ousiassllc.swarmviewer.ui.theme.AppAlert
 import com.ousiassllc.swarmviewer.ui.theme.AppButton
 import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppOutlinedButton
+import com.ousiassllc.swarmviewer.ui.theme.ConsoleFontFamily
 import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
 import com.ousiassllc.swarmviewer.ui.theme.MonoFontFamily
 import kotlinx.coroutines.delay
@@ -148,8 +149,8 @@ private fun PaneDetailBody(
     }
     TailSection(state, viewModel)
     SendSection(controls, state.busy, state.sendText, viewModel::onSendTextChange, viewModel::send)
-    EscapeCloseSection(controls, state.busy, viewModel::requestEscape, viewModel::requestClose)
     if (controls.showViewOnlyPromptHint) MutedText(PROMPT_VIEW_ONLY_HINT)
+    EscapeCloseSection(controls, state.busy, viewModel::requestEscape, viewModel::requestClose)
 }
 
 /** ヘッダ: ペイン位置・状態・種類のバッジ、エージェント、タイトル・cwd・メモ（`repo`・`items`）。すべてテキストとして描画する。 */
@@ -175,7 +176,7 @@ private fun PaneHeader(
     }
 }
 
-/** `pane_tail` の本文（等幅・テキスト。HTML として解釈しない）と、更新・「もっと見る」。 */
+/** `pane_tail` の本文（等幅・テキスト。HTML として解釈しない。Nerd Font のアイコンも字形で出す）と、更新・「もっと見る」。 */
 @Composable
 private fun TailSection(
     state: PaneDetailUiState,
@@ -192,7 +193,7 @@ private fun TailSection(
                     .padding(12.dp)
                     .horizontalScroll(rememberScrollState()),
         ) {
-            Text(tail.text, style = MaterialTheme.typography.bodyMedium, fontFamily = MonoFontFamily, softWrap = false)
+            Text(tail.text, style = MaterialTheme.typography.bodyMedium, fontFamily = ConsoleFontFamily, softWrap = false)
         }
         if (tail.truncated) MutedText("末尾 ${state.lines} 行のみ表示しています")
     }

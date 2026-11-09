@@ -118,7 +118,7 @@
 
 @theme {
   --font-sans: Sora, "Noto Sans JP", "Symbols Nerd Font", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-mono: "JetBrains Mono", "Symbols Nerd Font", ui-monospace, monospace;
 
   --text-xs: 0.75rem;
   --text-xs--line-height: 1.6;
