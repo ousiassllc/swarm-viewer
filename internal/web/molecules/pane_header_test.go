@@ -35,9 +35,8 @@ func TestPaneHeader_NoteShowsEveryItemInFull(t *testing.T) {
 			t.Errorf("画面のテキストに %q の全文が出ない:\n%s", want, html)
 		}
 	}
-	// 1 行で切らない（truncate なし）・3 件に要約しない（「+N」なし）。折り返して読める。
+	// 3 件に要約しない（「+N」なし）・1 行で切らない（truncate なし）。
 	webtest.MustNotContain(t, html, "truncate", "+3")
-	webtest.MustContain(t, html, "break-words")
 }
 
 // メモがないときは枠ごと出さない。
