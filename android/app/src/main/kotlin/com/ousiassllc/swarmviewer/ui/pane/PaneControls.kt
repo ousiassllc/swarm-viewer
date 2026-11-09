@@ -8,7 +8,7 @@ import com.ousiassllc.swarmviewer.domain.PaneState
  * ペイン詳細で**何を描画するか**の判定（機能要件 §4.7）。画面はこの値だけを見て部品を出すので、
  * 見るだけの接続で操作 UI が出ないことは、この関数のテストで示せる（Compose の UI テストを持たないため）。
  *
- *  - 見るだけ（[ConnectionKind.View]）: 質問文と選択肢の**一覧**（[showCardList]）と、操作できる接続への案内（[showViewOnlyHint]）だけ。
+ *  - 見るだけ（[ConnectionKind.View]）: 質問文と選択肢の**一覧**（[showCardList]）と、操作できる接続への案内（[showViewOnlyHint]。ペインがあれば指示の入力欄が無い理由の 1 行 [showViewOnlyPromptHint] も）だけ。
  *    ボタン・送信欄・中断・終了は false
  *  - 操作（[ConnectionKind.Ops]）: 質問カードは選択肢のボタン（[showCardButtons]）。送信欄は常に出し、`idle`・`stalled` 以外は
  *    無効にして理由（[sendDisabledReason]）を 1 行出す。中断は `working`・`stalled`・`asking`・`idle`、終了は `idle`・`shell`、
@@ -17,6 +17,7 @@ import com.ousiassllc.swarmviewer.domain.PaneState
 data class PaneControls(
     val showCardList: Boolean = false,
     val showViewOnlyHint: Boolean = false,
+    val showViewOnlyPromptHint: Boolean = false,
     val showCardButtons: Boolean = false,
     val showCustomEntry: Boolean = false,
     val showSendField: Boolean = false,
@@ -52,7 +53,9 @@ fun paneControls(
     card: AskCard?,
 ): PaneControls {
     val asking = state == PaneState.Asking && card?.asking == true
-    if (kind != ConnectionKind.Ops) return PaneControls(showCardList = asking, showViewOnlyHint = asking)
+    if (kind != ConnectionKind.Ops) {
+        return PaneControls(showCardList = asking, showViewOnlyHint = asking, showViewOnlyPromptHint = state != null)
+    }
     if (state == null) return PaneControls()
     return PaneControls(
         showCardList = asking,

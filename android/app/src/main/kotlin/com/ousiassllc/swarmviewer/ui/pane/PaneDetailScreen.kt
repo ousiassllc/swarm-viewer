@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ousiassllc.swarmviewer.domain.Pane
 import com.ousiassllc.swarmviewer.service.PaneTarget
 import com.ousiassllc.swarmviewer.ui.NEEDS_REPAIR_LABEL
+import com.ousiassllc.swarmviewer.ui.PROMPT_VIEW_ONLY_HINT
 import com.ousiassllc.swarmviewer.ui.main.Badge
 import com.ousiassllc.swarmviewer.ui.main.DisplayTone
 import com.ousiassllc.swarmviewer.ui.main.KindBadge
@@ -148,6 +149,7 @@ private fun PaneDetailBody(
     TailSection(state, viewModel)
     SendSection(controls, state.busy, state.sendText, viewModel::onSendTextChange, viewModel::send)
     EscapeCloseSection(controls, state.busy, viewModel::requestEscape, viewModel::requestClose)
+    if (controls.showViewOnlyPromptHint) MutedText(PROMPT_VIEW_ONLY_HINT)
 }
 
 /** ヘッダ: ペイン位置・状態・種類のバッジ、エージェント、タイトル・cwd・メモ（`repo`・`items`）。すべてテキストとして描画する。 */

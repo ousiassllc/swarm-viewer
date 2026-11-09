@@ -44,6 +44,19 @@ class PaneControlsTest {
     }
 
     @Test
+    fun aViewOnlyPaneDetailExplainsWhyThereIsNoPromptField() {
+        for (state in PaneState.entries) {
+            val controls = paneControls(ConnectionKind.View, state, null)
+            assertTrue("$state: 見るだけの案内", controls.showViewOnlyPromptHint)
+            assertFalse("$state: 案内は操作の部品ではない", controls.anyOperation)
+        }
+        assertFalse("ペインが無い間は案内を出さない", paneControls(ConnectionKind.View, null, null).showViewOnlyPromptHint)
+        for (state in PaneState.entries) {
+            assertFalse("$state: 操作の接続には出さない", paneControls(ConnectionKind.Ops, state, null).showViewOnlyPromptHint)
+        }
+    }
+
+    @Test
     fun anOpsAskingCardShowsButtonsAndTheCustomEntryOnlyWhenAllowed() {
         val controls = paneControls(ConnectionKind.Ops, PaneState.Asking, ASKING_CARD)
         assertTrue(controls.showCardList && controls.showCardButtons && controls.showCustomEntry)

@@ -111,6 +111,8 @@ templ Live(p LiveProps) {
 			if p.showOps() {
 				@SendForm(p)
 				@paneDanger(p)
+			} else if !p.isOps() && !p.Repair {
+				<p class="text-sm text-mute" data-view-only-prompt-note>{ format.ViewOnlyPromptNote }</p>
 			}
 		}
 	</div>
@@ -168,9 +170,9 @@ templ paneDanger(p LiveProps) {
 					href={ templ.SafeURL(paths.PaneStart(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos)) }
 					hx-get={ paths.PaneStart(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos) }
 					hx-target="#main"
+					hx-swap="innerHTML"
 					hx-sync={ PreemptPoll }
 					class="text-link hover-fade text-sm text-ink"
-					hx-swap="innerHTML"
 				>＋ 始める</a>
 			}
 		</div>

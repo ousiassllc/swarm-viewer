@@ -36,3 +36,11 @@ func TestPaneLive_RepairLinkDoesNotInheritOuterHTMLSwap(t *testing.T) {
 	mustContain(t, html, "再ペアリング")
 	webtest.MustSwapMainInner(t, html)
 }
+
+// 操作の接続のペイン詳細には送信欄が出て、見るだけの案内は出ない（Issue #101）。
+func TestOpsConnection_PaneDetailShowsPromptFieldWithoutViewOnlyNote(t *testing.T) {
+	s := opsconsole.NewStack(t, pathOps)
+	html := live(t, s, "T3")
+	mustContain(t, html, "<textarea", `id="pane-send-text"`, "指示を送る")
+	mustNotContain(t, html, "data-view-only-prompt-note", "見るだけです")
+}
