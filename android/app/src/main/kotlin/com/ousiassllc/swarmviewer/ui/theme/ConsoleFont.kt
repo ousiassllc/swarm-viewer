@@ -15,10 +15,16 @@ import android.graphics.fonts.FontFamily as PlatformFontFamily
 import android.graphics.fonts.FontStyle as PlatformFontStyle
 
 /**
+ * `pane_tail` の本文の書体の代替の順（同梱のフォント）: JetBrains Mono → Symbols Nerd Font Mono。最後にシステムの等幅フォントへ落ちる。
+ * Symbols を外すと、本文の Nerd Font のアイコンが □ に戻る（Issue #102）。
+ */
+internal val CONSOLE_FONT_CHAIN: List<Int> = listOf(R.font.jetbrains_mono_regular, R.font.symbols_nerd_font_mono_regular)
+
+/**
  * `pane_tail`（ホストのペインの画面）の本文用の書体。ペインの画面には Nerd Font のアイコン（私用領域 PUA）が混ざり、
  * JetBrains Mono にもシステムの等幅フォントにも字形が無いので、そのままでは □ になる（Issue #102）。
  * Compose の [FontFamily] はグリフごとの代替を持てないので、[UiFontFamily] と同じく
- * Android の [Typeface.CustomFallbackBuilder]（API 29 以上）で「JetBrains Mono → 同梱の Symbols Nerd Font Mono → システムの等幅フォント」の順に代替する。
+ * Android の [Typeface.CustomFallbackBuilder]（API 29 以上）で [CONSOLE_FONT_CHAIN] の順に代替し、最後はシステムの等幅フォントにする。
  * Symbols は PUA のアイコンだけを持つので、ほかの字（ASCII・日本語）は JetBrains Mono とシステムのフォントで描かれる。
  */
 private object ConsoleFont : AndroidFont(FontLoadingStrategy.Blocking, ConsoleFontLoader, FontVariation.Settings()) {
@@ -30,9 +36,9 @@ private object ConsoleFont : AndroidFont(FontLoadingStrategy.Blocking, ConsoleFo
             val resources = context.resources
 
             fun family(res: Int) = PlatformFontFamily.Builder(PlatformFont.Builder(resources, res).build()).build()
-            Typeface
-                .CustomFallbackBuilder(family(R.font.jetbrains_mono_regular))
-                .addCustomFallback(family(R.font.symbols_nerd_font_mono_regular))
+            val builder = Typeface.CustomFallbackBuilder(family(CONSOLE_FONT_CHAIN.first()))
+            CONSOLE_FONT_CHAIN.drop(1).forEach { builder.addCustomFallback(family(it)) }
+            builder
                 .setSystemFallback("monospace")
                 .setStyle(PlatformFontStyle(FontWeight.Normal.weight, PlatformFontStyle.FONT_SLANT_UPRIGHT))
                 .build()
