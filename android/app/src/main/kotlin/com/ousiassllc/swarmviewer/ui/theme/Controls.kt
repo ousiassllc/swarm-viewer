@@ -109,6 +109,7 @@ private val RefreshSpinnerSize = 20.dp
  * 引っ張って更新のインジケーター（ガイド S3・§6: 影はモーダルだけ）: surface の円・1dp の border・影なし・中は primary の円形進捗。
  * M3 の既定（`PullToRefreshDefaults.Indicator`）は引っ張り始めから更新中まで 2 段の影を付けるので、影を 0 にした自前の面に置き換える。
  * 引っ張っている間は進捗が引っ張り量に追従し、更新中は不定の回転になる。`PullToRefreshBox` の `indicator` に渡す。
+ * ガイドにモバイルの更新操作の規定はまだない（NFR §11 の承認済みの逸脱。追加提案は brand-guide#9）。規定が入ったらそれに合わせる。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
