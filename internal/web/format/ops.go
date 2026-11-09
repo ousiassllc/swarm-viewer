@@ -19,6 +19,8 @@ const (
 	OpsLeakNote = "token が漏れると、この Tailscale 内からペインを操作されます。紛失したらホストで `swarm-console token revoke <名前>` を実行してください"
 	// ViewOnlyAskNote は見るだけの接続の質問カードに添える 1 行。
 	ViewOnlyAskNote = "この質問には、操作できる接続から答えられます"
+	// ViewOnlyPromptNote は見るだけの接続のペイン詳細に添える 1 行（指示の入力欄が無い理由と、出すための方法）。
+	ViewOnlyPromptNote = "この接続は見るだけです。ペインへの指示は、操作の接続（/ops）で登録すると入力できます"
 )
 
 // operationMessages は ErrOperation の Code ごとの固定文言（機能要件 §10）。

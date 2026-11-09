@@ -95,6 +95,7 @@ templ paneCell(p PaneGridProps, pane domain.Pane) {
 				href={ templ.SafeURL(paths.Pane(p.ConnectionID, p.Session, pane.Pos)) }
 				hx-get={ paths.Pane(p.ConnectionID, p.Session, pane.Pos) }
 				hx-target="#main"
+				hx-swap="innerHTML"
 				aria-label={ "ペイン " + pane.Pos + " の詳細を開く" }
 				data-pane-link
 				class="hover-fade block min-w-0 rounded-lg hover:bg-accent-soft/40"
@@ -106,6 +107,7 @@ templ paneCell(p PaneGridProps, pane domain.Pane) {
 					href={ templ.SafeURL(paths.PaneStart(p.ConnectionID, p.Session, pane.Pos)) }
 					hx-get={ paths.PaneStart(p.ConnectionID, p.Session, pane.Pos) }
 					hx-target="#main"
+					hx-swap="innerHTML"
 					data-pane-start
 					class="hover-fade inline-flex h-8 w-fit items-center rounded-md border border-border px-3 text-sm font-semibold text-ink hover:bg-accent-soft"
 				>＋ 始める</a>
