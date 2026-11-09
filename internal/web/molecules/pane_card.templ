@@ -48,6 +48,32 @@ func noteTooltip(n *domain.Note) string {
 	return format.JoinNonEmpty("\n", n.Repo, joinLines(n.Items))
 }
 
+// noteLines は表示するメモの行を返す。full は全件、そうでなければ要約（機能要件 §4.4）。
+func noteLines(n *domain.Note, full bool) (repo string, items []string, more int) {
+	if full && n != nil {
+		return n.Repo, n.Items, 0
+	}
+	return format.NoteSummary(n)
+}
+
+// noteTextClass は 1 行で切る（truncate）か、折り返して全文を出す（break-words）かを決める。
+func noteTextClass(full bool, extra string) string {
+	cut := "truncate"
+	if full {
+		cut = "min-w-0 break-words"
+	}
+	return format.JoinNonEmpty(" ", cut, extra)
+}
+
+// noteItemClass は項目の行。全文のときは折り返しても点が先頭行に付くよう上寄せにする。
+func noteItemClass(full bool) string {
+	const marker = "gap-(--list-marker-gap) before:size-(--list-marker-size) before:shrink-0 before:rounded-full before:bg-mute"
+	if full {
+		return "flex items-start " + marker + " before:mt-[7.5px]"
+	}
+	return "flex items-center " + marker
+}
+
 func joinLines(items []string) string {
 	return format.JoinNonEmpty("\n", items...)
 }
@@ -76,21 +102,29 @@ templ PaneCard(p PaneCardProps) {
 		if p.Pane.Activity != "" {
 			<p class="truncate text-sm text-ink" title={ activityText(p.Pane) }>{ activityText(p.Pane) }</p>
 		}
-		@paneNote(p.Pane.Note)
+		@paneNote(p.Pane.Note, false)
 	</article>
 }
 
-templ paneNote(n *domain.Note) {
-	if repo, items, more := format.NoteSummary(n); repo != "" || len(items) > 0 {
-		<div class="rounded-md border border-border bg-bone px-3 py-2 text-sm text-ink" title={ noteTooltip(n) }>
+// paneNote はメモ（repo と items）の入れ子パネル。
+// full=false（S2 のカード）は repo と items 先頭 3 件を 1 行で切り、残りを「+N」にして、全文は title に載せる。
+// full=true（S4 のヘッダ）は repo と items の全件を折り返して全文で出す（タッチ・キーボードでは title が出ないため。NFR-DSG-19）。
+templ paneNote(n *domain.Note, full bool) {
+	if repo, items, more := noteLines(n, full); repo != "" || len(items) > 0 {
+		<div
+			class="rounded-md border border-border bg-bone px-3 py-2 text-sm text-ink"
+			if !full {
+				title={ noteTooltip(n) }
+			}
+		>
 			if repo != "" {
-				<p class="truncate font-mono text-mute">{ repo }</p>
+				<p class={ noteTextClass(full, "font-mono text-mute") }>{ repo }</p>
 			}
 			if len(items) > 0 {
 				<ul class="flex flex-col gap-(--list-gap)">
 					for _, item := range items {
-						<li class="flex items-center gap-(--list-marker-gap) before:size-(--list-marker-size) before:shrink-0 before:rounded-full before:bg-mute">
-							<span class="truncate">{ item }</span>
+						<li class={ noteItemClass(full) }>
+							<span class={ noteTextClass(full, "") }>{ item }</span>
 						</li>
 					}
 				</ul>

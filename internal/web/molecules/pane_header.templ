@@ -31,6 +31,6 @@ templ PaneHeader(p PaneHeaderProps) {
 		if p.Pane.CWD != "" {
 			<p class="break-all font-mono text-xs text-mute">{ p.Pane.CWD }</p>
 		}
-		@paneNote(p.Pane.Note)
+		@paneNote(p.Pane.Note, true)
 	</header>
 }

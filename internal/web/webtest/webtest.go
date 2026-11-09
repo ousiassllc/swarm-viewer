@@ -121,3 +121,19 @@ func MustSwapMainInner(t testing.TB, htmlText string) {
 		t.Errorf("hx-target=\"#main\" を持つ要素が無い:\n%s", htmlText)
 	}
 }
+
+// Text は要素以下のテキスト（属性は含まない。画面に出る文字）を連結して返す。
+func Text(n *html.Node) string {
+	var sb strings.Builder
+	var walk func(n *html.Node)
+	walk = func(n *html.Node) {
+		if n.Type == html.TextNode {
+			sb.WriteString(n.Data)
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+	}
+	walk(n)
+	return sb.String()
+}
