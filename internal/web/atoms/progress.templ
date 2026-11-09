@@ -9,7 +9,7 @@ import (
 type ProgressBarProps struct {
 	// Percent は使用率（%）。0〜100 に丸めて描画する。
 	Percent float64
-	// Tone は塗りの色。しきい値色は呼び出し側が format.SlotTone / format.PercentTone で決める。
+	// Tone は塗りの色。しきい値色（80% 以上 warning・95% 以上 danger。NFR-DSG-20）は呼び出し側が format.SlotTone / format.PercentTone で決める。
 	Tone format.Tone
 	// Label はスクリーンリーダー向けの名前（例: 「5 時間枠」）。
 	Label string

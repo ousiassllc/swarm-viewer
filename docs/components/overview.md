@@ -449,7 +449,7 @@ func (s *PaneService) Dirs(ctx context.Context, connID, path string) (ops.DirLis
 | 層 | コンポーネント | Props（要点） | 備考 |
 |----|---------------|--------------|------|
 | atoms | `Badge` | `Text`・`Tone`・`Marker` | エージェント種別・状態・要対応。`Marker` が true のとき、文言の前に文字と同じ色の小さな点を置く（状態を示すバッジだけに付け、エージェント名のバッジには付けない） |
-| atoms | `ProgressBar` | `Percent`・`Tone` | 利用上限・ホスト負荷 |
+| atoms | `ProgressBar` | `Percent`・`Tone` | 利用上限・ホスト負荷。塗りの色は呼び出し側が `format.SlotTone`・`format.PercentTone` で決める（80% 以上 `warning`・95% 以上 `danger`。NFR-DSG-20） |
 | atoms | `Spinner` | `ID` | `hx-indicator` 用。ガイドどおり 20px・線 2px・回転 0.9s の 1 種だけ（サイズの指定はない） |
 | atoms | `Toast` | `Message` | OOB 用。1 行の短文（エラー詳細には使わず、`Alert` を使う）。幅は `min(92vw, 420px)` で頭打ち、出現・退出の移動量は 8px |
 | atoms | `Alert` | `Kind`（`info`・`success`・`warning`・`danger`）・`Title`・`Message`・`Attrs`・子要素 | インラインアラート（アイコン＋見出し＋本文）。`Title` は任意（SemiBold・14px）で、取得失敗バナーは失敗の種別を見出し、「前回取得 … / 次回再試行 …」を本文にする。1 文で足りるエラーは `Message` だけで出す（NFR-DSG-7）。応答全体の失敗・フォームのエラー・警告バナー・取得失敗バナーはすべてこれに載せる。状態は色だけでなくアイコンと文言でも伝える（ガイド C4）。`danger`・`warning` は `role="alert"`、`info`・`success` は `role="status"` |
