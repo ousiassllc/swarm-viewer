@@ -192,7 +192,7 @@ swarm-console のエラー本文は HTTP レベルでもツールでも `{"error
 | `pane_start` | `ok`・`state`・`agent`・`cwd`・`title` |
 | `pane_close` | `ok`・`state`・`note_archived`（`steps` は読まない） |
 | `dir_list` | `path`・`entries[]{name, path, git}`・`truncated` |
-| `skill_list` | `agent`・`skills[]{name, description, invoke}`・`truncated` |
+| `skill_list` | `agent`・`skills[]{name, description, invoke}`・`truncated`（`name` か `invoke` が空の項目は捨てる。`description` の欠落・null は空文字） |
 
 ### 1.6 MCP ハンドシェイク
 
@@ -328,7 +328,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | POST | `P/close` | アクション | `HX-Redirect: /connections/{cid}/sessions/{sid}`（成功）/ フラグメント | `confirm=true`（確認ダイアログで確定したフォームだけが付ける。無ければ `pane_close` を呼ばず `confirm_required`。`escape` と同じ）、`lines`。送る前に最新の `report` でペインの状態を再検査し、`idle`・`shell` 以外は通信せず `invalid_state`。成功はトーストなしでメイン画面へ。`exit_timeout` は「もう一度試す」付きの表示。**操作の接続のみ** |
 | GET | `P/start` | ページ | フルページ / フラグメント | 新しいセッションの入力画面（S5。エージェント・フォルダピッカー・スキル（任意）・本文（任意）・タイトル）。**操作の接続のみ**。`shell` のペインだけ（それ以外・`report` が取れないときは、入力画面でなく固定文言の案内） |
 | GET | `P/start/dirs?path=&pick=1` | ページ（部分） | フラグメント | フォルダピッカー（`dir_list`。`path` 省略 = `allowed_roots`。省略のときは最近使ったフォルダ（`report` の `agent` があるペインの `cwd`、最大 5 件）も出す）。`pick=1` かつ `path` ありは「このフォルダを選ぶ」で、通信せずに選択済みの表示を返す（許可の判定は `pane_start` が行う）。**操作の接続のみ** |
-| GET | `P/start/skills?agent=` | ページ（部分） | フラグメント | スキルの選択部品（`skill_list`。`agent` は `omp`・`claude`・`codex`。エージェントを選んだときに取得し、結果は画面を開いている間のメモリだけに持つ）。1 つ選ぶか「スキルなし」。`unknown_tool`（ホストが古い）は固定文言「スキルの一覧を取得できません（ホストの swarm-console が古い可能性があります）」、それ以外の失敗は「スキルの一覧を読み込めませんでした」＋「再読み込み」。どちらも「スキルなし」で起動は続けられる。`skills[].name`・`description`・`invoke` は信頼できない入力として常にテキストで描画する（`templ.Raw` を使わない）。**操作の接続のみ**（見るだけは 403 と固定文言で、コンソールに通信しない） |
+| GET | `P/start/skills?agent=` | ページ（部分） | フラグメント | スキルの選択部品（`skill_list`。`agent` は `omp`・`claude`・`codex`（それ以外は通信せず 400 と固定文言「入力内容を受け付けられませんでした」）。エージェントを選んだときに取得し、結果は画面を開いている間のメモリだけに持つ）。1 つ選ぶか「スキルなし」。`unknown_tool`（ホストが古い）は固定文言「スキルの一覧を取得できません（ホストの swarm-console が古い可能性があります）」、それ以外の失敗は「スキルの一覧を読み込めませんでした」＋「再読み込み」。どちらも「スキルなし」で起動は続けられる。`skills[].name`・`description`・`invoke` は信頼できない入力として常にテキストで描画する（`templ.Raw` を使わない）。**操作の接続のみ**（見るだけは 403 と固定文言で、コンソールに通信しない） |
 | POST | `P/start` | アクション | フラグメント / `HX-Redirect: P`（成功） | `agent`・`cwd`・`title` と、任意の `skill`（`skill_list` が返した `invoke` の文字列。長さと制御文字だけ検査し、一覧との照合はしない。任意の文字列は本文欄からも送れるため権限は増えない）・`task`（本文）。2 段階: `edit=1` は入力画面へ戻す、`confirm=1` が無ければ入力を検査して確認画面（エージェント・フォルダ・スキル・本文の先頭の要約）を返すだけ（`pane_start` は呼ばない。不正な入力は入力画面に固定文言）、`confirm=1` で `pane_start`。`confirm=1` でも送る前に最新の `report` でペインが `shell` であることを再検査し、違えば通信せず `invalid_state`。`skill`・`task` のどちらかがあるときは、送る文字列（両方 = `<invoke> <本文>`、スキルだけ = `<invoke>`、本文だけ = `<本文>`。合計 1〜8000 字、許可する制御文字は `\n`・`\t` だけ）を `pane_start` の前に検査し、違反は `pane_start` を呼ばずに入力欄の固定文言で拒否する。`pane_start` が `ok: true` かつ `state` が `idle` のときだけ、同じペインの排他（機能要件 FR-OPS-9）を保ったまま続けて `send_text` で最初のタスクを送る（1 つの操作。合算の上限は設けない）。`pane_start` が `ok: false` ならタスクは送らない。起動したが `idle` 以外なら送らず、遷移せずに結果の表示で固定文言「起動しました。最初のタスクはまだ送っていません（状態: …）。ペイン詳細から送れます」と「ペイン詳細を開く」を出す（`HX-Redirect` ではトーストが消えるため。「もう一度送る」は出さない）。`send_text` が失敗・`accepted: false` のときは自動で再送せず、起動も取り消さず（`pane_close` は呼ばない）、「起動しました。最初のタスクを送れませんでした」＋理由の固定文言の結果の表示に「ペイン詳細を開く」と「もう一度送る」を出す（本文はこの表示の間だけフラグメントの hidden 項目に残し、保存・ログ出力しない）。`resend=1`（「もう一度送る」）は `skill`・`task` だけを使い `send_text` だけを送る（`pane_start` は呼ばない。ペインが `idle` でなければ通信せず `invalid_state`）。成功はトーストなしでペイン詳細へ。失敗（`ok: false`・エラー）は確認画面に固定文言。**操作の接続のみ** |
 | GET | `/settings` | ページ | フルページ / フラグメント | 設定画面。OS が通知を許可していないときはその旨を表示する |
 | PUT | `/settings` | アクション | フラグメント（設定フォーム）+ トースト OOB / 422 | 設定を保存する。許容値は[ER §3.2](../architecture/er.md)。許容外は 422 でフォームを再描画 |
@@ -412,7 +412,7 @@ HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"include
 - **操作の結果**: 成功・失敗の判定（`ok`・`accepted`・`card_closed`・`interrupted`）は固定文言のトースト OOB（機能要件 §10.1）、ツールのエラー（`operation`）はフラグメント内のインラインアラート。`cursor_mismatch`・`not_asking`・`option_out_of_range` のときは質問カードを取り直したフラグメントを返す
 - **排他**: 同じ `(接続, ペイン)` の操作は service が排他にする。実行中に次の操作が来たら通信せず「前の操作がまだ終わっていません」を返す。見るだけの接続に対する排他の取得もしない（先に種類を確認する）
 - **ログ**: `RequestLog` はメソッド・パス・ステータス・所要時間だけ。フォーム値・`pane_tail` と `ask_card` の本文・送信本文は出さない（NFR-SEC-11）
-- **確認と状態の再検査**: `P/escape`・`P/close` は `confirm=true` が無ければ通信せず `confirm_required`（NFR-SEC-12）。`P/close`（`idle`・`shell`）・`P/start`（`shell`）は、画面の古い状態からの操作を通さないよう、送る前にサーバー側で最新の `report`（single-flight）のペイン状態を再検査する（`pane_not_found`・`invalid_state` は通信せず固定文言）
+- **確認と状態の再検査**: `P/escape`・`P/close` は `confirm=true` が無ければ通信せず `confirm_required`（NFR-SEC-12）。`P/close`（`idle`・`shell`）・`P/start`（`shell`。`resend=1` は `idle`）は、画面の古い状態からの操作を通さないよう、送る前にサーバー側で最新の `report`（single-flight）のペイン状態を再検査する（`pane_not_found`・`invalid_state` は通信せず固定文言）
 
 ## 5. 変更の影響範囲
 
