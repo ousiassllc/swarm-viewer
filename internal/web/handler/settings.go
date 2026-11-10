@@ -96,6 +96,7 @@ func parseSettingsInput(c *gin.Context) (service.SettingsInput, bool) {
 		ScreenPollSeconds:    screen,
 		NotifyPollMinutes:    notify,
 		DebugLog:             c.PostForm(organisms.FieldDebugLog) == checkboxOn,
+		AutoUpdateCheck:      c.PostForm(organisms.FieldAutoUpdateCheck) == checkboxOn,
 	}, true
 }
 
@@ -103,5 +104,6 @@ func parseSettingsInput(c *gin.Context) (service.SettingsInput, bool) {
 func echoSettings(cur domain.Settings, c *gin.Context) domain.Settings {
 	cur.NotificationsEnabled = c.PostForm(organisms.FieldNotificationsEnabled) == checkboxOn
 	cur.DebugLog = c.PostForm(organisms.FieldDebugLog) == checkboxOn
+	cur.AutoUpdateCheck = c.PostForm(organisms.FieldAutoUpdateCheck) == checkboxOn
 	return cur
 }

@@ -2,7 +2,10 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -28,6 +31,55 @@ func TestSettingsSaveRoundTrip(t *testing.T) {
 	}
 	if n := count(t, s, "SELECT count(*) FROM settings"); n != 1 {
 		t.Errorf("settings rows = %d, want 1 (SaveSettings must UPDATE)", n)
+	}
+}
+
+// 新しい版の自動確認（#109）は保存して読み戻せる。オフにした値も戻る。
+func TestSettingsAutoUpdateCheckRoundTrip(t *testing.T) {
+	s, _ := newTestStore(t)
+	ctx := context.Background()
+	if got, err := s.Settings(ctx); err != nil || !got.AutoUpdateCheck {
+		t.Fatalf("初期値 = %+v, %v; 既定はオン", got, err)
+	}
+	for _, on := range []bool{false, true} {
+		st := domain.DefaultSettings()
+		st.AutoUpdateCheck = on
+		if err := s.SaveSettings(ctx, st); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := s.Settings(ctx); err != nil || got.AutoUpdateCheck != on {
+			t.Fatalf("AutoUpdateCheck = %v, %v; want %v", got.AutoUpdateCheck, err, on)
+		}
+	}
+}
+
+// 版 1 の DB（auto_update_check 列なし）を開くと、列が足されて既定のオンになる。
+func TestMigration002AddsAutoUpdateCheckDefaultOn(t *testing.T) {
+	path := dbPath(t)
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v1, err := migrationFS.ReadFile("migrations/001_init.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := raw.Exec(string(v1) + "; PRAGMA user_version = 1; UPDATE settings SET debug_log = 1"); err != nil {
+		t.Fatal(err)
+	}
+	_ = raw.Close()
+
+	s, err := open(path, newFakeClock().Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = s.Close() }()
+	got, err := s.Settings(context.Background())
+	if err != nil || !got.AutoUpdateCheck || !got.DebugLog {
+		t.Fatalf("Settings = %+v, %v; want 既存の値を保ったまま AutoUpdateCheck=true", got, err)
 	}
 }
 

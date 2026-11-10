@@ -46,6 +46,44 @@ func TestSettingsUpdate(t *testing.T) {
 	webtest.MustContain(t, wantStatus(t, a.get("/settings", hx()), http.StatusOK), `<option value="30" selected`)
 }
 
+// 「自動で確認する」（#109）: 設定画面に出て、保存した値が次の描画に反映される。オフのチェックボックスは送られない。
+func TestSettingsAutoUpdateCheck(t *testing.T) {
+	a := newApp(t)
+	page := wantStatus(t, a.get("/settings", hx()), http.StatusOK)
+	webtest.MustContain(t, page, "自動で確認する", `name="auto_update_check"`)
+	if !checked(t, page, "auto_update_check") {
+		t.Fatal("既定はオン")
+	}
+
+	v := url.Values{"screen_poll_seconds": {"10"}, "notify_poll_minutes": {"10"}}
+	wantStatus(t, a.do(http.MethodPut, "/settings", hx(), form(v)), http.StatusOK) // auto_update_check なし = オフ
+	if st, _ := a.env.Settings.Get(t.Context()); st.AutoUpdateCheck {
+		t.Fatalf("オフで保存されない: %+v", st)
+	}
+	if checked(t, wantStatus(t, a.get("/settings", hx()), http.StatusOK), "auto_update_check") {
+		t.Fatal("オフが描画に反映されない")
+	}
+
+	v.Set("auto_update_check", "on")
+	wantStatus(t, a.do(http.MethodPut, "/settings", hx(), form(v)), http.StatusOK)
+	if st, _ := a.env.Settings.Get(t.Context()); !st.AutoUpdateCheck {
+		t.Fatalf("オンで保存されない: %+v", st)
+	}
+}
+
+// checked は name のチェックボックスが checked かを返す。
+func checked(t *testing.T, html, name string) bool {
+	t.Helper()
+	for _, in := range webtest.Elements(t, html, "input") {
+		if n, _ := webtest.Attr(in, "name"); n == name {
+			_, ok := webtest.Attr(in, "checked")
+			return ok
+		}
+	}
+	t.Fatalf("name=%q の input が無い", name)
+	return false
+}
+
 func TestSettingsUpdateNotifiesSubscribers(t *testing.T) {
 	a := newApp(t)
 	ch := a.env.Settings.Subscribe()

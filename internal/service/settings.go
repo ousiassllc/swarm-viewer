@@ -14,6 +14,7 @@ type SettingsInput struct {
 	ScreenPollSeconds    int
 	NotifyPollMinutes    int
 	DebugLog             bool
+	AutoUpdateCheck      bool
 }
 
 // SettingsService はアプリ全体の設定（FR-SET-1）。
@@ -48,6 +49,7 @@ func (s *SettingsService) Update(ctx context.Context, in SettingsInput) (domain.
 	next.ScreenPollSeconds = in.ScreenPollSeconds
 	next.NotifyPollMinutes = in.NotifyPollMinutes
 	next.DebugLog = in.DebugLog
+	next.AutoUpdateCheck = in.AutoUpdateCheck
 	if err := next.Validate(); err != nil {
 		ve := &ValidationError{Err: err}
 		var se *domain.SettingsError
