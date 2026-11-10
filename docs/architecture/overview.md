@@ -45,6 +45,7 @@ graph TD
             Svc[service 層<br/>Pairing / Connection / Snapshot / Notification / Settings]
             Repo[repository 層]
             Sched[通知スケジューラ<br/>（goroutine）]
+            Upd[新しい版の確認・更新<br/>service/updater（goroutine）]
             Tray[システムトレイ / 単一インスタンス / URL スキーム受信]
         end
         SQLite[(SQLite<br/>接続・設定・スナップショット・通知済み記録)]
@@ -52,6 +53,7 @@ graph TD
         OSN[OS 通知]
     end
     Console[swarm-console<br/>tailnet IP:48120 /report・/ops]
+    GH[GitHub Releases<br/>api.github.com・Releases の配信元]
 
     WV <-->|in-process HTTP<br/>HTML フラグメント| Asset
     Asset --> Svc
@@ -61,6 +63,9 @@ graph TD
     Repo --> SQLite
     Repo --> Keystore
     Repo -->|MCP tools/call<br/>Bearer: report / ops トークン| Console
+    Upd -->|https のみ・別クライアント<br/>token・認証ヘッダーなし| GH
+    Upd -->|検証済みの更新ファイル| OSI[OS のインストーラ / .app の差し替え]
+    Asset --> Upd
     Svc --> OSN
     OSN -.クリック.-> Tray
 ```
@@ -76,8 +81,10 @@ swarm-viewer/
 ├── main.go                      # エントリーポイント（Wails アプリ生成・配線のみ）
 ├── build/config.yml             # Wails ビルド設定（URL スキーム swarm-viewer を宣言）
 ├── internal/
+│   ├── buildinfo/               # アプリ自身の版（`Version`。リポジトリでは "dev"。リリースのビルドだけ set-version.sh が書き換える。Issue #109）
 │   ├── domain/                  # ドメインモデル・純粋ロジック（他層に依存しない）
 │   │   ├── ops/                 #   操作モードのツール結果・入力の検査・失敗の分類（`PaneTail`・`AskCard`・`Pick`・`StartRequest`・`Failure` ほか。linterly の 1 ディレクトリ 2,000 行の上限のためサブパッケージ）
+│   │   ├── update/              #   新しい版の確認の純粋ロジック（版の比較 `Parse`・`Newer`、Release JSON `ParseRelease`、`SHA256SUMS` `ParseSums`、アセット名 `AssetName`、許可ホスト `CheckURL`・`AllowedHosts`。ネットワーク・OS に触れない。Issue #109）
 │   │   ├── report.go            #   Report / Pane / PaneState / Usage / Host / Attention / Warning
 │   │   ├── connection.go        #   Connection / ConnectionKind（URL の path から導く）/ PairingPayload / URL 検証（NFR-SEC-4・5）
 │   │   ├── notify.go            #   状態遷移の検知・通知対象判定（純粋関数）
@@ -85,11 +92,14 @@ swarm-viewer/
 │   ├── repository/              # データアクセス層（domain のみに依存）
 │   │   ├── report/              #   swarm-console /report・/ops への MCP クライアント（種類別の許可リスト）
 │   │   ├── store/               #   SQLite（マイグレーション付き）
-│   │   └── secret/              #   OS 秘密領域
+│   │   ├── secret/              #   OS 秘密領域
+│   │   ├── release/             #   GitHub Releases の取得（最新リリースの確認・アセットのダウンロード）。swarm-console 用（`report/`）とは別の `http.Client`（許可ホスト・https のみ・リダイレクト再検査・資格情報の除去・プライベート／tailnet アドレスの拒否・サイズ上限・途中切れの検出）。`dev.go` は `devupdate` タグ付きビルドだけ（ローカルの偽サーバー用）
+│   │   └── installer/           #   更新ファイルの適用。Windows は NSIS インストーラの起動（`ShellExecute`）、macOS は zip の安全な展開・`.app` の差し替え・開き直しの補助プロセス、それ以外は `ErrUnsupported`
 │   ├── service/                 # アプリケーションサービス層
 │   │   ├── pairing.go
 │   │   ├── connection.go
 │   │   ├── snapshot.go          #   report 取得・single-flight・直近値キャッシュ
+│   │   ├── updater/             #   `updater.Service`（別パッケージ）: 起動時と 6 時間ごとの確認・「自動で確認する」の購読・更新（取得 → SHA-256 の検証 → 適用 → 終了）・失敗の種類（`FailKind`）。`Source`・`Installer` は interface で、テストは偽物に差し替える
 │   │   ├── notification.go      #   通知スケジューラ・遷移検知・重複抑止
 │   │   ├── paneservice/         #   PaneService（別パッケージ。linterly の 1 ディレクトリ 2,000 行の上限のため）: ペイン詳細・質問・送信・中断・起動・終了（種類の確認・排他・ログ）。`paneservice.Client` が repository/report の操作メソッドを受ける interface
 │   │   └── settings.go
@@ -100,7 +110,7 @@ swarm-viewer/
 │   │   ├── notifier.go          #   OS 通知（service が使う interface の実装）
 │   │   ├── shell.go             #   Wails アプリの生成・単一インスタンス・終了処理
 │   │   ├── applog/              #   ログのマスク・ローテーション設定（Wails 非依存）
-│   │   ├── compose/             #   SQLite・service・router の組み立てと recovery モードの切替（Wails 非依存）
+│   │   ├── compose/             #   SQLite・service・router の組み立てと recovery モードの切替（Wails 非依存）。`update.go` が `updater.Service` を組み立てる（`Version`・`Quit` は main.go が渡す）
 │   │   ├── deeplink/            #   swarm-viewer:// の抽出・下書き作成・遷移（Wails 非依存）
 │   │   ├── idgen/               #   IDGenerator（ULID）の実装
 │   │   ├── navpath/             #   遷移先パスの検証
@@ -117,11 +127,12 @@ swarm-viewer/
 │       │   ├── panehandler.go   #     PaneHandler・ルート登録・対象の解決・見るだけの接続への操作は 403
 │       │   ├── live.go          #     ペイン詳細（`P`）・本文の部分描画（`P/live`）
 │       │   ├── actions.go       #     質問への回答・送信・中断・終了（`P/pick`・`P/send`・`P/escape`・`P/close`）
-│       │   └── start.go         #     新しいセッション（`P/start`・`P/start/dirs`）
+│       │   └── start.go         #     新しいセッション（`P/start`・`P/start/dirs`・`P/start/skills`）
+│       ├── updatehandler/       #   新しい版の通知と更新の画面ハンドラ（別パッケージ。linterly の 1 ディレクトリ 2,000 行の上限のため）: `GET /update/notice`・`POST /update/apply`。service/updater と domain にだけ依存
 │       ├── middleware/          #   CSRF・NoStore・CSP・Recover・RequestLog
 │       ├── atoms/               #   badge / progress_bar / spinner / toast / button / input
 │       ├── molecules/           #   pane_card / usage_row / host_row / session_tab / attention_item / pane_tail / pane_header / kind_badge
-│       ├── organisms/           #   session_tabs / pane_grid / usage_panel / host_panel / attention_bar / connection_list、`panedetail/`（ペイン詳細の本文: `Live`・`AskCard`・`SendForm`・`StartForm`・`StartConfirm`・`DirPicker`）
+│       ├── organisms/           #   session_tabs / pane_grid / usage_panel / host_panel / attention_bar / connection_list / update_notice、`panedetail/`（ペイン詳細の本文: `Live`・`AskCard`・`SendForm`・`StartForm`・`StartConfirm`・`DirPicker`・`SkillPicker`・`StartTaskResult`）
 │       ├── pages/               #   main / connections / pairing / settings / pane（`PaneDetailPage`・`PaneStartPage`）
 │       └── layout/              #   base（head・htmx・CSP meta・CSRF meta）
 └── static/
@@ -145,12 +156,13 @@ handler → service → repository → domain
  Templ       app（Wails シェル）は service を呼ぶ／service が定義した interface を実装する
 ```
 
-- `domain/`: 他層に依存しない。Report の型、状態遷移の検知（`(前回の状態, 今回の状態) → 通知対象か`）、URL 検証などの純粋なロジック
-- `repository/`: `domain/` のみに依存。MCP・SQLite・キーストアという外部とのやり取りを、それぞれ domain の型で返す
-- `service/`: `domain/`・`repository/` に依存。ユースケースを実装する。OS 通知など Wails 依存の機能は **service 側に interface を定義**し、`app/` が実装する（service が Wails を import しない）
-- `web/handler/`・`web/panehandler/`: `service/`（`paneservice` を含む）・`domain/`（`domain/ops` を含む）に依存。**`repository/` を直接使わない**（`.golangci.yml` の depguard の規則 `web-handler` が `internal/web/handler/` と `internal/web/panehandler/` の両方に掛かる）
+- `domain/`: 他層に依存しない。Report の型、状態遷移の検知（`(前回の状態, 今回の状態) → 通知対象か`）、URL 検証などの純粋なロジック。`domain/update` は新しい版の確認の純粋ロジックだけ（`domain/ops` と同じくサブパッケージ）
+- `repository/`: `domain/` のみに依存。MCP・SQLite・キーストア・GitHub Releases・OS のインストーラという外部とのやり取りを、それぞれ domain の型で返す。GitHub Releases の取得（`release/`）は swarm-console 用（`report/`）とは別のクライアントで、互いに import しない
+- `service/`: `domain/`・`repository/` に依存。ユースケースを実装する。OS 通知など Wails 依存の機能は **service 側に interface を定義**し、`app/` が実装する（service が Wails を import しない）。`service/updater` は、取得（`Source`）・適用（`Installer`）・設定（`SettingsReader`）を interface で受け取り、アプリの終了（`Quit`）も関数として受け取る
+- `web/handler/`・`web/panehandler/`・`web/updatehandler/`: `service/`（`paneservice`・`updater` を含む）・`domain/`（`domain/ops`・`domain/update` を含む）に依存。**`repository/` を直接使わない**（`.golangci.yml` の depguard の規則 `web-handler` が `internal/web/handler/`・`internal/web/panehandler/`・`internal/web/updatehandler/` の 3 つに掛かる）
 - `app/`: Wails 依存。`service/` を呼び、`service/` が要求する interface（通知・ウィンドウ遷移）を実装する。`web/` には依存しない
-- `router/`: `handler/`・`panehandler/` を参照してルートを定義する
+- `router/`: `handler/`・`panehandler/` を参照してルートを定義する（`updatehandler/` のルートは `handler.Register` が登録する）
+- `buildinfo/`: 何にも依存しない。`main.go` が `buildinfo.Version` を `compose` へ渡す
 
 ### 4.3 Huma の位置付け
 
@@ -322,10 +334,42 @@ sequenceDiagram
 
 - 呼び出しの順序は常に「接続の種類の確認 → 同じ `(接続, ペイン)` の排他 → ツール呼び出し」。見るだけの接続、または実行中の操作がある場合は、**通信せず**に断る（`ErrOpsRequired` 相当・「前の操作がまだ終わっていません」）。排他は service が持つ（ハンドラ・UI の無効化と二重）
 - ペイン詳細の本文の自動更新は、確認ダイアログが開いている間は止まる（`app.js` が `dialog[data-modal][open]` の間、`…/live` へのリクエストを取り消す）。操作のボタン・送信は `hx-sync="#pane-live:replace"` で、進行中の自動更新より先に送る。「その他（自分で書く）」と指示の入力欄は `hx-preserve` で、自動更新の再描画で入力途中の文字が消えない
-- 中断（`POST P/escape`）・終了（`POST P/close`）は、確認ダイアログを経たフォームだけが付ける `confirm=true` が無ければ `send_escape`・`pane_close` を呼ばない（`confirm_required`）。`POST P/close`・`POST P/start` は、送る前にサーバー側でも最新の `report` のペイン状態を再検査する（`close` は `idle`・`shell` だけ、`start` は `shell` だけ。合わなければ通信せず `invalid_state`）
+- 中断（`POST P/escape`）・終了（`POST P/close`）は、確認ダイアログを経たフォームだけが付ける `confirm=true` が無ければ `send_escape`・`pane_close` を呼ばない（`confirm_required`）。`POST P/close`・`POST P/start` は、送る前にサーバー側でも最新の `report` のペイン状態を再検査する（`close` は `idle`・`shell` だけ、`start` は `shell` だけ、`start` の `resend=1` は `idle` だけ。合わなければ通信せず `invalid_state`）
 - 401・403 は `ConnectionService` の `needs_repair` を立て、その接続のポーリングと操作を止める（[API 仕様 §1.5](../api/endpoints.md)）。操作の結果は固定文言で出し、ホストの `message` を画面に出さない（[機能要件 §10.1](../requirements/functional.md)）
-- 新しいセッションは `GET P/start`（入力画面。`shell` のペインだけ）→ `GET P/start/dirs?path=`（`dir_list` を 1 階層ずつ。`pick=1` は選択済みの表示）→ `POST P/start` の 2 段階（`confirm=1` が無ければ確認画面を返すだけで `pane_start` は呼ばない。`edit=1` で入力画面へ戻る。`confirm=1` で `pane_start`）。成功は `HX-Redirect` でペイン詳細へ（トーストは出さない。終了の成功も `HX-Redirect` でメイン画面へ）
+- 新しいセッションは `GET P/start`（入力画面。`shell` のペインだけ）→ `GET P/start/dirs?path=`（`dir_list` を 1 階層ずつ。`pick=1` は選択済みの表示）→ `GET P/start/skills?agent=`（スキルの選択部品。`skill_list`。操作の接続のみ。見るだけは 403 と固定文言。取得結果は画面を開いている間のメモリだけに持つ）→ `POST P/start` の 2 段階（`confirm=1` が無ければ確認画面を返すだけで `pane_start` は呼ばない。`edit=1` で入力画面へ戻る。`confirm=1` で `pane_start`。`agent`・`cwd`・`title` に加えて任意の `skill`・`task`（本文）を受ける）。`pane_start` が `ok: true` で `state` が `idle` のときだけ、同じペインの排他（FR-OPS-9）を保ったまま続けて `send_text` で最初のタスクを送る（`idle` 以外・`pane_start` の失敗なら送らない。`send_text` が失敗でも `pane_close` は呼ばず自動リトライもしない）。送れなかったときは結果の表示を返し、`resend=1`（「もう一度送る」。`skill`・`task` だけを使い `send_text` だけを送る。ペインが `idle` でなければ通信せず `invalid_state`）で送り直す。成功は `HX-Redirect` でペイン詳細へ（トーストは出さない。終了の成功も `HX-Redirect` でメイン画面へ）
 - 本文（`pane_tail`・質問文・送信本文）は Templ のエスケープで描画し、`templ.Raw` を使わない。ログには接続 ID・ツール名・種別・コード・ペイン位置だけを出す（NFR-SEC-10・11）
+
+### 5.7 新しい版の確認と更新（Issue #109）
+
+```mermaid
+sequenceDiagram
+    participant M as main.go / compose
+    participant U as service/updater
+    participant R as repository/release（GitHub）
+    participant WV as WebView
+    participant H as web/updatehandler
+    participant I as repository/installer
+
+    M->>U: Run（通常モードで準備できたら goroutine で 1 度だけ。版が dev・更新ファイルの無い OS ならすぐ返る）
+    U->>R: Latest（起動時と 6 時間ごと。自動で確認する がオンのときだけ）
+    R-->>U: 最新リリース（draft・prerelease・タグ不正は除く）
+    U->>U: 現在の版と比べ、新しいときだけ Available にする
+    WV->>H: GET /update/notice（load・60 秒ごと・更新中は 1 秒ごと）
+    H->>U: Status
+    H-->>WV: UpdateNotice のフラグメント（固定文言だけ）
+    WV->>H: POST /update/apply（「更新する」。CSRF トークンつき）
+    H->>U: ApplyAsync（別 goroutine。更新中・新しい版なしなら何もしない）
+    U->>R: Download SHA256SUMS → Download アセット（一時フォルダへ）
+    U->>U: SHA-256 を SHA256SUMS の行と比べる
+    U->>I: Install（検証済みのファイル）
+    U->>M: Quit（アプリを終了）
+```
+
+- 状態の遷移・失敗の種類・固定文言・読み直しの間隔は [機能要件 §4.10](../requirements/functional.md)。画面は 2 つのルートだけで、どちらも失敗してもメイン画面を壊さない（通知の領域だけを返す）。`updatehandler` は `repository/`・`app/` を import しない
+- `Run` は設定の変更通知（`SettingsReader.Subscribe`）を購読し、「自動で確認する」がオフの間は確認しない。オフからオンへ戻したら次の周期を待たずに確認する。確認は直列で、更新中は確認しない
+- 更新は `Run` の寿命に結ぶ（HTTP リクエストより長く動く）。15 分で打ち切り、失敗したら一時フォルダを消して種類（`download`・`verify`・`install`）を状態に入れる
+- 適用は OS ごと: Windows は `ShellExecute` でインストーラを起動してから `Quit`。macOS は `.app` を差し替え、アプリの終了を待って開き直す補助プロセス（`/bin/sh`。pid・パスは引数）を起動してから `Quit`。単一インスタンスのロックがあるため、補助プロセスは終了を待ってから開く。Linux は更新ファイルが無く `ErrUnsupported`（`Enabled()` が false で、通知も確認もしない）
+- GitHub への通信は repository/release の専用クライアントだけで、swarm-console の token・ヘッダーを渡す経路がない（§7）
 
 ## 6. ウィンドウ・プロセスの挙動
 
@@ -354,8 +398,10 @@ graph LR
 - フォント: Sora・Noto Sans JP（JIS X 0208 サブセット）・JetBrains Mono・Symbols Nerd Font Mono を同梱する（woff2。`static/src/fonts/` → generate で `static/dist/fonts/` → `/static/fonts/`）。`app.css` の `@font-face` で配り、Symbols Nerd Font だけ `unicode-range` を PUA に絞る。`font-sans` は Sora → Noto Sans JP → Symbols Nerd Font、`font-mono` は JetBrains Mono → Symbols Nerd Font（ペイン詳細の `pane_tail` の本文に混ざる Nerd Font のアイコンを字形で出す。Issue #102）。CSP は変えない（`default-src 'self'`。NFR-SEC-9）
 - デザイントークン: 色・角丸・文字サイズ・フォント・影は `app.css` の `:root`（ライト）と `prefers-color-scheme: dark` で定義し、Tailwind の `@theme` から参照する（`bg-bone` `text-ink` `text-mute` `bg-surface` `border-border` `bg-accent` `bg-accent-soft` `text-danger` など）。Tailwind の既定色は無効。ペイン・使用率の状態色は `format/tone.go` が返すトークンのクラスが唯一の出所（NFR-DSG-1）
 - 画面に出す文字列はすべて Templ のエスケープに任せ、HTML として解釈しない（`templ.Raw` を使わない。NFR-SEC-10）
-- MCP の許可リスト: 接続の種類ごとに、見るだけ（`/report`）は `sessions_list`・`report`・`pane_tail`・`ask_card`、操作（`/ops`）はそれに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list` を足した 10 個。リストは repository/report 内の種類別の定数で、送信前（呼び出し口）と送信内容（`roundTripper`。URL の path が `/report` なら 4 つ、`/ops` なら 10 個）の二重で検査する。許可外のツール名は呼び出し時にエラーにし、見るだけの接続に操作系ツールを呼ぶと通信せずに `tool_not_allowed` で断る（NFR-SEC-1）
+- MCP の許可リスト: 接続の種類ごとに、見るだけ（`/report`）は `sessions_list`・`report`・`pane_tail`・`ask_card`、操作（`/ops`）はそれに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list` を足した 11 個。リストは repository/report 内の種類別の定数で、送信前（呼び出し口）と送信内容（`roundTripper`。URL の path が `/report` なら 4 つ、`/ops` なら 11 個）の二重で検査する。許可外のツール名は呼び出し時にエラーにし、見るだけの接続に操作系ツールを呼ぶと通信せずに `tool_not_allowed` で断る（NFR-SEC-1）
 - 操作の安全: 中断・終了は確認ダイアログを経ないと送らない（`confirm=true` が無ければ `send_escape` を呼ばない）。質問カードの選択肢は押したらすぐ送る代わりに、送信中の全ボタンの無効化とサーバー側の排他で二重送信を防ぐ（NFR-SEC-12）
+- GitHub への通信（新しい版の確認・更新ファイル）: `repository/release` の専用の `http.Client` だけが行い、`repository/report`（swarm-console。tailnet の許可リスト）とは別。接続先は `api.github.com`・`github.com`・`objects.githubusercontent.com`・`release-assets.githubusercontent.com` への https のみで、`internal/domain/update`（`CheckURL`・`AllowedHosts`）がコードに固定する（設定・環境変数では変えられない）。リダイレクトも 1 回ごと（最大 5 回）に同じ検査を通し、`guard`（`RoundTripper`）が全リクエストの直前に `Authorization`・`Proxy-Authorization`・`Cookie` を外す。`net.Dialer.Control` が名前解決後のアドレスを見て、ループバック・プライベート・リンクローカル・tailnet（`100.64.0.0/10`）には接続しない。プロキシは使わず、圧縮は無効（途中切れの検出のため）。適用するのは SHA-256 が同じ Release の `SHA256SUMS` と一致したファイルだけ。展開・差し替えの安全は NFR-SEC-15〜19
+- アプリ自身の版は `internal/buildinfo.Version`（リポジトリでは `dev`）。リリースのビルドだけが `.github/scripts/set-version.sh` でタグの `X.Y.Z` に書き換える（[環境構築 §5.5](../environment/setup.md)）
 
 ## 8. Lit 導入時の規約（初版では未使用）
 
@@ -410,6 +456,11 @@ graph LR
 | 14 | Android: 折りたたみ⇔展開の切替 | Galaxy Fold7 で折りたたみ時と展開時の WindowSizeClass がそれぞれ何になるか。切替で選択中のセッション・スクロール位置・表示内容が保たれること。切替中に `report` の取得が重複しないこと |
 | 15 | Android: 端末再起動後の通知ジョブの再開 | 再起動後、アプリを一度も開かなくても周期ジョブが再開して通知が出ること。通知オフの設定が再起動後も保たれ、ジョブが走らないこと |
 | 16 | 操作モード（`/ops`）の実機確認 | 実際の swarm-console の `/ops` に対し、ops スコープの token で `ask_pick`（`n`・`text`、`cursor_mismatch`）・`send_text`（`accepted: false`）・`send_escape`・`dir_list` → `pane_start`・`pane_close`（`exit_timeout`）が仕様どおり動くこと。`report` スコープの token で `/ops` に繋いだときの 403。デスクトップ（WebView の確認ダイアログ・5 秒ごとの自動更新・最小化中の停止）と Android（Galaxy Fold7 の閉じ / 開き・親指での操作）の使い勝手。自動テストは偽の swarm-console の範囲で、実機での確認は未実施 |
+| 17 | 最初のタスク（`skill_list`・`pane_start` 直後の入力） | (a) swarm-console に `skill_list` が未実装であること（viewer が前提とするインターフェースの要望。`skill_list` はツール名の仮称で、実装後にツール名・引数・返り値・`invoke` を確定する。swarm-console 側の Issue は別途起票が必要）。(b) `pane_start` が `ok: true` で返った直後の `state` が `idle`（入力可）になっているか（omp・claude・codex それぞれ。`idle` 以外のときは本仕様どおり最初のタスクを送らない）。(c) スキルが `cwd`（プロジェクト）ごとに異なる場合の一覧の範囲（`skill_list` に `cwd` を引数として足す必要があるか）。(d) 複数行の本文を `send_text` で送ったときの各エージェントでの解釈（改行が送信になるか）。(e) `invoke` の構文がエージェントごとに違っても、`invoke` をそのまま送れば足りるか |
+| 18 | 更新（Windows）の実機確認 | Release の NSIS インストーラ（`swarm-viewer_vX.Y.Z_windows_amd64_installer.exe`）で入れた古い版から、「更新する」で (a) インストーラ（`ShellExecute`）が起動して管理者権限の確認（UAC）が出ること、(b) アプリが終了してインストーラが旧版を上書きできること（実行中の exe がロックされないこと）、(c) インストール後に新しい版へ更新されていること、(d) SmartScreen の警告（unsigned。NFR-DST-2）の見え方、(e) UAC を拒否したときの挙動（`ShellExecute` が成功した時点で `Quit` するため、UAC を拒否してもアプリは閉じる可能性がある）。自動テストはインストーラの起動を偽物に差し替えており、**実機の確認は未実施**（Windows のランナー・実機がないため） |
+| 19 | 更新（macOS）の実機確認 | Release の zip から入れた古い `.app`（`/Applications` など）から、「更新する」で (a) 実行中の `.app` の差し替え（同じフォルダに作業用フォルダ `.swarm-viewer-update-*` を作れること。管理者権限を要するフォルダでは書き込めず `install` の失敗になる）、(b) 補助プロセスが終了を待って新しい `.app` を開き直すこと（単一インスタンスのロックに邪魔されないこと）、(c) Gatekeeper・App Translocation（隔離属性つきのまま `~/Downloads` から実行している `.app` は読み取り専用の別の場所から動くことがあり、差し替えできない場合がある）の影響、(d) 差し替え後の新しい `.app`（unsigned）が警告なしに開けること（新しいファイルのため Gatekeeper の警告が出る可能性がある）、(e) Intel・Apple Silicon の両方。自動テストはファイルシステムの差し替え・補助プロセスのスクリプトまでで、**実機の `.app` での確認は未実施**（macOS のランナー・実機がないため） |
+| 20 | 更新（Android）の実機確認 | Galaxy Fold7 で、署名済みの古い APK から、「更新する」で (a) 「このアプリからのインストール」の許可の設定画面が開き、許可して戻ったあと押し直せること、(b) システムのパッケージインストーラが APK を開き（FileProvider の読み取りの許可が通ること）、署名が同じため上書きインストールできること、(c) 署名が違う APK をアプリがインストーラへ渡さないこと、(d) 更新後にアプリが新しい版で起動すること。エミュレーター・偽のリリースサーバー（デバッグビルドの `-PupdateLatestUrl`）での動作確認は Android 版の作業で行っているが、**実際の GitHub Release に対する確認と実機（Galaxy Fold7）での確認は未実施**。release 署名証明書の指紋は `android/README.md` |
+| 21 | 更新の通信（GitHub Releases）の到達性 | 更新は GitHub に**認証なしで**アクセスする（token・認証ヘッダーを送らない。NFR-SEC-15）ため、`ousiassllc/swarm-viewer` が**公開（public）**のときだけ最新リリースとアセットを取得できる。2026-11-10 時点でリポジトリは private で、認証なしの `releases/latest` は 404（アプリは「新しい版なし」として扱い、通知も失敗表示も出さない）。公開後に、実際の GitHub Release に対して通知 → 更新ができること（`SHA256SUMS`・アセットの取得（リダイレクト先のホストが許可リストに含まれること）。#18〜#20）を確認する。自動テストは偽の取得元・`httptest` の範囲で、**実際の GitHub への通信は未確認** |
 
 ## 12. Android 版の構成
 
@@ -437,7 +488,7 @@ Android 版は同じリポジトリの `android/` ディレクトリに置く（
 | 役割 | 技術 | 備考 |
 |------|------|------|
 | UI | Jetpack Compose + Material 3 | WindowSizeClass でレイアウトを切り替える |
-| HTTP / MCP | OkHttp | `/report`・`/ops` への `POST`（JSON-RPC 2.0 の `tools/call`）。公式 Kotlin SDK は使わず、種類別の許可リスト（見るだけ 4 つ・操作 10 個）のツールだけを呼ぶ薄いクライアントを自前で持つ。ハンドシェイクの要否（ステートレス運用）はデスクトップと同じ未確認事項（§11 #1）に含む |
+| HTTP / MCP | OkHttp | `/report`・`/ops` への `POST`（JSON-RPC 2.0 の `tools/call`）。公式 Kotlin SDK は使わず、種類別の許可リスト（見るだけ 4 つ・操作 11 個）のツールだけを呼ぶ薄いクライアントを自前で持つ。ハンドシェイクの要否（ステートレス運用）はデスクトップと同じ未確認事項（§11 #1）に含む |
 | JSON | kotlinx.serialization | 未知のキーは無視、欠落は既定値（NFR-CMP-1・2） |
 | 永続化 | Room（SQLite） | 接続・設定・スナップショット・通知済み状態（[ER §7](er.md)） |
 | バックグラウンド | WorkManager | 周期ジョブ（[Android 版の設計 §3](../android/overview.md)） |
@@ -457,12 +508,14 @@ graph TD
             Data[data<br/>OkHttp クライアント / Room / Keystore]
             Work[work<br/>WorkManager 周期ジョブ]
             Ntf[notify<br/>通知チャンネル・通知]
+            Upd[data/update・service<br/>新しい版の確認・更新]
         end
         Room[(Room<br/>接続・設定・スナップショット・通知済み状態)]
         KS[(Android Keystore<br/>token の保護)]
         TS[Tailscale アプリ（VPN）<br/>tailnet 到達性]
     end
     Console[swarm-console<br/>tailnet IP:48120 /report・/ops]
+    GH[GitHub Releases<br/>最新リリース・APK・SHA256SUMS]
 
     UI --> Dom
     UI --> Data
@@ -472,6 +525,8 @@ graph TD
     Data --> Dom
     Data --> Room
     Data --> KS
+    UI --> Upd
+    Upd -->|https のみ・別クライアント<br/>認証情報なし| GH
     Data -->|MCP tools/call<br/>Bearer: report / ops トークン| TS
     TS --> Console
     Ntf -.タップ.-> UI
@@ -501,9 +556,10 @@ graph TD
 - **cleartext**: Android 9（API 28）以降は平文 HTTP が既定で禁止される。`http://<tailnet-ip>:48120` に繋ぐため、Network Security Config（`res/xml/network_security_config.xml`）でアプリ全体の cleartext を許可する。範囲指定ができない見込み（§11 #8）のため、宛先の制限は接続先 URL の検証（NFR-SEC-4・5。domain の `validateUrl`）が担う。この検証を通らない URL へは接続しない。tailnet（WireGuard）の暗号化を前提とする点はデスクトップと同じ（NFR-SEC-6）
 - **token**: Android Keystore で保護した領域だけに保存する。Room・ログ・画面・バックアップに出さない。`allowBackup="false"` とデータ抽出ルールで全データをバックアップ・端末間転送から除外する
 - **外部入力**: ディープリンク（Intent）と QR の中身は信頼できない入力として、接続文字列と同じ検証（`parsePairing`）を通し、確認画面で利用者が確定するまで保存しない
-- **許可リスト**: 呼ぶツールは接続の種類ごとの許可リストのものだけ（見るだけ = `sessions_list`・`report`・`pane_tail`・`ask_card`、操作 = それに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`。NFR-SEC-1・NFR-AND-SEC-5）。許可リストは `data/report` の定数で、送信前と送信内容（`GuardInterceptor` が URL の path で 4 つ / 10 個）の二重で検査する。それ以外のツール名は呼べず、見るだけの接続に操作系ツールを呼ぶと通信せずに断る
+- **許可リスト**: 呼ぶツールは接続の種類ごとの許可リストのものだけ（見るだけ = `sessions_list`・`report`・`pane_tail`・`ask_card`、操作 = それに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list`。NFR-SEC-1・NFR-AND-SEC-5）。許可リストは `data/report` の定数で、送信前と送信内容（`GuardInterceptor` が URL の path で 4 つ / 11 個）の二重で検査する。それ以外のツール名は呼べず、見るだけの接続に操作系ツールを呼ぶと通信せずに断る
 - **操作の安全**: 見るだけの接続には操作の UI を出さない。中断・終了は確認ダイアログ（`AppDialog`）を経ないと送らず、送信中は `PaneDetailViewModel` の `busy` と `PaneService` の排他で同じペインの二重送信を防ぐ（NFR-AND-SEC-9）
 - **表示**: ツール応答（`title`・`activity`・`note`・`pane_tail`・`ask_card` の質問文・選択肢）は常にテキストとして描画する（NFR-SEC-10 と同じ）
+- **更新（新しい版の確認と APK の取得）**: tailnet 用とは別の `OkHttpClient`（`newUpdateHttpClient`）・別の許可リスト（`UpdateEndpoints.PRODUCTION`）で GitHub だけに通信する（https・443 のみ。リダイレクトは 1 回ごとに許可リストを検査。`Authorization`・`Proxy-Authorization`・`Cookie` を外す。名前解決の結果からプライベート・ループバック・tailnet のアドレスを除く）。`GuardInterceptor`（tailnet 用）には GitHub のホストを加えない。システムのインストーラを開くのは、APK の SHA-256 が `SHA256SUMS` と一致し、かつ APK の署名証明書が実行中のアプリと同じときだけ。`REQUEST_INSTALL_PACKAGES` と `FileProvider`（`exported=false`・`cacheDir/updates/` だけ）を宣言する（NFR-AND-SEC-6・7・10〜12）
 
 ### 12.7 テスト戦略（Android）
 
@@ -513,7 +569,8 @@ graph TD
 | data | MockWebServer・Room のテスト | 401 / 403 / `isError` の変換、タイムアウト、許可リスト、マイグレーション、接続削除での連鎖削除 |
 | work / notify | `TestListenableWorkerBuilder`・フェイククロック | 順次取得、失敗の読み飛ばし、二重通知の防止、通知オフでのジョブ停止。固定時間の待ちに頼らない |
 | ui | Compose のテスト | WindowSizeClass によるリスト / グリッドの切替、見るだけの接続に操作系のコントロールが無いこと、操作の接続で確認ダイアログを経ないと `send_escape`・`pane_close` を送らないこと |
-| 実機 | 手動（§11 #8〜#16） | cleartext・Keystore・QR・Doze・Tailscale・折りたたみ・再起動後の再開・操作モード（`/ops`） |
+| update（data・service） | MockWebServer・偽の `ReleaseSource`・`ApkInstaller`・`ApkSigners` | 版の比較、リリース JSON、`SHA256SUMS`、許可リスト・リダイレクト・資格情報の除去、SHA-256 と署名の検証、途中切れ・オフライン、自動確認オフでの通信 0 件、`src/testRelease` でリリースビルドが確認先を差し替えられないこと（NFR-AND-QLT-6） |
+| 実機 | 手動（§11 #8〜#21） | cleartext・Keystore・QR・Doze・Tailscale・折りたたみ・再起動後の再開・操作モード（`/ops`）・最初のタスク（`skill_list`）・更新（Windows・macOS・Android・GitHub への到達性。#18〜#21） |
 
 ## 改訂履歴
 
@@ -530,3 +587,6 @@ graph TD
 | 1.8 | 2026-11-05 | §7 のフォントをガイド指定の書体の同梱に改訂し、デザイントークンの置き場を追記 | Issue #30（Ousiass デザインガイド準拠） |
 | 1.9 | 2026-11-08 | 操作モード（Issue #97）。§1 の HATEOAS・許可リスト、§3・§12.3 の構成図（`/report`・`/ops`、ops トークン）、§4.1 に `PaneService`・ペイン詳細のハンドラ・部品、§5.6 ペイン詳細と操作の通信フロー、§7・§12.6 の許可リストを種類別に、§10・§12.7 のテスト、§11 に #16（`/ops` の実機確認）を追加 | Issue #97（操作モード） |
 | 2.0 | 2026-11-09 | 独立レビューの指摘とコード修正の反映。§4.1・§4.2 に `domain/ops`・`service/paneservice`・`web/panehandler`・`organisms/panedetail`・molecules の実在の名前（depguard の `web-handler` 規則が `panehandler` にも掛かる）、§5.6 に確認ダイアログ中の自動更新停止・`hx-sync`・`hx-preserve`・`P/close` の `confirm=true`・状態の再検査・`P/start` の 2 段階を追記 | Issue #97（独立レビュー ReviewDocs） |
+| 2.1 | 2026-11-09 | 最初のタスク（Issue #103）。§4.1 に `P/start/skills`・`SkillPicker`・`StartTaskResult`、§5.6 の新しいセッションに `P/start/skills`（`skill_list`）・`pane_start` → `send_text` の続き・`resend=1` を追記、§7・§12 の許可リストを操作 11 個（`skill_list` 追加）に、§11 に #17（`skill_list`・`pane_start` 直後の入力の実機確認）を追加 | Issue #103（空きセッションへの最初のタスク） |
+| 2.2 | 2026-11-10 | 新しい版の確認と自動アップデート（Issue #109）。§3 の構成図に更新と GitHub Releases、§4.1・§4.2 に `buildinfo`・`domain/update`・`repository/release`・`repository/installer`・`service/updater`・`web/updatehandler`・`organisms/update_notice`・`compose/update.go` と依存ルール（depguard の `web-handler` を `updatehandler` にも適用）、§5.7 更新の通信フロー、§7 に GitHub への通信の境界と版の埋め込み、§11 に実機の未確認事項 #18〜#20（Windows・macOS・Android）、§12.3・§12.6・§12.7 に Android の更新の構成・境界・テスト | Issue #109（新しい版の確認と自動アップデート） |
+| 2.3 | 2026-11-10 | §11 に #21（更新の通信の到達性。リポジトリが private の間は認証なしの `releases/latest` が 404 になり、公開されているときだけ更新が動く）を追加 | Issue #109（実装確認で判明した前提） |

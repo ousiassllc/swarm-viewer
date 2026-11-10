@@ -10,7 +10,7 @@ swarm-viewer の Android 版（Kotlin + Jetpack Compose）に固有の設計を�
 | 保存データ（Room・token の保護領域） | [ER / データモデル §7](../architecture/er.md) |
 | ペアリング形式（QR・intent-filter） | [API 仕様 §2.3](../api/endpoints.md) |
 | 環境構築・CI・署名鍵・リリース | [環境構築 §11](../environment/setup.md) |
-| 本書 | WorkManager・通知チャンネル・権限・WindowSizeClass・テストベクタ・操作モード（§10） |
+| 本書 | WorkManager・通知チャンネル・権限・WindowSizeClass・テストベクタ・操作モード（§10）・アプリの更新（§11） |
 
 ## 1. 前提
 
@@ -20,7 +20,7 @@ swarm-viewer の Android 版（Kotlin + Jetpack Compose）に固有の設計を�
 | minSdk / targetSdk / compileSdk | 29（Android 10）/ 35 / 35 |
 | UI | Jetpack Compose + Material 3 |
 | 対象端末 | まず Galaxy Fold7（折りたたみ時・展開時の両方）。ほかの Android 10 以降の端末・タブレットでも動くように、画面の切替は端末名でなく WindowSizeClass（§6）で行う |
-| 通信 | OkHttp。接続の種類（URL の path。`/report` = 見るだけ、`/ops` = 操作）ごとの許可リストのツールだけを呼ぶ（見るだけ: `sessions_list`・`report`・`pane_tail`・`ask_card`、操作: それに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`。NFR-SEC-1・NFR-AND-SEC-5）。`tools/list` のコードパスを持たない |
+| 通信 | OkHttp。接続の種類（URL の path。`/report` = 見るだけ、`/ops` = 操作）ごとの許可リストのツールだけを呼ぶ（見るだけ: `sessions_list`・`report`・`pane_tail`・`ask_card`、操作: それに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list` の 11 個。NFR-SEC-1・NFR-AND-SEC-5）。`tools/list` のコードパスを持たない |
 | 操作系 | 操作の UI（質問への回答・送信・中断・起動・終了）は操作の接続（`/ops`）だけ。見るだけの接続には Compose にも出さず、`/ops` を呼ぶコードパスも通らない（§10） |
 
 ## 2. パッケージ構成
@@ -30,10 +30,10 @@ swarm-viewer の Android 版（Kotlin + Jetpack Compose）に固有の設計を�
 ```
 android/app/src/main/kotlin/com/ousiassllc/swarmviewer/
 ├── domain/   # 型・検証・解析・通知判定（副作用なし）。デスクトップの internal/domain と同じ責務
-├── data/     # OkHttp の /report・/ops クライアント（種類別の許可リスト）、Room、Keystore による token 保護
-├── service/  # ペアリング・接続管理・画面更新の取得とスナップショット保存・設定・ペインの操作（PaneService）（data を使うユースケース）
+├── data/     # OkHttp の /report・/ops クライアント（種類別の許可リスト）、Room、Keystore による token 保護、`data/update`（GitHub Releases の取得・APK の署名・インストーラ・自動確認の設定。tailnet 用とは別のクライアント。§11）
+├── service/  # ペアリング・接続管理・画面更新の取得とスナップショット保存・設定・ペインの操作（PaneService）・新しい版の確認と更新（UpdateService・UpdateScheduler）（data を使うユースケース）
 ├── notify/   # WorkManager の周期ジョブ（通知用の確認）・通知チャンネル・通知の組み立て・権限
-└── ui/       # Compose 画面（接続管理・メイン・設定・ペイン詳細・新しいセッション）、WindowSizeClass による切替
+└── ui/       # Compose 画面（接続管理・メイン・設定・ペイン詳細・新しいセッション）、WindowSizeClass による切替、`ui/update`（新しい版の通知・自動確認のスイッチ）
 ```
 
 - `domain/` の純粋ロジック（`parseReport`・`parseSessions`・`parsePairing`・`validateUrl`（`/report`・`/ops`）・ツール結果のパーサ・`detect`・`classify`（`operation` を含む）・`usageTone`）は、デスクトップの Go 実装とテストベクタ（§8）で挙動の一致を保つ。Go のコードは共有しない
@@ -114,8 +114,10 @@ sequenceDiagram
 | `INTERNET` | 通常 | `/report`・`/ops` への通信 |
 | `POST_NOTIFICATIONS` | 実行時（Android 13 / API 33 以降） | 通知。初回起動時に要求し、拒否されたら設定画面に、システムの通知設定を開く案内を出す（FR-AND-4）。API 29〜32 は実行時の許可なしで通知できる |
 | `CAMERA` | 実行時 | QR 読み取りを開始したときだけ要求する。拒否されても貼り付け・ディープリンクで使える（FR-AND-1）。QR 読み取りは CameraX + ML Kit（同梱モデル）で、カメラ権限が要る（[アーキテクチャ設計 §11](../architecture/overview.md) #10）。マニフェストには `android.hardware.camera` を `required="false"` で宣言し、カメラのない端末にも入れられるようにする |
+| `REQUEST_INSTALL_PACKAGES` | 通常（宣言のみ。許可は端末の設定で利用者が与える） | 新しい版の APK をシステムのパッケージインストーラで開く（FR-AND-14。§11）。「このアプリからのインストール」が許可されていないとき、アプリはその設定画面（`ACTION_MANAGE_UNKNOWN_APP_SOURCES`）を開くだけで、許可の付与も無人のインストールもしない |
 
-- アプリが自分で宣言する権限は上の 3 つだけ。WorkManager などの依存ライブラリがマニフェストのマージで加える権限（`WAKE_LOCK`・`ACCESS_NETWORK_STATE`・`RECEIVE_BOOT_COMPLETED` など）は、マージ後のマニフェストに現れる
+- アプリが自分で宣言する権限は上の 4 つだけ。WorkManager などの依存ライブラリがマニフェストのマージで加える権限（`WAKE_LOCK`・`ACCESS_NETWORK_STATE`・`RECEIVE_BOOT_COMPLETED` など）は、マージ後のマニフェストに現れる
+- 更新の APK をインストーラへ渡す `FileProvider`（authority `${applicationId}.updates`）を宣言する。`exported="false"`・`grantUriPermissions="true"` で、公開するパスは `cacheDir/updates/` だけ（`res/xml/update_file_paths.xml`）。外部に公開するコンポーネントは `MainActivity` だけという規則（NFR-AND-SEC-7）は変わらない
 - 位置情報・連絡先・ストレージの権限は要求しない
 
 ## 6. WindowSizeClass によるレイアウト切替
@@ -171,7 +173,7 @@ sequenceDiagram
 ## 9. ログ
 
 - ログは Logcat のみ。ファイルへは書かない（NFR-AND-LOG-1）
-- token・完全な URL・ペイン本文（`activity`・`note`・`pane_tail`・`ask_card`）・送信本文を出さない。操作のログは接続 ID・ツール名・種別・コード・ペイン位置まで。接続は表示名と host だけで識別する（NFR-LOG-3・NFR-SEC-11 と同じ）
+- token・完全な URL・ペイン本文（`activity`・`note`・`pane_tail`・`ask_card`）・送信本文・スキル名・`invoke`・最初のタスクの本文を出さない。操作のログは接続 ID・ツール名・種別・コード・ペイン位置まで。接続は表示名と host だけで識別する（NFR-LOG-3・NFR-SEC-11 と同じ）
 - 設定の「デバッグログ」は Logcat の詳細ログのオン/オフ（既定オフ）。オフの間は警告・エラーだけ出す
 
 ## 10. 操作モード（ペイン詳細・質問・送信・新しいセッション）
@@ -182,9 +184,9 @@ sequenceDiagram
 
 | 部品 | 内容 |
 |------|------|
-| `data/report` | `ReportTools` を種類別（見るだけ 4 つ・操作 10 個）に持つ。`ReportClient` に `paneTail`・`askCard`・`askPick`・`sendText`・`sendEscape`・`paneStart`・`paneClose`・`dirList`。見るだけの接続に操作系を呼ぶと通信せずに `FetchException`（`tool_not_allowed`）。`GuardInterceptor` が URL の path で送信内容を検査する（`/report` なら 4 つ、`/ops` なら 10 個）。通信の上限はツールごと（`ReportTools.timeoutScale`。基準 10 秒に、`ask_pick`・`send_text`・`send_escape` は 3 倍、`pane_start`・`pane_close` は 5 倍、読み取りは 1 倍。swarm-console 側の `accept_timeout`（既定 10 秒）・`start_timeout`（既定 30 秒）に待つ余地を残すため。デスクトップ版の `toolTimeoutScale` と同じ。NFR-AND-PERF-4） |
-| `service/PaneService` | 操作・同じペインの排他（実行中に次が来たら通信せず「前の操作がまだ終わっていません」）・401/403 の `needs_repair`・接続の種類の確認（見るだけは通信せず断る） |
-| `ui/pane` | `PaneDetailScreen`・`PaneDetailViewModel`（`Route.PaneDetail`。接続 ID・セッション・ペイン位置を引数に取る）。5 秒ごとの自動更新は `LifecycleStartEffect`（`STARTED` 以上の間だけ）。質問カード（`PaneAsk`）・送信欄・中断・終了の確認（`PaneControls`・`PaneOperations`。`AppDialog`）。`StartSessionScreen`・`StartSessionViewModel`（`Route.StartSession`。エージェントの選択・フォルダピッカー `FolderPicker`（`dir_list`）・タイトル・確認） |
+| `data/report` | `ReportTools` を種類別（見るだけ 4 つ・操作 11 個）に持つ。`ReportClient` に `paneTail`・`askCard`・`askPick`・`sendText`・`sendEscape`・`paneStart`・`paneClose`・`dirList`・`skillList`（`skill_list`。仮称。引数は `agent` だけで `session` を取らない）。見るだけの接続に操作系（`skillList` を含む）を呼ぶと通信せずに `FetchException`（`tool_not_allowed`）。`GuardInterceptor` が URL の path で送信内容を検査する（`/report` なら 4 つ、`/ops` なら 11 個）。通信の上限はツールごと（`ReportTools.timeoutScale`。基準 10 秒に、`ask_pick`・`send_text`・`send_escape` は 3 倍、`pane_start`・`pane_close` は 5 倍、`skill_list` を含む読み取りは 1 倍。swarm-console 側の `accept_timeout`（既定 10 秒）・`start_timeout`（既定 30 秒）に待つ余地を残すため。デスクトップ版の `toolTimeoutScale` と同じ。NFR-AND-PERF-4） |
+| `service/PaneService` | 操作・同じペインの排他（実行中に次が来たら通信せず「前の操作がまだ終わっていません」）・401/403 の `needs_repair`・接続の種類の確認（見るだけは通信せず断る）。起動の操作は任意の最初のタスク（スキル・本文）を受け取り、`pane_start` → `send_text` を**同じ排他の中**で行う（§10.2）。結果は `StartOutcome`（`start`・`task: FirstTaskStatus`（`None`・`Sent`・`NotIdle`・`Failed`）・`send`・`error`）で返る。`resend(target, first)` は排他の中で `send_text` だけを送る（`idle` の確認は呼び出し側）。`skills(agent)` は排他に入らない読み取り |
+| `ui/pane` | `PaneDetailScreen`・`PaneDetailViewModel`（`Route.PaneDetail`。接続 ID・セッション・ペイン位置を引数に取る）。5 秒ごとの自動更新は `LifecycleStartEffect`（`STARTED` 以上の間だけ）。質問カード（`PaneAsk`）・送信欄・中断・終了の確認（`PaneControls`・`PaneOperations`。`AppDialog`）。`StartSessionScreen`・`StartSessionViewModel`（`Route.StartSession`。エージェントの選択・フォルダピッカー `FolderPicker`（`dir_list`）・スキル選択（`skill_list`。一覧の各行は最小 48dp。「スキルなし」を含む）・本文の入力欄（複数行・任意）・タイトル・確認（エージェント・フォルダ・スキル名（選ばなければ「なし」）・本文の先頭 80 字・タイトルを要約）。選択中のスキル・本文は `StartSessionViewModel` が `StateFlow` で保持する） |
 | `ui/main` | ペインカードのタップ・要対応のタップでペイン詳細へ。操作の接続の `shell` のカードに「＋ 始める」。接続名の隣に種類のバッジ |
 | `ui/Messages.kt`・`ui/OperationMessages.kt` | 固定文言（操作の文言は `OperationMessages.kt`。機能要件 §10.1。デスクトップ版と同じ）。ホストの `message` は出さない |
 
@@ -194,17 +196,56 @@ sequenceDiagram
 - **質問カード**: 選択肢のボタンは押したらすぐ `ask_pick {n}`（確認なし）。「その他」は `text`。送信中は `PaneDetailViewModel` の `busy` で同じペインの全ボタンを無効にする。`cursor_mismatch`・`not_asking`・`option_out_of_range` ではカードを取り直す
 - **中断・終了**: 確認ダイアログ（`AppDialog`。「作業中のエージェントを止めます」。取り消し / 中断する）で確定したときだけ `send_escape {confirm: true}`・`pane_close` を送る。確認を経ない経路を作らない。`exit_timeout` の「もう一度試す」は、その失敗のときだけ出す（ほかの通知が出たら落とす）。`pane_start` 成功は「起動しました」、`pane_close` 成功は「終了しました」のトースト（デスクトップ版はトーストを出さず遷移する）
 - **自動更新**: ペイン詳細を開いている間、画面が見えている（`STARTED` 以上）間だけ 5 秒ごと。前のリクエストが終わる前に次を出さない。バックグラウンドで止め、戻ったら即時に 1 回取得する。401・403 は止めて再ペアリングへ誘導する。取得失敗は直前の表示を残して固定文言のバナー
-- **レイアウトと入力の保持**: Compact は 1 列、Medium 以上は本文の最大幅を制限して中央寄せ。入力途中の文字（指示・「その他」・タイトル）・開いているペイン・フォルダの選択は ViewModel（`StateFlow`）が保持し、折りたたみ⇔展開などの構成変更では失われない。ボタン・選択肢・フォルダの行は最小 48dp
-- **画面を離れたとき**: `PaneDetailViewModel.reset()`・`StartSessionViewModel.reset()` が実行中の取得・操作を止め、状態と未消費のイベント（画面を閉じる・起動完了）を破棄する。再び開いたとき前の入力を引き継がない
+- **レイアウトと入力の保持**: Compact は 1 列、Medium 以上は本文の最大幅を制限して中央寄せ。入力途中の文字（指示・「その他」・タイトル・最初のタスクの本文）・開いているペイン・フォルダ・スキルの選択は ViewModel（`StateFlow`）が保持し、折りたたみ⇔展開などの構成変更では失われない。ボタン・選択肢・フォルダの行・スキルの行は最小 48dp
+- **画面を離れたとき**: `PaneDetailViewModel.reset()`・`StartSessionViewModel.reset()` が実行中の取得・操作を止め、状態（選択中のスキル・本文・取得済みのスキル一覧・最初のタスクの結果の表示を含む）と未消費のイベント（画面を閉じる・起動完了）を破棄する。再び開いたとき前の入力を引き継がない
 - **質問カードの更新**: `ask_pick` が成功して質問が閉じたら、次に取り直すまでカードを出さない（古い選択肢のボタンを再び押せるようにしない）
-- **フォルダ一覧**: `dir_list` の取得に失敗してフォルダ一覧を読めていないときは「再読み込み」を出す（最初から読み直す）
+- **フォルダ一覧・スキル一覧**: `dir_list` の取得に失敗してフォルダ一覧を読めていないときは「再読み込み」を出す（最初から読み直す）。スキル一覧も同様で、エージェントを選んだあとに `skill_list` で取得し（取得結果は画面を開いている間のメモリだけ。保存しない）、`unknown_tool`（ホストが古い）なら固定文言「スキルの一覧を取得できません（ホストの swarm-console が古い可能性があります）」、それ以外の失敗は「スキルの一覧を読み込めませんでした」と「再読み込み」を出す。どちらでも「スキルなし」で本文だけ・タスクなしの起動はできる（スキルが選べないことで起動を止めない）。エージェントを選び直したらスキルの選択と一覧を取り直す。一覧に無いスキルは選べない
+- **最初のタスク（A5）**: エージェント → フォルダ → スキル（任意）→ 本文（任意）→ タイトル → 確認の順。送る文字列はスキルと本文の両方 = `<invoke> <本文>`（半角スペース 1 つ）、スキルだけ = `<invoke>`、本文だけ = `<本文>`（スキル・本文は前後の空白を除く。改行は `\n` に揃える）。合計 1〜8000 字・制御文字は `\n`・`\t` だけで、違反は送る前に入力欄の下の固定文言で拒否し（確認へ進めない）`pane_start` も呼ばない。入力欄の下に送る文字列の字数を「<字数> / 8000」で出す。`pane_start` が `ok: true` で `state` が `idle` のときだけ、同じペインの排他を保ったまま `send_text` で送る（`pane_start` の失敗なら従来の文言。`idle` 以外なら送らず、遷移せずに結果の表示で「起動しました。最初のタスクはまだ送っていません（状態: …）。ペイン詳細から送れます」（`…` は機能要件 §3 の表示ラベル）と「ペイン詳細を開く」を出す。「もう一度送る」は出さない）。どちらもスキルと本文が空なら今までどおり起動だけ。通信の上限は各ツールのまま（`pane_start` 50 秒・`send_text` 30 秒。合算の上限は設けない）。成功は今までどおり「起動しました」のトースト
+- **最初のタスクを送れなかったとき**: `send_text` が失敗または `accepted: false` でも、自動で再送せず、起動を取り消さない（`pane_close` は呼ばない）。「起動しました。最初のタスクを送れませんでした」と理由の固定文言（機能要件 §10.1 の送信の文言）を結果の表示で出し、「ペイン詳細を開く」と「もう一度送る」（`send_text` だけを送り直す。`pane_start` は呼ばない）を出す。「もう一度送る」は、送る前に `SnapshotService` で最新の `report` を取り、ペインが無ければ `pane_not_found`、`idle` でなければ `invalid_state` の固定文言を理由に出して、`send_text` を呼ばずに断る（「もう一度送る」は残る）。本文はこの結果の表示の間だけ `StartSessionViewModel`（メモリ）に残し、保存・ログ出力・通知・Intent に出さない（NFR-AND-SEC-9）。「ペイン詳細を開く」や画面を離れたときは `reset()` で破棄する
 - **エラーの分類**: `invalid_args` は `details.field == "session"` のときだけ `session_missing`、それ以外は操作エラー（`operation`）。Go と同じ（[API 仕様 §1.5](../api/endpoints.md)）
-- **ログ・保存**: `pane_tail`・質問文・送信本文はメモリ上の表示だけ。ディスク・ログ・通知・Intent に出さない（NFR-AND-SEC-9）
-- **表示**: 本文は常に `Text` で描画する（NFR-AND-SEC-8）
+- **ログ・保存**: `pane_tail`・質問文・送信本文・スキル名・`invoke`・最初のタスクの本文はメモリ上の表示だけ。ディスク・ログ・通知・Intent に出さない（NFR-AND-SEC-9）
+- **表示**: 本文・スキルの `name`・`description`・`invoke` は常に `Text` で描画する（NFR-AND-SEC-8）
 
 ### 10.3 テスト
 
-JUnit（MockWebServer・`ViewModel` のテスト）で NFR-AND-QLT-5 の 6 項目を検証する（見るだけの接続では偽のコンソールの `/ops` へのリクエスト 0 件・操作部品が出ない、操作の接続での期待どおりのツール名・引数、許可リスト、排他、ログ、結果の解析と固定文言）。ドメインの `validateUrl`・パーサ・`classify` は §8 のテストベクタで Go と一致を保つ。操作の実機確認は[アーキテクチャ設計 §11](../architecture/overview.md) #16。
+JUnit（MockWebServer・`ViewModel` のテスト）で NFR-AND-QLT-5 の 6 項目を検証する（見るだけの接続では偽のコンソールの `/ops` へのリクエスト 0 件・操作部品が出ない、操作の接続での期待どおりのツール名・引数、許可リスト、排他、ログ、結果の解析と固定文言）。最初のタスクでは、許可リストが `/ops` 11 個・`/report` 4 個で見るだけから `skillList` が通信 0 件の `tool_not_allowed`、`skill_list` の引数（`agent` だけ・`session` なし）と結果の解析・`unknown_tool` と他の失敗の固定文言、`pane_start` が `ok: true` かつ `idle` のときだけ `send_text` を送る（`ok: false`・`idle` 以外では 0 件）、スキルと本文の組み立て（両方・スキルだけ・本文だけ・どちらも空は起動だけ）と制御文字・8000 字の拒否（`pane_start` も 0 件）、`pane_start` から `send_text` まで排他が途切れない、`send_text` の失敗で `pane_close` が 0 件・自動再送なし・「もう一度送る」が `send_text` だけを送る、選択中のスキル・本文が構成変更で保たれ `reset()` で破棄される、スキル名・本文がログに出ないことを検証する。ドメインの `validateUrl`・パーサ・`classify` は §8 のテストベクタで Go と一致を保つ。操作の実機確認は[アーキテクチャ設計 §11](../architecture/overview.md) #16・#17。
+
+## 11. アプリの更新（新しい版の確認・APK の検証・インストーラの起動）
+
+機能は[機能要件 §12.7](../requirements/functional.md)（FR-AND-13〜16）、要件は NFR-AND-SEC-6・7・10〜12・NFR-AND-AVL-6・NFR-AND-PERF-9・NFR-AND-DAT-4・NFR-AND-DST-5・7・NFR-AND-QLT-6、GitHub への通信は [API 仕様 §6](../api/endpoints.md)、デスクトップの対応する仕様は[機能要件 §4.10](../requirements/functional.md) に従う。
+
+### 11.1 構成
+
+| 部品 | 内容 |
+|------|------|
+| `domain/AppVersion.kt` | `AppVersion`（`MAJOR.MINOR.PATCH`。成分ごとの数値の比較）・`parseTag`（`vX.Y.Z`）・`parseVersionName`（`X.Y.Z`）。先頭の 0・4 成分以上・数字以外・9 桁超は読まない（`android-version.sh` と同じ形） |
+| `domain/Release.kt` | `Release`（タグ・版・アセット名 → URL）・`parseLatestRelease`（draft・prerelease・不正なタグは null）・`androidAssetName`・`expectedSha256`（`SHA256SUMS` の形式検証と項目の取り出し）・`UpdateFailure`（失敗の種別 9 種）・`UpdateException`（メッセージは種別名だけ） |
+| `data/update/UpdateEndpoints.kt`・`UpdateGuard.kt` | `UpdateEndpoints.PRODUCTION`（GitHub の 4 ホスト・https・443）と、`UpdateGuardInterceptor`（GET だけ・許可リスト・認証系ヘッダーの除去）・`PublicOnlyDns`（プライベート・ループバック・tailnet のアドレスを除く）・`newUpdateHttpClient`（プロキシなし・リダイレクト追従なし・cookie なし）。tailnet 用の `GuardInterceptor` とは別 |
+| `data/update/GithubReleaseSource.kt`・`ReleaseSource.kt` | `ReleaseSource`（`latest`・`text`・`download`）の実装。リダイレクトを 1 回ごとに許可リストで検査して 5 回まで追う。ダウンロードは 200 MiB まで・`Content-Length` との一致を確かめ、失敗したら APK を消す |
+| `data/update/ApkSigners.kt`・`Sha256.kt` | `ApkSigners`（実行中のアプリと APK の署名証明書の SHA-256 の集合。`PackageManager` の `GET_SIGNING_CERTIFICATES`）・`sha256Hex` |
+| `data/update/ApkInstaller.kt` | `ApkInstaller`（`canInstall`・`openInstallPermissionSettings`・`install`）。`SystemApkInstaller` は `FileProvider` の URI で `ACTION_VIEW`（`application/vnd.android.package-archive`・読み取りの一時許可）を開く |
+| `data/update/AutoCheckSetting.kt` | `AutoCheckSetting`（`enabled: StateFlow<Boolean>`・`set`）。`PrefsAutoCheck` は `SharedPreferences`（`update_prefs`・`auto_check`・既定 true） |
+| `service/UpdateService.kt`・`UpdateScheduler.kt` | `UpdateService`（`check`・`update`。状態 `UpdateState`: `release`・`updating`・`failure`・`needsInstallPermission`）、`UpdateScheduler`（`start(scope)`。自動確認がオンのあいだ、すぐ 1 回と 6 時間ごとに `check`。切り替えに追随する） |
+| `ui/update/` | `UpdateNotice`（メイン画面の上部）・`UpdateSettings`（設定画面の「アップデート」のスイッチ）・`UpdateViewModel`・`UpdateMessages.kt`（失敗の固定文言） |
+| `AppContainer` | `updates`・`updateScheduler`・`autoCheck`・`appScope`。確認先は `updateEndpointsOverride() ?: UpdateEndpoints.PRODUCTION`、保存先は `cacheDir/updates/`、実行中の版は `versionName`（読めなければ null で確認しない）。`MainActivity.onCreate` が `updateScheduler.start(appScope)` を呼ぶ（すでに動いていれば何もしない） |
+| `src/debug`・`src/release` の `UpdateEndpointsOverride.kt` | debug は `BuildConfig.UPDATE_LATEST_URL`（Gradle の `-PupdateLatestUrl`。空なら null）を `UpdateEndpoints.forTesting` に渡す。release は常に null |
+
+### 11.2 振る舞い
+
+- **確認**: `UpdateService.check` は、自動確認がオフ・更新中・実行中の版が読めないときは通信しない。最新リリースの版が実行中の版より新しいときだけ `release` に出す。確認が失敗しても通知は保ち、成功で失敗の表示が消える。確認の前に（通知する版が無いとき）前回までの APK を消す
+- **更新**: `update` はまず「このアプリからのインストール」の許可を確かめ、無ければ設定画面を開いて何もダウンロードせず終える（`needsInstallPermission`。許可して戻ったあとにもう一度押す）。あれば APK と `SHA256SUMS` が Release にあるか確かめ、`SHA256SUMS` を取得して APK の項目を読み（無い・書式不正・重複なら APK を取得しない）、前回までの APK を消してから APK を取得し、SHA-256 を比べ、署名証明書の SHA-256 を実行中のアプリと比べ、すべて通ったときだけ `ApkInstaller.install` を 1 回呼ぶ。どの失敗（キャンセルを含む）でも APK を消す
+- **署名の判定**: 実行中のアプリの署名が読めない（空）、または APK の署名が（パッケージ名の違いを含め）読めない・一部しか一致しないときは、`SignatureMismatch`（インストールしない）。指紋の固定値は持たない（release 署名証明書の指紋の記録は [`android/README.md`](../../android/README.md)）
+- **インストールの後**: システムのインストーラが入れ替えと再起動を行う。アプリは終了を指示せず、取り消されたときは通知が残るので押し直せる
+- **画面**: メイン画面の本文の先頭（アプリバーの下。セッションのタブ・ペイン一覧の上）に 1 区画。新しい版が無いときは何も出さない。失敗は 1 行の小さな文字（`NoticeText`）で、一覧・操作を止めない。設定画面の「アップデート」に「自動で確認する」のスイッチ（既定オン）と説明を出す
+- **ログ・表示**: 失敗は固定の種別に丸め、例外の本文・URL・応答本文をログにも画面にも出さない（NFR-AND-LOG-2）
+
+### 11.3 デバッグビルドでの確認
+
+エミュレーターで、手元の偽のリリースサーバー（`GET /repos/ousiassllc/swarm-viewer/releases/latest`・アセット・`SHA256SUMS` を返す）に向けて動作を確かめられる。手順は[環境構築 §11.1](../environment/setup.md)。release ビルドは常に GitHub（本番）に固定され、差し替えられない（NFR-AND-SEC-12。`ReleaseBuildHasNoOverrideTest`）。
+
+### 11.4 テスト
+
+JUnit で NFR-AND-QLT-6 を検証する: `UpdateVersionTest`（版の比較・タグの形・Release JSON）、`UpdateEndpointsTest`（許可リスト・プライベート／tailnet アドレス・tailnet 用 `GuardInterceptor` に GitHub が無いこと）、`GithubReleaseSourceTest`（MockWebServer。資格情報の除去・リダイレクト・途中切れ・上限）、`UpdateServiceTest`（偽の `ReleaseSource`・`ApkInstaller`・`ApkSigners`。SHA-256・署名・許可・自動確認オフ・失敗時の APK の削除）、`UpdateSchedulerTest`（6 時間・オフ・オンへの復帰。フェイクの時間）、`src/testRelease` の `ReleaseBuildHasNoOverrideTest`。実際のシステムのインストーラ（Galaxy Fold7）は[アーキテクチャ設計 §11](../architecture/overview.md) #20 に未確認として残す。
 
 ## 改訂履歴
 
@@ -213,3 +254,5 @@ JUnit（MockWebServer・`ViewModel` のテスト）で NFR-AND-QLT-5 の 6 項�
 | 1.0 | 2026-11-05 | 新規作成 | Issue #15（Android 版の仕様書への反映） |
 | 1.1 | 2026-11-08 | 操作モード（Issue #97）。§1 の通信・操作系を種類別の許可リストに、§5 の権限、§8 のベクタ（`/ops`・`operation`）、§9 のログ（`pane_tail`・送信本文）、§10「操作モード」を追加 | Issue #97（操作モード） |
 | 1.2 | 2026-11-09 | ツールごとのタイムアウト（§10.1）、入力の保持を ViewModel（`StateFlow`）に訂正（`rememberSaveable` の記述を削除）、画面を離れたときの `reset()`・フォルダ一覧の「再読み込み」・`pick` 成功後のカードの扱い・`exit_timeout` の「もう一度試す」・`invalid_args` の分類を §10.2 に追記 | Issue #97（独立レビューの指摘とコード修正の反映） |
+| 1.3 | 2026-11-09 | 最初のタスク（Issue #103）。§1・§10.1 の許可リストを操作 11 個（`skill_list` 追加）に、§10.1 に `ReportClient.skillList`・`PaneService` の `pane_start` → `send_text`・`StartSessionScreen` のスキル選択と本文、§10.2 にスキル一覧の再読み込み・最初のタスクの送信と失敗時の結果の表示（もう一度送る）・入力の保持・`reset()`、§9・§10.3 のログ・テストを追記 | Issue #103（空きセッションへの最初のタスク） |
+| 1.4 | 2026-11-10 | 新しい版の確認と更新（Issue #109）。§5 の権限に `REQUEST_INSTALL_PACKAGES` と `FileProvider`、§11「アプリの更新」（構成・振る舞い・デバッグビルドでの確認・テスト）を追加 | Issue #109（新しい版の確認と自動アップデート） |

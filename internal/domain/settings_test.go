@@ -9,7 +9,7 @@ import (
 func TestDefaultSettings(t *testing.T) {
 	t.Parallel()
 	got := DefaultSettings()
-	want := Settings{NotificationsEnabled: true, ScreenPollSeconds: 10, NotifyPollMinutes: 10}
+	want := Settings{NotificationsEnabled: true, ScreenPollSeconds: 10, NotifyPollMinutes: 10, AutoUpdateCheck: true}
 	if got != want {
 		t.Fatalf("got %+v want %+v", got, want)
 	}

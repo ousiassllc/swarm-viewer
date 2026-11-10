@@ -23,6 +23,7 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/router"
 	"github.com/ousiassllc/swarm-viewer/internal/service"
 	"github.com/ousiassllc/swarm-viewer/internal/service/paneservice"
+	"github.com/ousiassllc/swarm-viewer/internal/service/updater"
 )
 
 // ErrUnavailable は通常モードでないため（recovery モード）、機能を使えないときのエラー。
@@ -51,6 +52,15 @@ type Config struct {
 	Report service.ReportClient
 	// Panes（ペイン詳細・操作）が nil なら repository/report の実クライアントを使う。
 	Panes paneservice.Client
+	// Version はアプリの版（buildinfo.Version。"X.Y.Z"、開発ビルドは "dev"）。新しい版の確認に使い、"dev" では確認も更新もしない（Issue #109）。
+	Version string
+	// GOOS は更新ファイルの選択に使う OS。空なら runtime.GOOS（テストで差し替える）。
+	GOOS string
+	// Quit は更新を適用できたあとにアプリを終了する（shell.Quit）。
+	Quit func()
+	// Releases・Installer が nil なら、GitHub Releases の実クライアントと OS の実インストーラを使う（テストで差し替える）。
+	Releases  updater.Source
+	Installer updater.Installer
 	// Static は埋め込みの静的アセット（static.FS()）。
 	Static fs.FS
 	// Handler は Wails のアセットハンドラ。モードの切り替えでここへ差し替える。
@@ -193,6 +203,7 @@ type services struct {
 	settings     *service.SettingsService
 	notification *service.NotificationService
 	pairing      *service.PairingService
+	updater      *updater.Service
 }
 
 // build は documented order（Settings → Connection → Notification → Snapshot → Pairing）で service を作り、
@@ -215,6 +226,7 @@ func (r *Runtime) build(st *store.Store) (http.Handler, services, error) {
 	pairing := service.NewPairingService(rep, st, c.Secrets, c.IDs, c.Clock, conns, r.log)
 	pairing.SetPollTrigger(notif)
 	panes := paneservice.New(paneClient, conns, r.log)
+	upd := r.newUpdater(settings)
 
 	h, err := router.New(router.Deps{
 		Logger:      r.log,
@@ -225,9 +237,10 @@ func (r *Runtime) build(st *store.Store) (http.Handler, services, error) {
 		Panes:       panes,
 		Notifier:    c.Notifier,
 		Clock:       c.Clock,
+		Updates:     upd,
 		Static:      c.Static,
 	})
-	return h, services{settings: settings, notification: notif, pairing: pairing}, err
+	return h, services{settings: settings, notification: notif, pairing: pairing, updater: upd}, err
 }
 
 // followLogLevelLocked は設定のデバッグログ切替にログレベルを追随させる（r.mu を保持して呼ぶ）。
@@ -246,16 +259,20 @@ func (r *Runtime) followLogLevelLocked() {
 	}()
 }
 
-// startWorkersLocked は通知スケジューラを、通常モードかつ準備済みのときに 1 度だけ起動する（r.mu を保持して呼ぶ）。
+// startWorkersLocked は通知スケジューラと新しい版の確認を、通常モードかつ準備済みのときに 1 度だけ起動する（r.mu を保持して呼ぶ）。
 func (r *Runtime) startWorkersLocked() {
 	if !r.ready || r.store == nil || r.started {
 		return
 	}
 	r.started = true
-	n, ctx := r.svcs.notification, r.workCtx
-	r.workers.Add(1)
+	n, u, ctx := r.svcs.notification, r.svcs.updater, r.workCtx
+	r.workers.Add(2)
 	go func() {
 		defer r.workers.Done()
 		n.Run(ctx)
+	}()
+	go func() {
+		defer r.workers.Done()
+		u.Run(ctx) // 開発ビルド・更新ファイルの無い OS では、すぐ返る
 	}()
 }

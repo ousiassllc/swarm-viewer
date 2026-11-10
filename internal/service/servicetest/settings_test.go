@@ -10,7 +10,7 @@ import (
 )
 
 func validInput() service.SettingsInput {
-	return service.SettingsInput{NotificationsEnabled: true, ScreenPollSeconds: 30, NotifyPollMinutes: 5, DebugLog: true}
+	return service.SettingsInput{NotificationsEnabled: true, ScreenPollSeconds: 30, NotifyPollMinutes: 5, DebugLog: true, AutoUpdateCheck: true}
 }
 
 func TestSettingsUpdateSavesAndKeepsLastConnection(t *testing.T) {
@@ -22,7 +22,7 @@ func TestSettingsUpdateSavesAndKeepsLastConnection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := domain.Settings{NotificationsEnabled: true, ScreenPollSeconds: 30, NotifyPollMinutes: 5, DebugLog: true, LastConnectionID: "c1"}
+	want := domain.Settings{NotificationsEnabled: true, ScreenPollSeconds: 30, NotifyPollMinutes: 5, DebugLog: true, AutoUpdateCheck: true, LastConnectionID: "c1"}
 	if got != want {
 		t.Fatalf("Update = %+v, want %+v", got, want)
 	}

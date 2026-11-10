@@ -19,6 +19,8 @@ graph TD
     User --> UC8[質問に答える]
     User --> UC9[指示を送る・中断する]
     User --> UC10[新しいセッションを始める・終了する]
+    User --> UC11[最初のタスクを入れて始める]
+    User --> UC12[新しい版へ更新する]
     UC1 --> Secret[(OS 秘密領域<br/>token)]
     UC1 --> DB[(SQLite<br/>接続・設定・通知履歴)]
     UC2 --> DB
@@ -30,9 +32,13 @@ graph TD
     UC8 --> Pick[/ops: ask_pick/]
     UC9 --> Send[/ops: send_text・send_escape/]
     UC10 --> Start[/ops: dir_list・pane_start・pane_close/]
+    UC11 --> First[/ops: skill_list・send_text/]
+    UC12 --> Releases[GitHub Releases: releases/latest・アセット・SHA256SUMS]
 ```
 
-UC8〜UC10 は操作の接続（`/ops`）でだけ行える。UC7 は見るだけの接続でも行える（質問は読むだけ）。
+UC8〜UC11 は操作の接続（`/ops`）でだけ行える。UC7 は見るだけの接続でも行える（質問は読むだけ）。UC11 は UC10 の起動に続けて、スキルと本文の最初のタスクを入れる（FR-OPS-11）。
+
+UC12 は接続の種類にかかわらず使える（swarm-console には通信しない。GitHub Releases への専用の通信。FR-UPD-1〜6・FR-AND-13〜16）。
 
 ## 2. 機能一覧
 
@@ -58,7 +64,7 @@ UC8〜UC10 は操作の接続（`/ops`）でだけ行える。UC7 は見るだ�
 | FR-NTF-1 | OS 通知 | ペインが要対応状態になったとき OS 通知する（§8） |
 | FR-NTF-2 | 通知対象の範囲 | 通知は保存済み全接続の**全許可セッション**が対象。画面表示用とは別の低頻度ポーリング（既定 10 分、設定可能）で取得する |
 | FR-NTF-3 | 重複通知の抑止 | 一度通知した状態は、そのペインがその状態を抜けるまで再通知しない |
-| FR-SET-1 | 設定画面 | 通知オン/オフ・画面更新間隔・通知用ポーリング間隔・デバッグログのオン/オフを設定する（§9） |
+| FR-SET-1 | 設定画面 | 通知オン/オフ・画面更新間隔・通知用ポーリング間隔・デバッグログのオン/オフ・新しい版の自動確認のオン/オフ（FR-UPD-6）を設定する（§9） |
 | FR-ERR-1 | エラー表示 | 接続・認証・セッション許可のエラーを短い文言で表示する（§10） |
 | FR-APP-1 | トレイ常駐 | ウィンドウを閉じても終了せずトレイ（macOS はメニューバー）に常駐する。トレイメニューは「開く」「終了」。通知用ポーリングは通知オンの間、常駐中も継続する |
 | FR-APP-2 | 単一インスタンス | 2 つ目の起動は既存ウィンドウを前面に出す。ディープリンクは既存インスタンスで処理する |
@@ -68,10 +74,17 @@ UC8〜UC10 は操作の接続（`/ops`）でだけ行える。UC7 は見るだ�
 | FR-OPS-4 | 質問カード | 状態が `asking` のペインで `ask_card` を表示する。操作の接続は選択肢の大きなボタンと「その他（自分で書く）」で `ask_pick` を送る（押したらすぐ送る）。見るだけの接続は質問文と選択肢の一覧だけ（§4.6） |
 | FR-OPS-5 | 指示を送る | 操作の接続のペイン詳細に送信欄を出し、`send_text`（8000 字まで）で送る。状態により無効にして理由を出す（§4.7） |
 | FR-OPS-6 | 中断 | 操作の接続のペイン詳細に、目立たない「中断」を置く。確認ダイアログを経たときだけ `send_escape`（`confirm: true`）を送る（§4.7） |
-| FR-OPS-7 | 新しいセッションを始める | 操作の接続で、`shell` のペインのカードの「＋ 始める」から、エージェント → フォルダ（`dir_list` で 1 階層ずつ）→ タイトル → 確認の順に進み `pane_start` で起動する（§4.8） |
+| FR-OPS-7 | 新しいセッションを始める | 操作の接続で、`shell` のペインのカードの「＋ 始める」から、エージェント → フォルダ（`dir_list` で 1 階層ずつ）→（任意の最初のタスク。FR-OPS-11）→ タイトル → 確認の順に進み `pane_start` で起動する（§4.8） |
 | FR-OPS-8 | 終了 | 操作の接続で、`idle`・`shell` のペインだけ「終了」を出す。確認ダイアログを経たときだけ `pane_close` を送る（確認済みの値が無ければ呼ばず `confirm_required`。`send_escape` と同じ）。`exit_timeout` は「もう一度試す」を出す（§4.7） |
 | FR-OPS-9 | 二重送信の防止 | 操作の送信中は、同じペインのボタンをすべて無効にする。アプリ側（service）も同じペインへの操作を排他にし、実行中に次が来たら通信せずに断る（§4.9） |
 | FR-OPS-10 | 操作結果・エラーの表示 | 操作の結果は固定文言のトースト（デスクトップの `pane_start`・`pane_close` の成功は画面遷移でトーストなし）、失敗は §10.1 の固定文言で出す。ホストの `message` は画面に出さない（§10.1） |
+| FR-OPS-11 | 最初のタスクを入れる | 操作の接続で、新しいセッションの起動時に、任意で「スキル」（`skill_list` の一覧から 1 つ）と「本文」を指定できる。`pane_start` に成功して `state` が `idle` のときだけ、`send_text` で最初のタスクとして送る。どちらも空なら今までどおり起動だけ。送信に失敗しても起動は取り消さず、「もう一度送る」で `send_text` だけを送り直せる。`pane_start` から `send_text` までは 1 つの操作として同じペインの排他（FR-OPS-9）を保つ（§4.8） |
+| FR-UPD-1 | 新しい版の確認 | 起動時と 6 時間ごとに、`ousiassllc/swarm-viewer` の最新 Release（draft・prerelease は除く。`tag_name` が `vX.Y.Z` のものだけ）を確認し、実行中の版より新しいときだけ知らせる。版は成分ごとに数値で比べる（v0.1.9 < v0.1.13）。開発ビルド（版が `dev`）・更新ファイルの無い OS（Linux など）は確認も通知もしない（§4.10。Issue #109） |
+| FR-UPD-2 | 新しい版の通知 | メイン画面（S2）の上部に小さな通知の領域を出し、新しい版があるとき「新しい版 vX.Y.Z があります」と「更新する」を出す。通知の領域は自分で読み直し（ふだん 60 秒ごと）、定期の確認が新しい版を見つけたら出る。ペイン一覧・操作を止めない（§4.10） |
+| FR-UPD-3 | 取得と検証 | 「更新する」で、この OS 用のアセット（Windows は `swarm-viewer_vX.Y.Z_windows_amd64_installer.exe`、macOS は `swarm-viewer_vX.Y.Z_darwin_universal.zip`）と `SHA256SUMS` を取得し、**SHA-256 が `SHA256SUMS` の該当行と一致したものだけ**適用する。不一致・途中で切れた・`SHA256SUMS` に該当行が無い（複数・書式不正を含む）・アセットが無いときは何も適用せず、取得したファイルを消す（§4.10） |
+| FR-UPD-4 | 適用 | Windows は、検証済みのインストーラ（NSIS）を起動してアプリを終了する（管理者権限の確認は OS が出す）。macOS は、zip を実行中の `.app` と同じボリュームへ展開・検査して `.app` を差し替え、アプリの終了を待って開き直す補助プロセスを起動してアプリを終了する。適用に失敗したときは実行中のアプリを変えない（macOS は差し替えの途中なら元へ戻す）（§4.10） |
+| FR-UPD-5 | 失敗の表示 | 更新の失敗は、種類（取得・検証・適用）ごとの固定文言を通知の下に小さく出し、「更新する」を押し直せる。確認の失敗は、新しい版が無い間だけ「新しい版を確認できませんでした」の 1 行。原因・URL・ファイル名は画面に出さない。どの失敗もメイン画面の表示・操作を変えない（§4.10） |
+| FR-UPD-6 | 自動で確認する | 設定（S3）の「自動で確認する」（既定オン）。オフの間は、起動時も定期も GitHub に通信しない。オフからオンへ戻したときは、次の周期を待たずに 1 回確認する（§9。保存は ER §3.2 `settings.auto_update_check`） |
 
 ### 2.1 操作モード（Issue #97）の受け入れ条件との対応
 
@@ -88,6 +101,38 @@ UC8〜UC10 は操作の接続（`/ops`）でだけ行える。UC7 は見るだ�
 | 9 | Galaxy Fold7（閉じ / 開き）とデスクトップで片手でも迷わず操作できる | FR-AND-10・FR-AND-11（§12.6）、NFR-DSG-16、NFR-AND-ENV-2 |
 | 10 | 許可リスト外のツール名は呼べない（種類別の定数） | NFR-SEC-1、NFR-AND-SEC-5、[API 仕様 §1.2](../api/endpoints.md) |
 | 11 | token・本文がログに出ない | NFR-SEC-11、NFR-LOG-3、NFR-AND-LOG-2、NFR-QLT-4（5） |
+
+### 2.2 最初のタスク（Issue #103）の受け入れ条件との対応
+
+| # | 受け入れ条件 | 仕様 |
+|---|-------------|------|
+| 1 | 空きペイン（`shell`）から エージェント → フォルダ → スキル（任意）→ 本文（任意）→ タイトル → 確認 で起動でき、起動後に最初のタスクが送られる | FR-OPS-7・FR-OPS-11、§4.8 |
+| 2 | スキル一覧を取得できる（`skill_list`）。取れない・古いホストでも、スキルなし・本文だけ・タスクなしで起動できる | FR-OPS-11、§4.8・§10.1、[API 仕様 §1.5](../api/endpoints.md)、[アーキテクチャ設計 §11](../architecture/overview.md) の未確認事項 #17 |
+| 3 | 起動が成功しても `idle` でなければ最初のタスクを勝手に送らず、ペイン詳細から送れる | FR-OPS-11・FR-OPS-5、§4.7・§4.8・§10.1 |
+| 4 | 最初のタスクの送信に失敗したら起動を取り消さず、「もう一度送る」で `send_text` だけ再送できる（`pane_start` の二重起動をしない） | FR-OPS-9・FR-OPS-10・FR-OPS-11、§4.8・§10.1 |
+| 5 | 見るだけの接続ではスキル・本文の部品が出ず、`skill_list` も呼ばない（通信 0 件・403） | FR-OPS-1・FR-OPS-11、§4.8・§4.9、NFR-SEC-1・NFR-SEC-14、NFR-QLT-4（1）・NFR-AND-QLT-5 |
+| 6 | 許可リストは `/ops` 11 個・`/report` 4 個（種類別の定数）で、スキル名・本文がログに出ない | NFR-SEC-1・NFR-SEC-11、NFR-AND-SEC-5・NFR-AND-SEC-9、NFR-LOG-3、NFR-AND-LOG-2、NFR-QLT-4（5）、[API 仕様 §1.2](../api/endpoints.md) |
+| 7 | 折りたたみ（Compact）・展開（Medium 以上）・デスクトップで片手でも迷わず操作できる（最小 48dp） | FR-AND-11・FR-AND-12（§12.6）、NFR-DSG-16、NFR-AND-ENV-2 |
+
+### 2.3 新しい版の確認と更新（Issue #109）の受け入れ条件との対応
+
+テスト名はデスクトップ（Go。パッケージ・関数）と Android（Kotlin。クラス・メソッド）の実在するもの。実機・実インストーラでしか確かめられない項目は表の下に分けて示す。
+
+| # | 受け入れ条件 | 仕様 | 自動テスト |
+|---|-------------|------|-----------|
+| 1 | 版の比較（v0.1.9 と v0.1.13 など）が数値で行われ、同じ版・古い版・読めない版は通知しない | FR-UPD-1・FR-AND-13 | デスクトップ: `domain/update` の `TestParse`・`TestNewer`・`TestCompare`。Android: `UpdateVersionTest` の `versionsAreComparedNumericallyPerComponent`・`equalAndOlderVersionsAreNotNewer`・`aTagMustBeVPrefixedMajorMinorPatch`、`UpdateServiceTest` の `sameOlderOrUnreadableCurrentVersionOffersNothing` |
+| 2 | 起動時と 6 時間ごとに最新 Release を確認し、新しいときだけ知らせる。draft・prerelease・タグが `vX.Y.Z` でないものは無視 | FR-UPD-1・FR-UPD-2・FR-AND-13 | デスクトップ: `domain/update` の `TestParseRelease`・`TestParseReleaseRejects`、`service/updater` の `TestCheckSetsAvailableWhenNewer`・`TestCheckIgnoresUnusableReleases`・`TestAutoCheckOnChecksAtStartupAndEverySixHours`、`web/updatehandler` の `TestNoticeShowsAvailableVersionWithUpdateButton`。Android: `UpdateServiceTest` の `aNewerReleaseIsOfferedWithItsVersion`・`noReleaseToOfferLeavesNoNotice`、`UpdateVersionTest` の `aLatestReleaseIsReadWithItsAssets`・`draftAndPrereleaseAreIgnored`・`anUnparsableTagIsIgnoredWithoutError`、`UpdateSchedulerTest` の `theDefaultIntervalIsSixHours`・`itChecksAtStartAndThenEverySixHours`・`startingTwiceDoesNotDoubleTheChecks` |
+| 3 | 通知 → 更新 → 入れ替えが、取得・検証・適用の順に 1 回だけ行われる | FR-UPD-3・FR-UPD-4・FR-AND-14 | デスクトップ: `service/updater` の `TestApplyHappyPathInstallsOnceAndQuits`・`TestApplyAsyncIsSingleFlight`、`app/compose` の `TestUpdateEndToEnd`、`repository/installer` の `TestInstallWindowsLaunchesTheFileOnce`・`TestInstallMacOSSwapsTheApp`、`web/updatehandler` の `TestApplyStartsTheUpdateOnce`。Android: `UpdateServiceTest` の `theHappyPathLaunchesTheInstallerExactlyOnceWithTheVerifiedFile`・`pressingUpdateWhileUpdatingDoesNothing` |
+| 4 | SHA256SUMS の不一致・項目なし・書式不正・重複、アセットの欠落のときは入れ替えず、取得したファイルを消す | FR-UPD-3・FR-AND-14・NFR-SEC-17・NFR-AND-SEC-11 | デスクトップ: `domain/update` の `TestParseSumsRejectsBadFormat`・`TestSumsLookupMissingAndDuplicate`・`TestReleaseAssetMissingOrAmbiguous`、`service/updater` の `TestApplyHashMismatchDoesNotInstallAndDeletesFile`・`TestApplyBadSumsDoesNotInstall`・`TestApplyMissingAssetDoesNotInstall`。Android: `UpdateServiceTest` の `aHashMismatchInstallsNothingAndDeletesTheFile`・`sha256sumsWithoutTheAssetInstallsNothingAndDownloadsNothing`・`badlyFormattedOrDuplicateSha256sumsInstallsNothing`・`aReleaseWithoutTheApkOrSha256sumsInstallsNothing` |
+| 5 | （Android）署名が実行中のアプリと違う・読めない APK は入れ替えない（デスクトップはコード署名をしていないため対象外。NFR-DST-2） | FR-AND-14・NFR-AND-SEC-11 | `UpdateServiceTest` の `aDifferentSigningCertificateInstallsNothingAndDeletesTheFile`・`anUnreadableOrPartiallyMatchingSignatureInstallsNothing` |
+| 6 | オフライン・ダウンロードが途中で切れたときは入れ替えない。確認の失敗は小さく出すだけ | FR-UPD-5・FR-AND-15・NFR-AVL-7・NFR-AND-AVL-6 | デスクトップ: `service/updater` の `TestCheckFailureIsSmallAndRecovers`・`TestApplyDownloadFailuresDoNotInstall`・`TestApplyTruncatedBodyWithoutErrorIsCaughtByHash`・`TestApplyRetryAfterFailure`、`repository/release` の `TestLatestOffline`・`TestDownloadTruncated`・`TestDownloadSizeMismatchWithReportedSize`、`web/updatehandler` の `TestNoticeFailuresAreSmallFixedMessages`。Android: `UpdateServiceTest` の `anOfflineCheckShowsASmallFailureAndKeepsEverythingElse`・`aFailedLaterCheckKeepsTheNoticeAndASuccessfulOneClearsTheFailure`・`offlineWhileDownloadingInstallsNothing`・`aTruncatedDownloadInstallsNothingAndDeletesThePartialFile`、`GithubReleaseSourceTest` の `offlineIsANetworkFailure`・`aDownloadCutOffMidwayIsTruncatedAndTheFileIsDeleted`・`aDownloadShorterThanItsContentLengthIsTruncated` |
+| 7 | GitHub への通信は、tailnet の接続用とは別のクライアント・許可リスト（`api.github.com` と Releases の配信元だけ）で行い、token・認証ヘッダー・cookie を送らず、tailnet・プライベートのアドレスへ届かない | NFR-SEC-15・NFR-SEC-16・NFR-AND-SEC-10 | デスクトップ: `domain/update` の `TestCheckURL`・`TestAllowedHostsIsExactlyGitHub`、`repository/release` の `TestProductionClientOnlyTalksToGitHubOverHTTPS`・`TestProductionLatestURLIsGitHubAPI`・`TestCheckRedirectStripsCredentials`・`TestGuardStripsCredentialsBeforeSending`・`TestDenyPrivateAddresses`・`TestLatestParsesReleaseAndSendsNoCredentials`・`TestDownloadRefusesRedirectToDisallowedHost`・`TestDownloadRefusesRedirectToHTTP`・`TestDownloadStopsRedirectLoop`。Android: `UpdateEndpointsTest` の `productionPermitsOnlyHttpsToTheGithubHosts`・`productionRejectsEveryOtherHost`・`theTailnetGuardDoesNotAllowGithubHosts`・`privateLoopbackAndTailnetAddressesAreNotPublic`、`GithubReleaseSourceTest` の `theLatestReleaseIsReadAndNoCredentialsAreSent`・`theGuardStripsAuthorizationAndCookieEvenIfACallerSetsThem`・`theGuardRefusesNonGetAndForeignHostsBeforeConnecting`・`productionSourceRejectsForeignUrlsWithoutAnyNetworkAccess`・`theProductionNameResolutionNeverYieldsLoopbackOrPrivateAddresses`・`aRedirectToAForeignHostIsRejectedAndNeverContacted`・`anEndlessRedirectLoopGivesUp` |
+| 8 | 「自動で確認する」をオフにすると確認の通信をしない（既定はオン） | FR-UPD-6・FR-AND-16 | デスクトップ: `service/updater` の `TestAutoCheckOffMakesNoNetworkCall`、`repository/store`・`web/handler` の `TestSettingsAutoUpdateCheck`、`web/organisms` の `TestSettingsForm_AutoUpdateCheck`。Android: `UpdateServiceTest` の `withAutoCheckOffNoNetworkCallIsMade`、`UpdateSchedulerTest` の `withAutoCheckOffNothingIsChecked`・`turningItOffStopsAndTurningItOnChecksAgainAtOnce` |
+| 9 | 開発ビルド・更新ファイルの無い OS では確認も通知もしない。通知の領域は有効なときだけ出す | FR-UPD-1・FR-UPD-2 | `service/updater` の `TestDisabledEnvironmentsNeverCheck`、`app/compose` の `TestUpdateDisabledForDevBuild`、`web/updatehandler` の `TestMainScreenHasNoticeSlotOnlyWhenEnabled`・`TestNoticeEmptyWhenNothingToShowOrDisabled`、`buildinfo` の `TestVersionIsDevInTheRepository`、`.github/scripts/set-version_test.sh` |
+| 10 | macOS の zip の展開が安全（`..`・絶対パス・シンボリックリンク・最上位が `.app` 1 つでない・実行ファイルが無い zip を拒否）で、差し替えに失敗したら元へ戻る | FR-UPD-4・NFR-SEC-18 | `repository/installer` の `TestInstallMacOSBadArchiveLeavesTheAppUntouched`・`TestInstallMacOSNotAZip`・`TestInstallMacOSNotInABundle`・`TestInstallMacOSRollsBackWhenSwapFails`・`TestInstallMacOSRelaunchFailureIsReported`・`TestRelaunchScriptWaitsForTheParentThenCleansUp`・`TestBundleOf` |
+| 11 | （Android）インストールの許可が無いときは、先に設定画面を開き、何もダウンロードしない。前回までの APK は消す。インストーラを開けなかった APK は消す。リリースビルドは本番の宛先に固定される | FR-AND-14・NFR-AND-SEC-12 | `UpdateServiceTest` の `withoutInstallPermissionTheSettingsPageOpensFirstAndNothingIsDownloaded`・`staleDownloadsAreClearedBeforeANewDownload`・`aFailureToOpenTheInstallerDeletesTheFile`、`ReleaseBuildHasNoOverrideTest` の `theReleaseBuildAlwaysUsesTheGithubProductionEndpoints` |
+
+実機・実インストーラで確かめるものは自動テストの範囲外で、確認済みとは見なさない（[アーキテクチャ設計 §11](../architecture/overview.md) の未確認事項 #18〜#21）: Windows の NSIS インストーラの実際の起動・昇格・アプリの終了とのつながり、macOS の `.app` の実際の差し替えと開き直し（配置場所・Gatekeeper・App Translocation の影響）、Android のシステムのインストーラ（Galaxy Fold7）、実際の GitHub Release に対する確認と更新（GitHub へは認証なしで届くため、リポジトリが公開されているときだけ動く。private の間は `releases/latest` が 404 で「新しい版なし」になる。#21）。
 
 ## 3. ペインの状態と表示ラベル
 
@@ -115,9 +160,9 @@ UC8〜UC10 は操作の接続（`/ops`）でだけ行える。UC7 は見るだ�
 |------|----|------|
 | 接続管理 / ペアリング | S1 | 接続の追加（貼り付け・ディープリンク）、保存済み接続の一覧・切替・削除 |
 | メイン | S2 | 接続切替、セッションタブ、ペイングリッド、利用上限パネル、ホスト負荷、要対応表示 |
-| 設定 | S3 | 通知・ポーリング間隔 |
+| 設定 | S3 | 通知・ポーリング間隔・新しい版の自動確認 |
 | ペイン詳細 | S4 | ペインの状態・`pane_tail`・質問カード。操作の接続では送信欄・中断・終了も出す（§4.5〜§4.7） |
-| 新しいセッション | S5 | `shell` のペインでエージェント・フォルダ・タイトルを選んで起動する。操作の接続だけ（§4.8） |
+| 新しいセッション | S5 | `shell` のペインでエージェント・フォルダ・（任意の最初のタスク: スキル・本文）・タイトルを選んで起動する。操作の接続だけ（§4.8） |
 
 ```mermaid
 stateDiagram-v2
@@ -164,6 +209,7 @@ stateDiagram-v2
 - ペイングリッドの下、または側部に利用上限パネルとホスト負荷を置く。利用上限・ホスト負荷はセッションに属さないホスト全体の値で、タブを切り替えても同じ値になる
 - 接続の種類のバッジ（「操作」「見るだけ」）を、接続名の隣（接続が 1 つのときも）に出す（FR-OPS-2）
 - ペイン詳細（S4）への入口は、ペインカード（§4.4）と要対応バー（§7）の項目。操作の接続では、`shell` のペインのカードに「＋ 始める」（S5 への入口）を出す。見るだけの接続には出さない
+- メイン画面の上部（ヘッダの下）に、新しい版の通知の領域（`#update-notice`）を置く。新しい版が無いときは空で、何も出さず間隔も取らない。リリースのビルドで、更新ファイルのある OS のときだけ領域を出す（§4.10）
 
 ### 4.4 ペインカード
 
@@ -229,14 +275,32 @@ stateDiagram-v2
 - `idle`・`shell` のペインだけ「終了」を出す。確認ダイアログを経たときだけ `pane_close` を送る（NFR-SEC-12）。デスクトップは `POST P/close` に確認ダイアログを経たフォームだけが付ける `confirm=true` が無ければ `pane_close` を呼ばず `confirm_required` で断り、送る前にサーバー側でも最新の `report` のペイン状態を再検査する（`idle`・`shell` 以外は通信せず `invalid_state`）。成功したらメイン画面へ戻る（デスクトップは `HX-Redirect`）
 - `exit_timeout`（終了コマンドを送ったが `shell` に戻らなかった）は、「終了が間に合いませんでした（もう一度試せます）」に「もう一度試す」ボタンを付けて出す（`pane_close` は呼び直してよい）。ボタンはその失敗のときだけ出し、ほかの結果が出たら落とす
 
-### 4.8 S5 新しいセッション（FR-OPS-7。操作の接続のみ）
+### 4.8 S5 新しいセッション（FR-OPS-7・FR-OPS-11。操作の接続のみ）
 
 1. S2 の `shell` のペインのカードの「＋ 始める」から入る（`shell` のペインだけ）
 2. エージェントを選ぶ: `omp` / `claude` / `codex`（ラジオまたは大きな選択ボタン）
 3. フォルダを選ぶ: `dir_list`（`path` 省略 = `allowed_roots`）から 1 階層ずつたどるピッカー。パンくず・戻る（1 つ上へ）・「このフォルダを選ぶ」・各行を押して 1 つ下へ。`git: true` のフォルダには印を付ける。`truncated: true` なら「一部のみ表示」の 1 行を出す
    - 「最近使ったフォルダ」: 現在の `report` の `panes[]` のうち `agent` があるペインの `cwd` を、重複を除いて最大 5 件（保存はしない）。許可外のフォルダなら `pane_start` が `forbidden_path` を返し、固定文言で出す
-4. タイトルを入れる（1〜80 字、制御文字なし。前後の空白は除く）
-5. 確認（エージェント・フォルダ・タイトルを要約）→ `pane_start`。待つ間はスピナーを出してボタンを無効にする。`ok: false` は理由（§10.1。「起動を確認できませんでした（状態: …）」）を出す。成功したらそのペインの詳細（S4）を開く（デスクトップはトーストを出さず `HX-Redirect`、Android は「起動しました」のトースト）。デスクトップの `POST P/start` は 2 段階で、確認の前に `pane_start` は呼ばない。`shell` 以外のペインへは、送る前にサーバー側でも最新の `report` で再検査し、通信せず `invalid_state` で断る
+4. スキルを選ぶ（任意）: エージェントを選んだあとに `skill_list`（`agent` を渡す。`cwd` は渡さない。読み取り系なので通信の上限は 10 秒）で一覧を取得し、1 つ選ぶか「スキルなし」を選ぶ。一覧の取得結果は画面を開いている間のメモリだけに持ち、保存しない。各行は `name` と `description` を出し、`invoke` は選んだ値として持つ（確認での出し方は 7 と §12.6）。`truncated: true` なら「一部のみ表示」の 1 行を出す
+   - `unknown_tool`（ホストが古い）は、この手順に「スキルの一覧を取得できません（ホストの swarm-console が古い可能性があります）」を出す。それ以外の失敗は「スキルの一覧を読み込めませんでした」に「再読み込み」を付けて出す（§10.1）
+   - どちらの場合も「スキルなし」で、本文だけのタスク・タスクなしの起動はできる（スキルが選べないことで起動を止めない）
+5. 本文を入れる（任意）: 複数行の入力欄。改行は `\n` に揃える（ブラウザのフォームの CRLF・Android の `\r` は `\n` にする）。Android は入力欄の下に送る文字列の字数を「<字数> / 8000」で出す
+6. タイトルを入れる（1〜80 字、制御文字なし。前後の空白は除く）
+7. 確認（エージェント・フォルダ・スキル・本文の先頭を要約。デスクトップはスキルを選んだときだけ `invoke` を、本文があるときだけ先頭 120 字（超えたら「…」）を出す。Android は「スキル: <name>」（選ばなければ「なし」）を常に出し、本文があるときだけ前後の空白を除いた先頭 80 字（超えたら「…」）を出す）→ `pane_start`。待つ間はスピナーを出してボタンを無効にする。`ok: false` は理由（§10.1。「起動を確認できませんでした（状態: …）」）を出し、最初のタスクは送らない。成功したらそのペインの詳細（S4）を開く（デスクトップはトーストを出さず `HX-Redirect`、Android は「起動しました」のトースト）。デスクトップの `POST P/start` は 2 段階で、確認の前（`confirm=1` が無いとき）は確認画面を返すだけで `pane_start` も `send_text` も呼ばない。`shell` 以外のペインへは、送る前にサーバー側でも最新の `report` で再検査し、通信せず `invalid_state` で断る
+
+確認画面が最初のタスクの要約を出して確定を受けるので、最初のタスクのための確認ダイアログは足さない（`pane_start` の確認画面だけ）。見るだけの接続には「スキル」「本文」の部品も描画しない（§4.9）。
+
+最初のタスクの送信（FR-OPS-11）:
+
+- 送る文字列は、スキル・本文の前後の空白（Go の `strings.TrimSpace` と同じ範囲）を除いたうえで、スキルと本文の両方なら `<invoke> <本文>`（半角スペース 1 つ）、スキルだけなら `<invoke>`、本文だけなら `<本文>`。`invoke` は `skill_list` が返す「そのスキルを呼ぶために送る入力文字列」（例 `/impl`）で、エージェントごとの呼び出し構文は viewer では持たず、そのまま使う。スキルも本文も空なら最初のタスクは無く、今までどおり起動だけ
+- 送る文字列の合計は 1〜8000 字、制御文字は `\n`・`\t` だけ（`send_text` と同じ。CR は不可なので、入力の改行は `\n` に揃えてから検査する）。違反は送る前に入力欄の固定文言（§10.1 の `forbidden_control_char`・`text_too_long`）で拒否し、`pane_start` も呼ばない
+- `pane_start` が `ok: true` で、`state` が `idle` のときだけ、`send_text` で最初のタスクを送る。`state` が `idle` 以外のときは送らず、結果の表示で「起動しました。最初のタスクはまだ送っていません（状態: …）。ペイン詳細から送れます」と「ペイン詳細を開く」を出す（デスクトップは `HX-Redirect` でトーストが消えるため、遷移せずこの表示で知らせる）。「もう一度送る」は出さず、この表示は本文を持ち回らない（デスクトップは本文を破棄する。Android の本文は `reset()` までメモリに残るが、この表示から送る操作はない）。`idle` に戻ってからペイン詳細の送信欄から送る
+- `send_text` が成功（`accepted: true`）したら、起動だけのときと同じく S4 を開く
+- `send_text` が失敗、または `accepted: false` のときは、自動の再送はせず、起動も取り消さない（`pane_close` は呼ばない）。結果の表示で「起動しました。最初のタスクを送れませんでした」と理由（§10.1 の送信の文言）を出し、「ペイン詳細を開く」と「もう一度送る」を出す。「もう一度送る」は `send_text` だけを送り直す（`pane_start` は呼ばない）。送る前に最新の `report` でペインを確かめ、ペインが見つからなければ `pane_not_found`、`idle` でなければ `invalid_state` の固定文言を理由に出して、`send_text` を呼ばずに断る（このときも「もう一度送る」は残る）
+- 本文は、この結果の表示の間だけメモリに残す（デスクトップはフラグメントの hidden 項目、Android は ViewModel）。保存せず、ログにも出さない（NFR-SEC-11・NFR-AND-SEC-9）
+- `pane_start` から `send_text` までは 1 つの操作として、同じペインの排他（FR-OPS-9）を保ったまま行う。通信の上限は各ツールの上限（`pane_start` 50 秒、`send_text` 30 秒）で、合算の上限は設けない
+- スキル名・`description`・`invoke` はホスト由来の信頼できない入力として、常にテキストで描画する（NFR-SEC-10・NFR-AND-SEC-8。`templ.Raw` を使わない）
+- デスクトップのルート: `GET P/start/skills?agent=`（スキルの選択部品のフラグメント。`skill_list`。見るだけの接続は通信せず 403 と固定文言）。`POST P/start` は `agent`・`cwd`・`title` に加えて `skill`（`skill_list` が返した `invoke` の文字列）・`task`（本文）を受ける。`skill` は長さと制御文字だけを検査し、一覧との照合はしない（任意の文字列は本文欄からも送れるため、権限は増えない）。`GET P/start/skills` の `agent` が `omp`・`claude`・`codex` 以外なら、通信せず 400 と「入力内容を受け付けられませんでした」を返す。`resend=1`（「もう一度送る」）は `skill`・`task` だけを使って `send_text` だけを送る
 
 ### 4.9 見るだけの接続と操作の接続の出し分け（FR-OPS-1・FR-OPS-9）
 
@@ -246,11 +310,78 @@ stateDiagram-v2
 | ペイン詳細のヘッダ・`pane_tail`・更新 | 出す | 出す |
 | 質問カード | 質問文と選択肢の一覧（ボタンなし）＋1 行の案内 | 選択肢のボタン・「その他」入力 |
 | 送信欄・中断・終了・「＋ 始める」 | **描画しない**（HTML / Compose にも出さない）。代わりにペイン詳細に 1 行の案内「この接続は見るだけです。ペインへの指示は、操作の接続（/ops）で登録すると入力できます」（操作の部品ではない。Issue #101） | 出す（状態に応じて §4.7） |
-| 呼べるツール | `sessions_list`・`report`・`pane_tail`・`ask_card` | 左の 4 つ ＋ `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list` |
+| スキル・本文（最初のタスク。§4.8） | **描画しない**（`skill_list` も呼ばない） | 出す（新しいセッションの手順。§4.8） |
+| 呼べるツール | `sessions_list`・`report`・`pane_tail`・`ask_card`（4 個） | 左の 4 つ ＋ `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list`（11 個） |
 
-- 見るだけの接続は、`/ops` を呼ぶコードパスを一切通らない。操作系のルートを直接呼んでも、**コンソールに通信せず** 403 と「この接続では操作できません（見るだけの接続です）」を返す
+- 見るだけの接続は、`/ops` を呼ぶコードパスを一切通らない。操作系のルートを直接呼んでも（`GET P/start/skills` を含む）、**コンソールに通信せず** 403 と「この接続では操作できません（見るだけの接続です）」を返す
 - 同じペインへの操作は排他にする。アプリ側（service）も、実行中に次の操作が来たら通信せず「前の操作がまだ終わっていません」で断る（ホストの `busy_timeout` を避ける）
-- 操作結果・エラーは日本語の固定文言で出す（§10.1）。token・送信本文・`pane_tail` と `ask_card` の本文はログに出さない（NFR-SEC-11・NFR-LOG-3）
+- 操作結果・エラーは日本語の固定文言で出す（§10.1）。token・送信本文・最初のタスクの本文・スキル名・`invoke`・`pane_tail` と `ask_card` の本文はログに出さない（NFR-SEC-11・NFR-LOG-3）
+
+### 4.10 新しい版の通知と更新（FR-UPD-1〜6）
+
+デスクトップ（Windows / macOS）だけ。通知の領域は `organisms/update_notice.templ`（`UpdateNotice`）。swarm-console の接続・セッションとは無関係で、メイン画面の本体（ペイン一覧・操作）を止めない小さな領域として、自分自身を `GET /update/notice` で読み直す（[API 仕様 §4.2](../api/endpoints.md)）。
+
+| 状態 | 表示 |
+|------|------|
+| 新しい版が無い（確認していない・同じ版・古い版を含む） | 何も出さない（空） |
+| 新しい版がある | お知らせ（Info）「新しい版 vX.Y.Z があります」と主ボタン「更新する」 |
+| 更新中 | 「更新中…」とスピナー（`atoms.Spinner` の `Static`。`hx-indicator` に頼らず常に表示）、押せない「更新する」。更新ファイルの全体のサイズが分かるときだけ、進み具合のバー（ラベル「更新ファイルの取得」）と百分率 |
+| 更新に失敗した（新しい版がある間） | 通知は残し（押し直せる）、その下に危険のアラート 1 行（下の固定文言） |
+| 確認に失敗した（新しい版が無い間だけ） | 控えめな 1 行「新しい版を確認できませんでした」。次の確認の成功で消える |
+
+読み直しの間隔は、最初の描画が `load` で 1 回読み込んだあと、ふだん 60 秒ごと、更新中は 1 秒ごと（進み具合を出す）。同時に 2 つ以上の読み直しを走らせない（`hx-sync="this:drop"`）。
+
+更新の失敗は 3 種類で、画面は種類ごとの固定文言だけを出す（原因の詳細・URL・ファイル名・エラー文は出さない）。
+
+| 種類（`FailKind`） | 主な原因 | 固定文言 |
+|--------------------|---------|---------|
+| `download`（取得） | オフライン・HTTP エラー・途中で切れた・サイズ上限超え・許可外のホスト・http へのリダイレクト・一時フォルダを作れない | 更新ファイルを取得できませんでした。ネットワークを確認して、もう一度お試しください |
+| `verify`（検証） | アセットまたは `SHA256SUMS` が Release に無い（同名が複数あるときを含む）・`SHA256SUMS` が書式不正・該当行が無い・複数ある・64 KiB を超える・SHA-256 の不一致 | 更新ファイルを検証できなかったため、更新しませんでした |
+| `install`（適用） | Windows のインストーラを起動できない・macOS で実行中のバイナリが `.app` の中にない（開発ビルド）・`.app` の隣に作業用フォルダを作れない（書き込めない）・zip が不正・差し替えに失敗・開き直しの補助プロセスを起動できない | 更新を始められませんでした。もう一度お試しください |
+
+```mermaid
+stateDiagram-v2
+    [*] --> 対象外: 版が dev / Linux
+    [*] --> 確認待ち: 起動
+    確認待ち --> 最新: 確認（起動時・6 時間ごと）で新しい版なし
+    確認待ち --> 新しい版あり: 確認で vX.Y.Z が新しい
+    確認待ち --> 確認失敗: 通信失敗（小さく表示）
+    確認失敗 --> 確認待ち: 次の周期
+    最新 --> 確認待ち: 次の周期
+    新しい版あり --> 更新中: 「更新する」
+    更新中 --> 適用済み: 検証に通り、適用に成功
+    更新中 --> 更新失敗: 取得 / 検証 / 適用の失敗（ファイルを消す）
+    更新失敗 --> 更新中: 「更新する」を押し直す
+    適用済み --> [*]: アプリを終了（Windows はインストーラが動く。macOS は開き直す）
+```
+
+「自動で確認する」（FR-UPD-6）がオフの間は、「確認待ち」から確認へ進まない（通信しない）。確認は更新中には行わない。
+
+```mermaid
+sequenceDiagram
+    participant U as 利用者
+    participant H as updatehandler<br/>POST /update/apply
+    participant S as service/updater
+    participant G as repository/release<br/>（GitHub）
+    participant I as repository/installer
+    U->>H: 「更新する」
+    H->>S: ApplyAsync（更新中へ。更新中・新しい版なしなら何もしない）
+    S->>S: この OS のアセットと SHA256SUMS が Release にあるか確認（無ければ verify の失敗）
+    S->>G: SHA256SUMS を取得（64 KiB まで）
+    S->>S: 該当行のハッシュを読む（無い・書式不正・複数は verify の失敗）
+    S->>G: アセットを取得（一時フォルダへ。512 MiB まで。SHA-256 を同時に計算）
+    S->>S: ハッシュを比べる（不一致は verify の失敗）
+    S->>I: Install（検証済みのファイル）
+    I-->>S: 成功（Windows: インストーラ起動。macOS: .app を差し替えて補助プロセスを起動）
+    S->>S: アプリを終了（Quit）
+    Note over S: どの失敗も、一時フォルダを消し、種類を状態に入れて更新中を終える
+```
+
+- 更新（取得・検証・適用）全体の上限は 15 分。最新リリースの確認 1 回は 30 秒
+- 成功したあと、Windows ではインストーラが取得したファイルを使うため一時フォルダを残す（OS の一時フォルダの掃除に任せる）。macOS は zip を消し、差し替え前の `.app` と作業用フォルダは開き直しの補助プロセスがアプリの終了後に消す
+- macOS で、`.app` の差し替えは済んだが開き直しの補助プロセスを起動できなかったときは、`install` の失敗として表示し、アプリは終了しない（次に手で起動すると新しい版になる）。画面の文言は上のとおりで、差し替え済みであることは出さない
+- 版が `dev` のビルド（`wails3 dev`・手元の `go build`）は更新の対象外。リリースのビルドだけが、`.github/scripts/set-version.sh` で埋め込まれたタグの `X.Y.Z` を持つ（[環境構築 §5.5](../environment/setup.md)）
+- 手動で「いま確認する」を行うボタンは無い（確認は起動時と 6 時間ごと、およびオフからオンへ戻したとき）
 
 ## 5. 利用上限パネル（FR-USE-1）
 
@@ -358,9 +489,11 @@ stateDiagram-v2
 | 画面更新間隔（選択中セッション） | 5 / 10 / 30 / 60 秒 | 10 秒 |
 | 通知用ポーリング間隔（全セッション） | 5 / 10 / 30 / 60 分 | 10 分 |
 | デバッグログ | オン / オフ | オフ |
+| 自動で確認する（新しい版） | オン / オフ | オン |
 
 - 設定は SQLite に保存する（アプリ全体で 1 セット。接続ごとの設定は持たない）
 - 画面更新間隔を 5 秒より細かくしても、サーバのサンプラー（`poll_interval` 既定 5 秒）より新鮮にはならないため、選択肢に含めない
+- 「自動で確認する」はチェックボックス。説明「新しい版を起動時と 6 時間ごとに確認します（GitHub Releases）」を添える。オフにすると GitHub への確認の通信をしない（FR-UPD-6）。保存は他の設定と同じ SQLite の `settings`（[ER §3.2](../architecture/er.md)）
 
 ## 10. エラー表示（FR-ERR-1）
 
@@ -405,7 +538,7 @@ stateDiagram-v2
 | `busy_timeout` | 同じペインの別の操作がまだ終わっていません。しばらくしてからお試しください |
 | `exit_timeout` | 終了が間に合いませんでした（もう一度試せます） |
 | `not_found`（フォルダ） | フォルダが見つかりません |
-| `unknown_tool` | この接続では使えない操作です（ホストの swarm-console が古い可能性があります） |
+| `unknown_tool`（`skill_list` 以外） | この接続では使えない操作です（ホストの swarm-console が古い可能性があります） |
 | `invalid_args`（`session` の名前以外） | 入力内容を受け付けられませんでした |
 | viewer 側の二重送信防止 | 前の操作がまだ終わっていません |
 | 見るだけの接続への操作要求 | この接続では操作できません（見るだけの接続です） |
@@ -427,14 +560,21 @@ stateDiagram-v2
 | `pane_start` | `ok: false` | 起動を確認できませんでした（状態: <state>） |
 | `pane_close` | `ok: true` | 終了しました（Android のみ。デスクトップはトーストなしでメイン画面へ遷移） |
 | `pane_close` | `ok: false` | 片付けを確認できませんでした（状態: <state>） |
+| `skill_list` | `unknown_tool` | スキルの一覧を取得できません（ホストの swarm-console が古い可能性があります） |
+| `skill_list` | その他の失敗 | スキルの一覧を読み込めませんでした（「再読み込み」を付ける） |
+| `pane_start`（最初のタスクあり） | `ok: true` だが `state` が `idle` 以外 | 起動しました。最初のタスクはまだ送っていません（状態: <state>）。ペイン詳細から送れます |
+| `send_text`（最初のタスク） | 失敗または `accepted: false` | 起動しました。最初のタスクを送れませんでした ＋ 理由（`accepted: false` は「受け付けられませんでした」、失敗はコード別・種類別の固定文言（上の表・§10）） |
+
+- 最初のタスク（FR-OPS-11。§4.8）の結果は、上の 4 行（`skill_list` 2 行・`pane_start`・`send_text`）の文言を出す（Android も同じ。`ui/OperationMessages.kt`）。文言の `<state>`（`pane_start` の `ok: false`・最初のタスクを送っていないとき）は、デスクトップは `state` の値（例 `shell`）、Android は §3 の表示ラベルを入れる（応答由来の文字列を画面に直接出さない）。スキルが選べなくても、本文だけのタスク・タスクなしの起動は止めない
 
 ## 11. 範囲外（確認用）
 
 - `dispatch`・`note_set`・`note_log`・`file_get`（画像・動画の表示は別 Issue）、および `panes_status`・`host_status`・`report_read`・`tools/list` の利用（操作モード（§4.5〜§4.9）が呼ぶツールは [API 仕様 §1.2](../api/endpoints.md) の許可リストだけ）
 - Ctrl-C など任意のキーの送信（ホスト側でも不可）
 - 接続文字列・QR の生成（swarm-console の `pair`）
-- 自動更新、コード署名（デスクトップ版。Android 版の署名は §12・[非機能要件 §10](non-functional.md)）
-- Android 版の範囲外: Google Play での公開、プッシュ通知（FCM）、iOS 版、ウィジェット・Wear OS、アプリ内アップデート、Tailscale の同梱・制御、tailnet 外（インターネット経由）の接続
+- コード署名・公証（デスクトップ版。Android 版の署名は §12・[非機能要件 §10](non-functional.md)）。自動更新は Windows・macOS（§4.10）と Android（§12.7）にあるが、Linux、バックグラウンドでの無人の更新（利用者が「更新する」を押さずに入れ替わること）、手動の「いま確認する」ボタン、更新履歴・変更点の表示、ロールバックは範囲外
+- Android 版の範囲外: Google Play での公開、プッシュ通知（FCM）、iOS 版、ウィジェット・Wear OS、Tailscale の同梱・制御、tailnet 外（インターネット経由）の接続。アプリ内アップデートは、システムのインストーラを開くところまで（§12.7。無人のインストールはしない）
+- Issue #103 の範囲外: スキルの内容の表示・作成・編集、複数ペインへの一斉投入、時刻指定の予約実行、見るだけの接続での利用、起動済み（`shell` でない）ペインへの「スキル付き送信」（既存の送信欄（§4.7）で本文を送ればよい。送信欄へのスキル選択の追加は対象外）
 
 ## 12. Android 版
 
@@ -457,6 +597,11 @@ Kotlin + Jetpack Compose のネイティブアプリ。デスクトップ版と�
 | FR-AND-9 | 接続・設定の保存 | 接続・設定・スナップショット・通知済み状態は Room、token は Android Keystore で保護した領域に保存する（[ER §7](../architecture/er.md)）。複数接続の保存・切替・削除（FR-PAIR-3・FR-PAIR-4）ができ、削除で token・スナップショット・通知済み状態が消える |
 | FR-AND-10 | ペイン詳細・操作の画面 | ペインカードのタップ・要対応のタップでペイン詳細（A4）を開き、§4.5〜§4.7 と同じ規則で `pane_tail`・質問カード・送信・中断・終了を出す（操作は操作の接続だけ）。自動更新は画面が見えている間（`LifecycleStartEffect`）だけ 5 秒ごと。中断・終了の確認はモーダルのダイアログ（`AppDialog`。§12.6） |
 | FR-AND-11 | 折りたたみ・親指で押せる大きさ | ペイン詳細・新しいセッション（A5）は、折りたたみ（Compact）でも展開（Medium 以上）でも使える。Compact は 1 列、Medium 以上は本文の最大幅を制限して中央寄せにする。ボタン・選択肢は親指で押せる大きさ（最小 48dp。NFR-DSG-16） |
+| FR-AND-12 | 最初のタスク（A5） | 新しいセッション（A5）に、スキルの選択（`skill_list`）と本文の入力欄を足し、起動後に最初のタスクを送る（FR-OPS-11・§4.8）。操作の接続だけ。選択中のスキル・本文は ViewModel が保持し、折りたたみ⇔展開でも失われない（§12.6） |
+| FR-AND-13 | 新しい版の確認と通知 | 起動時と 6 時間ごと（プロセスが生きている間。周期ジョブは持たない）に GitHub の最新 Release を確認し、`versionName` より新しいときだけ、メイン画面（A2）の上部に「新しい版 vX.Y.Z があります」と「更新する」を出す。draft・prerelease・タグが `vX.Y.Z` でないものは無視する。実行中の版が読めないときは通信しない（§12.7。FR-UPD-1 と同じ規則） |
+| FR-AND-14 | 更新（検証とシステムのインストーラ） | 「更新する」で `swarm-viewer_vX.Y.Z_android_universal.apk` と `SHA256SUMS` を取得し、**APK の SHA-256 が `SHA256SUMS` の該当行と一致し、かつ APK の署名証明書の SHA-256 が実行中のアプリと同じ**ときだけ、システムのパッケージインストーラを 1 回開く（`REQUEST_INSTALL_PACKAGES` と FileProvider）。どの失敗でも APK を消し、インストールしない。「このアプリからのインストール」の許可が無いときは、先にその設定画面を開き、何もダウンロードしない（§12.7） |
+| FR-AND-15 | 失敗の表示 | 更新・確認の失敗は種別ごとの固定文言を 1 行の小さな表示で出す（URL・応答本文・例外の本文は出さない）。ペイン一覧・操作は止めない（§12.7。FR-UPD-5 と同じ規則） |
+| FR-AND-16 | 自動で確認する | 設定（A3）の「アップデート」の項目「自動で確認する」（既定オン）。オフの間は確認の通信をしない。オフからオンへ戻したときは、すぐに確認し直す（§12.4。FR-UPD-6 と同じ規則） |
 
 - Android では FR-APP-1（トレイ常駐）・FR-APP-2（単一インスタンス）は適用されない。ホーム画面・最近使ったアプリからの起動と、ディープリンク・通知からの起動が入口になる
 - 取得失敗時は直前の表示をグレーアウトして残す（FR-POLL-4・§10）。401・403 の接続は画面・通知の自動ポーリングと操作を止めて再ペアリングへ誘導する
@@ -468,9 +613,9 @@ Kotlin + Jetpack Compose のネイティブアプリ。デスクトップ版と�
 |------|----|------|
 | 接続管理 / ペアリング | A1 | 接続の追加（貼り付け・QR 読み取り）、ディープリンクで受けたときの確認、保存済み接続の一覧・切替・削除（S1 に相当） |
 | メイン | A2 | 接続切替、セッションのタブ、ペイン（リスト / グリッド）、利用上限、ホスト負荷、要対応・警告（S2 に相当） |
-| 設定 | A3 | 通知・各間隔・デバッグログ・通知権限の状態（S3 に相当） |
+| 設定 | A3 | 通知・各間隔・デバッグログ・通知権限の状態・新しい版の自動確認（S3 に相当） |
 | ペイン詳細 | A4 | ペインの状態・`pane_tail`・質問カード。操作の接続では送信欄・中断・終了も（S4 に相当。§12.6） |
-| 新しいセッション | A5 | `shell` のペインから、エージェント・フォルダ・タイトルを選んで起動（操作の接続だけ。S5 に相当） |
+| 新しいセッション | A5 | `shell` のペインから、エージェント・フォルダ・（任意の最初のタスク: スキル・本文）・タイトルを選んで起動（操作の接続だけ。S5 に相当） |
 
 ```mermaid
 stateDiagram-v2
@@ -505,6 +650,7 @@ A2（S2 との差分）:
 - ペインのカード項目は §4.4 と同じ（`pos`・`agent`・`state` のラベル・`title`・`elapsed`・`activity`・`changed_ago`・`note` 要約）。カードのタップでペイン詳細（A4）を開き、`cwd` やメモの全文はそこで見る
 - 利用上限（§5）・ホスト負荷（§6）・要対応と警告（§7）の表示規則はデスクトップ版と同じ
 - 接続名の隣に接続の種類のバッジ（「操作」「見るだけ」）を出す。操作の接続の `shell` のペインのカードには「＋ 始める」（A5 への入口）を出す。見るだけの接続には、操作の UI を一切出さない（§4.9）
+- メイン画面の上部に、新しい版の通知（「新しい版 vX.Y.Z があります」と「更新する」）を出す。新しい版が無いときは何も出さない（§12.7）
 
 A3 の項目は §12.4。
 
@@ -528,10 +674,12 @@ A3 の項目は §12.4。
 | 画面更新間隔（選択中セッション） | 5 / 10 / 30 / 60 秒 | 10 秒 |
 | 通知確認間隔（全接続・全許可セッション） | **15 / 30 / 60 分** | **15 分** |
 | デバッグログ | オン / オフ | オフ（Logcat の詳細ログ。ファイルには書かない） |
+| 自動で確認する（新しい版） | オン / オフ | オン（`SharedPreferences` の `update_prefs`・`auto_check`。Room には持たない） |
 
 - 設定は Room に保存する（アプリ全体で 1 セット。接続ごとの設定は持たない）
 - 通知確認間隔の選択肢に 5 / 10 分を含めない（WorkManager の周期ジョブの最小間隔が 15 分のため）。選択肢の下に「Doze・バッテリー最適化により、通知は設定した間隔より遅れることがあります」を常に表示する（FR-AND-7）
 - 通知の権限が許可されていないとき（Android 13 以降）は、その旨とシステムの通知設定を開くボタンを表示する（FR-AND-4）
+- 「自動で確認する」は設定画面の「アップデート」の項目（スイッチ）。説明「起動時と 6 時間ごとに、新しい版を GitHub で確認します。」を添える（FR-AND-16）
 
 ### 12.5 通知（Android）
 
@@ -543,7 +691,7 @@ A3 の項目は §12.4。
 - 通知がオフでなくても、通知の権限が拒否されている間は OS 通知が出ない。画面更新と通知済み記録の更新は続ける
 - 通知は表示だけで、通知から操作はしない。通知のタップは該当接続・セッションのタブを開くだけ（操作の接続でも通知から送信・中断はしない）
 
-### 12.6 ペイン詳細・新しいセッション（Android。FR-AND-10・FR-AND-11）
+### 12.6 ペイン詳細・新しいセッション（Android。FR-AND-10〜FR-AND-12）
 
 規則は §4.5〜§4.9 と同じ。Android での違いだけを示す。
 
@@ -551,8 +699,56 @@ A3 の項目は §12.4。
 - 質問カード・送信欄・中断・終了: 見るだけの接続には Compose にも出さない（§4.9）。中断・終了の確認は `AppDialog`（NFR-DSG-8。「作業中のエージェントを止めます」。「取り消し」と「中断する」。`CONFIRM_CANCEL_ACTION`）で、確定しないと `send_escape`・`pane_close` を送らない
 - 新しいセッション（A5）: `StartSessionScreen`・`StartSessionViewModel`（フォルダピッカーを含む）。手順は §4.8
 - 画面の幅: Compact は 1 列。Medium 以上は本文の最大幅を制限して中央寄せにする。折りたたみ⇔展開の切替で、開いているペイン・入力途中の文字・スクロール位置は、ViewModel（`StateFlow`）が保持し、構成変更では失われない。画面を離れると状態と未消費のイベントを破棄する（`reset()`）。フォルダ一覧の取得に失敗したら「再読み込み」を出す。`ask_pick` が成功して質問が閉じたら、次に取り直すまでカードを出さない
+- 最初のタスク（A5。FR-AND-12）: `StartSessionScreen` にスキルの選択（一覧の各行は最小 48dp）と本文の入力欄を足す。`StartSessionViewModel` が選択中のスキルと本文を `StateFlow` で保持し、折りたたみ⇔展開でも失われない（`reset()` で破棄）。`ReportClient.skillList(agent)` を足し、`ReportTools` の操作は 11 個（`skillList` を足す）、`GuardInterceptor` は `/ops` なら 11 個。`PaneService` の起動操作は最初のタスク（任意）を受け取り、`pane_start` → `send_text` を同じペインの排他の中で行う。成功は今までどおり「起動しました」のトースト。最初のタスクを送れなかったときは、結果の表示（「起動しました。最初のタスクを送れませんでした」＋理由、「ペイン詳細を開く」「もう一度送る」。§4.8）を出し、本文はその間だけ ViewModel に残す。スキル名・`invoke`・本文はログ・保存・通知・Intent に出さない（NFR-AND-SEC-9）。スキルの一覧が取れないときも、「スキルなし」で本文だけ・タスクなしの起動はできる
 - ボタン・選択肢・フォルダの行は、親指で押せる大きさ（最小 48dp。NFR-DSG-16）。操作の文言は `ui/OperationMessages.kt` に置き、デスクトップ版と同じ文言を使う（§10.1）
 - 画面に出す本文（`pane_tail`・質問文・選択肢・メモ）は常に `Text` で描画する（NFR-AND-SEC-8）
+
+### 12.7 新しい版の通知と更新（Android。FR-AND-13〜FR-AND-16）
+
+規則は §4.10・FR-UPD-1〜6 と同じで、入れ替えだけが違う（システムのインストーラ）。通知は `ui/update/UpdateNotice`（メイン画面 A2 の上部）、設定は `ui/update/UpdateSettings`（A3 の「アップデート」）、状態は `UpdateViewModel`・`service/UpdateService` が持つ。
+
+| 状態（`UpdateState`） | 表示 |
+|----------------------|------|
+| 新しい版が無い・確認していない | 何も出さない（確認の失敗だけは 1 行） |
+| 新しい版がある（`release`） | お知らせ（Info）「新しい版 vX.Y.Z があります」と「更新する」 |
+| 更新中（`updating`） | ボタンは「更新中…」で押せず、進行表示（不確定のバー）を出す |
+| インストールの許可待ち（`needsInstallPermission`） | 「「このアプリからのインストールを許可」をオンにしてから、もう一度「更新する」を押してください」 |
+| 失敗（`failure`） | 下の固定文言を 1 行の小さな文字で出す |
+
+| 失敗の種別（`UpdateFailure`） | 主な原因 | 固定文言 |
+|------------------------------|---------|---------|
+| `Network` / `Rejected` | 通信できない・HTTP エラー・応答の形が想定外・許可外の宛先や https 以外を止めた | 更新を確認できませんでした。通信を確認してください |
+| `Truncated` | ダウンロードが途中で切れた・`Content-Length` に足りない・上限超え | ダウンロードが途中で止まりました。もう一度お試しください |
+| `AssetMissing` | Release に APK または `SHA256SUMS` が無い | この版の更新ファイルが見つかりません |
+| `ChecksumInvalid` / `ChecksumMismatch` | `SHA256SUMS` に項目が無い・書式不正・重複／APK の SHA-256 が違う | 更新ファイルを確認できなかったため、インストールしませんでした |
+| `SignatureMismatch` | APK の署名証明書が実行中のアプリと違う・読めない（パッケージ名が違う APK を含む） | 更新ファイルの署名がこのアプリと違うため、インストールしませんでした |
+| `Storage` | 保存領域に書けない・APK を開けない | 更新ファイルを保存できませんでした |
+| `Installer` | システムのインストーラを開けない | インストーラを開けませんでした |
+
+```mermaid
+sequenceDiagram
+    participant U as 利用者
+    participant V as UpdateViewModel
+    participant S as UpdateService
+    participant G as GithubReleaseSource（GitHub）
+    participant A as ApkInstaller / ApkSigners
+    U->>V: 「更新する」
+    V->>S: update（更新中・新しい版なしなら何もしない）
+    S->>A: インストールの許可は？
+    A-->>S: 無し → 「このアプリからのインストール」の設定画面を開いて終了（許可待ち）
+    S->>G: SHA256SUMS を取得し、APK の項目を読む（無い・書式不正・重複は失敗）
+    S->>S: 前回までの APK を消す
+    S->>G: APK を取得（cacheDir/updates/ へ。200 MiB まで）
+    S->>S: SHA-256 を比べる
+    S->>A: 署名証明書の SHA-256 を、実行中のアプリと比べる（空・不一致は失敗）
+    S->>A: システムのインストーラを開く（FileProvider の一時的な読み取りの許可）
+    Note over S: どの失敗も APK を消し、種別を状態に入れて更新中を終える
+```
+
+- 確認は `UpdateScheduler` が、プロセスが生きている間、自動確認がオンのあいだ（起動時にすぐ 1 回、その後 6 時間ごと）に行う。オフにすると止まり、オンへ戻すとすぐ確認する。WorkManager の周期ジョブ（FR-AND-3）とは別で、アプリが動いていない間は確認しない
+- システムのインストーラが APK を入れ替え、アプリを終了・再起動するかどうかは OS が決める（アプリは終了を指示しない）。入れ替えを取り消したときは、通知がそのまま残る
+- 署名の比較は「実行中のアプリの署名証明書と同じか」で行い、証明書の指紋を固定値として持たない。release 署名証明書の指紋は [`android/README.md`](../../android/README.md) に記録している。debug 署名のアプリは、release の APK の署名と違うため更新できない（意図どおり）
+- 手元の確認用に、デバッグビルドだけ更新の確認先を差し替えられる（[環境構築 §11.1](../environment/setup.md)）。release ビルドには差し替えるコードが無い（NFR-AND-SEC-12）
 
 ## 改訂履歴
 
@@ -572,3 +768,5 @@ A3 の項目は §12.4。
 | 2.1 | 2026-11-08 | 操作モードを追加。冒頭を「既定は見るだけ、操作の接続のときだけ操作できる」に変更。UC7〜UC10、FR-OPS-1〜10、受け入れ条件との対応（§2.1）、画面 S4・S5（§4.5〜§4.9）、§10.1（操作のエラーと結果の固定文言）、§11 の範囲外から `/ops`・送信・操作を外し `dispatch`・`note_set`・`note_log`・`file_get` を残す。Android は FR-AND-10・11、画面 A4・A5（§12.6） | Issue #97（操作モード） |
 | 2.2 | 2026-11-09 | 独立レビューの指摘とコード修正を反映。確認ダイアログの取り消しの文言（デスクトップ「キャンセル」・Android「取り消し」）、`pane_start`・`pane_close` の成功のトースト（デスクトップは遷移、Android はトースト）、`pane_close` の `confirm=true`・サーバー側の状態の再検査、自動更新と確認ダイアログ・入力の保持、`forbidden_scope` の文言の既知の制約、Android の入力保持（ViewModel）・`reset()`・フォルダ一覧の再読み込みを追記 | Issue #97（独立レビュー ReviewDocs） |
 | 2.3 | 2026-11-09 | §4.4 のメモ要約は S2 のカードだけの規則と明記し、§4.5 の S4 のヘッダは `note.repo` と `note.items` を全件・全文（折り返し）で出すと追記 | Issue #106（Web のペイン詳細のメモが要約のまま） |
+| 2.4 | 2026-11-09 | 新しいセッションに「最初のタスク」を追加。UC11、FR-OPS-11、受け入れ条件との対応（§2.2）、S5 の手順（§4.8: スキル（任意。`skill_list`）→ 本文（任意）→ 起動後に `send_text`、`idle` でなければ送らない、失敗時は起動を取り消さず「もう一度送る」）、§4.9 の呼べるツールを `/ops` 11 個に、§10.1 の固定文言 4 件、§11 の範囲外。Android は FR-AND-12（§12.6） | Issue #103（空きセッションへの最初のタスク） |
+| 2.5 | 2026-11-10 | 新しい版の確認と自動アップデートを追加。UC12、FR-UPD-1〜6（デスクトップ。§2・§4.10）、受け入れ条件との対応（§2.3。テスト名を併記）、設定画面 S3 に「自動で確認する」（FR-SET-1・§9）、§11 の範囲外を書き換え（自動更新の有無を OS ごとに）。Android は FR-AND-13〜16（§12.1・§12.4・§12.7） | Issue #109（新しい版の確認と自動アップデート） |

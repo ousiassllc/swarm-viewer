@@ -36,6 +36,7 @@ import com.ousiassllc.swarmviewer.ui.settings.SettingsViewModel
 import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
 import com.ousiassllc.swarmviewer.ui.theme.SwarmViewerTheme
 import com.ousiassllc.swarmviewer.ui.theme.gutterFor
+import com.ousiassllc.swarmviewer.ui.update.UpdateViewModel
 import kotlinx.coroutines.launch
 
 /** ディープリンク（`swarm-viewer://pair?...`）の scheme（マニフェストの intent-filter と同じ）。 */
@@ -61,6 +62,10 @@ class MainActivity : ComponentActivity() {
         viewModelFactory { initializer { SettingsViewModel(container.settings, container.permission::isAllowed) } }
     }
 
+    private val update: UpdateViewModel by viewModels {
+        viewModelFactory { initializer { UpdateViewModel(container.updates, container.autoCheck) } }
+    }
+
     // 通知の権限の要求結果。許可されなくても使える（通知が出ないだけで、設定画面に案内が出る）ので、結果は使わない。
     private val requestNotificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
@@ -74,6 +79,7 @@ class MainActivity : ComponentActivity() {
             handleSessionLink(intent)
             startNotifications()
         }
+        container.updateScheduler.start(container.appScope) // 新しい版の確認（起動時と 6 時間ごと。すでに動いていれば何もしない）
         setContent {
             SwarmViewerTheme {
                 // 横向きの切り欠き（ノッチ・パンチホール）の左右には内容を置かない。システムバーの inset は各画面の Scaffold が受ける。
@@ -89,6 +95,7 @@ class MainActivity : ComponentActivity() {
                             navigation = navigation,
                             main = main,
                             settings = settings,
+                            update = update,
                             connections = connections,
                             pairing = pairing,
                             paneDetail = paneDetail,

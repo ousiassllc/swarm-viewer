@@ -1,3 +1,5 @@
+import com.android.build.api.variant.HostTestBuilder
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -12,6 +14,10 @@ plugins {
 // apksigner で行う（docs/environment/setup.md §11.3・§11.4）。
 val appVersionName = providers.gradleProperty("appVersionName").getOrElse("0.1.0")
 val appVersionCode = providers.gradleProperty("appVersionCode").map(String::toInt).getOrElse(1)
+
+// 更新の確認先の差し替え（デバッグビルドだけ。実機・エミュレーターの動作確認用）。-PupdateLatestUrl=http://10.0.2.2:PORT/repos/... を渡したデバッグビルドだけが
+// 偽のリリースサーバーに向く。渡さなければ空で、本番（GitHub）と同じ。release ビルドにはこのフィールドも、差し替えるコードも無い（src/release）。
+val updateLatestUrl = providers.gradleProperty("updateLatestUrl").getOrElse("")
 
 android {
     namespace = "com.ousiassllc.swarmviewer"
@@ -28,6 +34,13 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+
+    buildTypes {
+        debug {
+            buildConfigField("String", "UPDATE_LATEST_URL", "\"$updateLatestUrl\"")
+        }
     }
 
     compileOptions {
@@ -41,6 +54,14 @@ android {
         // 次の 3 件は「新しい版がある」という指摘で、時間が経つと新しいコミットなしに CI が失敗するため無効にする。
         // compileSdk / targetSdk は親 Issue #7 の確定事項（35）、依存の上限は gradle/libs.versions.toml の先頭コメントを参照。
         disable += setOf("OldTargetApi", "GradleDependency", "NewerVersionAvailable")
+    }
+}
+
+// 更新の確認先を差し替えられるのはデバッグビルドだけで、release には差し替えるコードが無い（src/release）。それを release のクラスパスで確かめる
+// ユニットテスト（src/testRelease）を動かすため、release ビルドのユニットテストも有効にする（既定では debug だけ）。
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) { variant ->
+        variant.hostTests.get(HostTestBuilder.UNIT_TEST_TYPE)?.enable = true
     }
 }
 

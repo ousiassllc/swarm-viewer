@@ -123,11 +123,12 @@ func (h *Handler) renderMain(c *gin.Context, conn domain.Connection, sid string,
 	}
 
 	p := pages.MainProps{
-		Connection:  conn,
-		Connections: all,
-		Sessions:    tabs,
-		Selected:    sid,
-		Snapshot:    h.initialSnapshot(c, conn.ID, sid, st.ScreenPollSeconds),
+		Connection:   conn,
+		Connections:  all,
+		Sessions:     tabs,
+		Selected:     sid,
+		Snapshot:     h.initialSnapshot(c, conn.ID, sid, st.ScreenPollSeconds),
+		UpdateNotice: h.updates.Enabled(),
 	}
 	h.view(c, conn.Name, func(s layout.BaseProps) templ.Component { return pages.MainPage(s, p) }, pages.MainContent(p))
 }

@@ -5,6 +5,7 @@
 - tailnet 経由で swarm-console の `POST /report`（見るだけ。読み取り専用トークン scope=`report`）か `POST /ops`（操作。scope=`ops` のトークン）に接続します。どちらかは接続文字列の `url` の path で決まり、呼ぶツールは接続の種類ごとの許可リストだけです
 - tmux セッションごとの上段タブ、ペイン一覧、利用上限、ホスト負荷、要対応（`asking`・`stalled`）の OS 通知
 - ペインをクリックすると詳細（`pane_tail` の中身。見るだけの接続でも見られます）。操作の接続では、質問カードへの回答、指示の送信、中断（確認あり）、新しいセッションの起動（エージェント → フォルダ → タイトル）、終了（確認あり）ができます。見るだけの接続には操作の UI を出しません
+- 新しい版の確認と、アプリ内からの更新（Windows・macOS・Android。[新しい版への更新](#新しい版への更新)）
 - 設計は [docs/overview.md](docs/overview.md) 以下を参照してください
 
 ## インストール
@@ -23,6 +24,23 @@
 - Windows（PowerShell）: `Get-FileHash .\swarm-viewer_vX.Y.Z_windows_amd64_installer.exe -Algorithm SHA256` の値を、`SHA256SUMS` の同じファイル名の行と見比べます
 
 配布物はコード署名・公証をしていません。初回起動の警告の扱いは[署名されていないアプリの開き方](#署名されていないアプリの開き方)を参照してください。
+
+## 新しい版への更新
+
+アプリは起動時と 6 時間ごとに GitHub Releases の最新版を確認し、実行中の版より新しいときだけ、メイン画面の上部に「新しい版 vX.Y.Z があります」と「更新する」を出します（設定の「自動で確認する」。既定はオンで、オフにすると確認の通信をしません）。確認の失敗は小さく表示するだけで、ペイン一覧・操作は止めません。
+
+「更新する」を押すと、その環境の更新ファイルと `SHA256SUMS` を取得し、**SHA-256 が `SHA256SUMS` と一致したものだけ**を入れ替えます。一致しない・途中で切れた・オフラインのときは何も入れ替えず、取得したファイルを消します。
+
+| OS | 入れ替え | 制限 |
+|----|---------|------|
+| Windows | NSIS インストーラ（`…_windows_amd64_installer.exe`）を起動し、アプリを終了します（管理者権限の確認は OS が出します） | 実機での確認は未実施です |
+| macOS | zip を実行中の `.app` と同じフォルダへ展開して `.app` を差し替え、アプリの終了後に開き直します | `.app` と同じフォルダに書き込めることが必要です（書き込めないと「更新を始められませんでした」）。実機での確認は未実施です |
+| Android | 署名が今のアプリと同じ APK だけを、システムのインストーラで開きます（初回は「このアプリからのインストール」の許可が必要） | 実機（Galaxy Fold7）・実際の GitHub での確認は未実施です |
+| Linux | 更新ファイルが無いため、確認も通知もしません | — |
+
+- GitHub への通信は、swarm-console への接続とは別のクライアントで、`api.github.com` と Releases の配信元への https だけに限ります。swarm-console の token・認証情報は GitHub に送りません。このため、**リポジトリが公開されているときだけ**最新版を取得できます（private の間は新しい版なしと同じ扱いです）
+- 配布物はコード署名・公証をしていないため、更新後も初回起動の警告が出ることがあります（[署名されていないアプリの開き方](#署名されていないアプリの開き方)）。ロールバックと、無人の更新（「更新する」を押さずに入れ替わること）はありません
+- `wails3 dev`・手元の `go build` のビルド（版が `dev`）は、確認も更新もしません。仕様は [docs/requirements/functional.md §4.10](docs/requirements/functional.md)、手元での確かめ方は [docs/environment/setup.md §5.6](docs/environment/setup.md)
 
 ## ビルドと実行
 
@@ -79,4 +97,5 @@ swarm-console が発行する接続文字列（`swarm-viewer://pair?v=1&url=…&
 - `SetURL` による遷移
 - WebView の `visibilityState`（最小化・トレイ格納時）
 - OS サスペンドからの復帰
+- 更新（Windows のインストーラの起動・macOS の `.app` の差し替えと開き直し・Android のシステムのインストーラ・実際の GitHub Release に対する更新。[docs/architecture/overview.md §11](docs/architecture/overview.md) の #18〜#20）
 - WebKit WebView（macOS）でのリダイレクト・`HX-Redirect` の挙動
