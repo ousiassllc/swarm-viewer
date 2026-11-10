@@ -33,7 +33,7 @@ type Settings struct {
 	DebugLog             bool
 	// AutoUpdateCheck は新しい版を起動時と 6 時間ごとに自動で確認するか（#109）。
 	AutoUpdateCheck  bool
-	LastConnectionID     string
+	LastConnectionID string
 }
 
 // DefaultSettings は初期設定を返す（通知オン・画面更新 10 秒・通知用ポーリング 10 分・デバッグログオフ・更新の自動確認オン）。
