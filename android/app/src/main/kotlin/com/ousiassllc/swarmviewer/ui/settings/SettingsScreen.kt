@@ -39,15 +39,18 @@ import com.ousiassllc.swarmviewer.ui.theme.AppRadio
 import com.ousiassllc.swarmviewer.ui.theme.ListRowMinHeight
 import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
 import com.ousiassllc.swarmviewer.ui.theme.RadioLabelStart
+import com.ousiassllc.swarmviewer.ui.update.UpdateSettings
+import com.ousiassllc.swarmviewer.ui.update.UpdateViewModel
 
 /**
  * 設定画面（A3。機能要件 §12.4）。画面更新間隔（5 / 10 / 30 / 60 秒）の選択、通知の項目（[NotificationSettings]）、
- * 表示名・バージョン、接続管理（A1）への導線。
+ * 新しい版を自動で確認するか（[UpdateSettings]）、表示名・バージョン、接続管理（A1）への導線。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
+    update: UpdateViewModel,
     onOpenConnections: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -82,6 +85,7 @@ fun SettingsScreen(
                 }
             }
             state.settings?.let { NotificationSettings(state, it, viewModel) }
+            UpdateSettings(update)
             SettingsSection("接続") {
                 AppOutlinedButton(onClick = onOpenConnections, modifier = Modifier.fillMaxWidth()) { Text("接続を管理") }
             }
