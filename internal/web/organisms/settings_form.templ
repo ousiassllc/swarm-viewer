@@ -13,6 +13,7 @@ const (
 	FieldScreenPollSeconds    = "screen_poll_seconds"
 	FieldNotifyPollMinutes    = "notify_poll_minutes"
 	FieldDebugLog             = "debug_log"
+	FieldAutoUpdateCheck      = "auto_update_check"
 )
 
 // SettingsFormID は設定フォームを包む要素の id（hx-target と 422 の再描画先）。
@@ -38,7 +39,7 @@ type SettingsFormProps struct {
 	Error string
 }
 
-// SettingsForm は設定フォーム（通知・画面更新間隔・通知用ポーリング間隔・デバッグログ）。
+// SettingsForm は設定フォーム（通知・画面更新間隔・通知用ポーリング間隔・デバッグログ・新しい版の自動確認）。
 // 画面更新 5/10/30/60 秒、通知用ポーリング 5/10/30/60 分（機能要件 §9）。
 templ SettingsForm(p SettingsFormProps) {
 	<form
@@ -78,6 +79,13 @@ templ SettingsForm(p SettingsFormProps) {
 			@atoms.Checkbox(atoms.CheckboxProps{Name: FieldDebugLog, Value: "on", Checked: p.Settings.DebugLog})
 			デバッグログ
 		</label>
+		<div class="flex flex-col gap-1">
+			<label class={ atoms.CheckboxRowClass }>
+				@atoms.Checkbox(atoms.CheckboxProps{Name: FieldAutoUpdateCheck, Value: "on", Checked: p.Settings.AutoUpdateCheck})
+				自動で確認する
+			</label>
+			<p class="text-sm text-mute">新しい版を起動時と 6 時間ごとに確認します（GitHub Releases）</p>
+		</div>
 		if p.Error != "" {
 			@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: p.Error})
 		}

@@ -13,12 +13,13 @@ func (s *Store) Settings(ctx context.Context) (domain.Settings, error) {
 	var (
 		st                   domain.Settings
 		notifications, debug int
+		autoUpdate           int
 		last                 sql.NullString
 	)
 	err := s.db.QueryRowContext(ctx, `
-SELECT notifications_enabled, screen_poll_seconds, notify_poll_minutes, debug_log, last_connection_id
+SELECT notifications_enabled, screen_poll_seconds, notify_poll_minutes, debug_log, auto_update_check, last_connection_id
 FROM settings WHERE id = 1`).Scan(
-		&notifications, &st.ScreenPollSeconds, &st.NotifyPollMinutes, &debug, &last)
+		&notifications, &st.ScreenPollSeconds, &st.NotifyPollMinutes, &debug, &autoUpdate, &last)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.Settings{}, ErrNotFound
 	}
@@ -27,6 +28,7 @@ FROM settings WHERE id = 1`).Scan(
 	}
 	st.NotificationsEnabled = notifications == 1
 	st.DebugLog = debug == 1
+	st.AutoUpdateCheck = autoUpdate == 1
 	st.LastConnectionID = last.String
 	return st, nil
 }
@@ -45,10 +47,11 @@ UPDATE settings SET
     screen_poll_seconds = ?,
     notify_poll_minutes = ?,
     debug_log = ?,
+    auto_update_check = ?,
     updated_at = ?
 WHERE id = 1`,
 		boolInt(st.NotificationsEnabled), st.ScreenPollSeconds, st.NotifyPollMinutes,
-		boolInt(st.DebugLog), formatTime(s.now()))
+		boolInt(st.DebugLog), boolInt(st.AutoUpdateCheck), formatTime(s.now()))
 	return requireAffected(res, err)
 }
 

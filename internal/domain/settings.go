@@ -10,6 +10,8 @@ const (
 	DefaultScreenPollSeconds    = 10
 	DefaultNotifyPollMinutes    = 10
 	DefaultNotificationsEnabled = true
+	// DefaultAutoUpdateCheck は新しい版の自動確認の既定（オン。#109）。
+	DefaultAutoUpdateCheck = true
 )
 
 // 設定項目名（SettingsError.Fields の要素）。
@@ -29,15 +31,18 @@ type Settings struct {
 	ScreenPollSeconds    int
 	NotifyPollMinutes    int
 	DebugLog             bool
-	LastConnectionID     string
+	// AutoUpdateCheck は新しい版を起動時と 6 時間ごとに自動で確認するか（#109）。
+	AutoUpdateCheck  bool
+	LastConnectionID string
 }
 
-// DefaultSettings は初期設定を返す（通知オン・画面更新 10 秒・通知用ポーリング 10 分・デバッグログオフ）。
+// DefaultSettings は初期設定を返す（通知オン・画面更新 10 秒・通知用ポーリング 10 分・デバッグログオフ・更新の自動確認オン）。
 func DefaultSettings() Settings {
 	return Settings{
 		NotificationsEnabled: DefaultNotificationsEnabled,
 		ScreenPollSeconds:    DefaultScreenPollSeconds,
 		NotifyPollMinutes:    DefaultNotifyPollMinutes,
+		AutoUpdateCheck:      DefaultAutoUpdateCheck,
 	}
 }
 

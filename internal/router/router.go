@@ -21,6 +21,7 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/web/handler"
 	"github.com/ousiassllc/swarm-viewer/internal/web/middleware"
 	"github.com/ousiassllc/swarm-viewer/internal/web/pages"
+	"github.com/ousiassllc/swarm-viewer/internal/web/updatehandler"
 )
 
 // OpenAPIPath は OpenAPI スペックの公開パス（`.json` を付けて公開する）。JSON オペレーションは v1 では 0 本
@@ -37,7 +38,8 @@ type Deps struct {
 	Panes       *paneservice.PaneService
 	Notifier    service.Notifier // 設定画面の通知許可状態（Permitted）にだけ使う
 	Clock       service.Clock
-	Static      fs.FS // static.FS()
+	Updates     updatehandler.Service // 新しい版の確認と更新（Issue #109）。nil なら通知を出さない
+	Static      fs.FS                 // static.FS()
 }
 
 // RecoveryReason は初期化導線を出す理由。
@@ -73,6 +75,7 @@ func New(d Deps) (http.Handler, error) {
 		Panes:       d.Panes,
 		Notifier:    d.Notifier,
 		Clock:       d.Clock,
+		Updates:     d.Updates,
 		CSRFToken:   token,
 	})
 	e := newEngine(d.Logger, token)

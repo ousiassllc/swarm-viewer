@@ -4,6 +4,16 @@ package atoms
 type SpinnerProps struct {
 	// ID は hx-indicator から参照する id（`#id`）。空なら id を付けない。
 	ID string
+	// Static は常に表示する（hx-indicator を使わない処理中表示。ポーリングで描画し直す進捗の行など）。
+	Static bool
+}
+
+func spinnerClass(static bool) string {
+	const base = "inline-block h-5 w-5 animate-spin rounded-full border-2 border-accent-soft border-t-accent"
+	if static {
+		return base
+	}
+	return "htmx-indicator " + base
 }
 
 // Spinner は hx-indicator 用のローディング表示。ガイド §4 のとおり 20px・線 2px（track --accent-soft・先端 --accent）の 1 種だけ。表示の切り替えは app.css の .htmx-indicator が行う。
@@ -12,7 +22,7 @@ templ Spinner(p SpinnerProps) {
 		if p.ID != "" {
 			id={ p.ID }
 		}
-		class="htmx-indicator inline-block h-5 w-5 animate-spin rounded-full border-2 border-accent-soft border-t-accent"
+		class={ spinnerClass(p.Static) }
 		role="status"
 		aria-label="読み込み中"
 	></span>

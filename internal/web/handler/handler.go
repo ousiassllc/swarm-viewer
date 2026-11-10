@@ -21,6 +21,7 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
 	"github.com/ousiassllc/swarm-viewer/internal/web/layout"
 	"github.com/ousiassllc/swarm-viewer/internal/web/panehandler"
+	"github.com/ousiassllc/swarm-viewer/internal/web/updatehandler"
 )
 
 const (
@@ -41,6 +42,8 @@ type Deps struct {
 	// Notifier は設定画面の OS 通知許可状態（Permitted）にだけ使う。
 	Notifier service.Notifier
 	Clock    service.Clock
+	// Updates は新しい版の確認と更新（Issue #109）。nil なら通知を出さない。
+	Updates updatehandler.Service
 	// CSRFToken はレイアウトが配る CSRF トークン（middleware.CSRF に渡すものと同じ）。
 	CSRFToken string
 }
@@ -53,6 +56,7 @@ type Handler struct {
 	snaps    *service.SnapshotService
 	pairing  *service.PairingService
 	panes    *panehandler.PaneHandler
+	updates  *updatehandler.Handler
 	notifier service.Notifier
 	clock    service.Clock
 }
@@ -69,6 +73,7 @@ func New(d Deps) *Handler {
 		panes: panehandler.New(panehandler.Deps{
 			Logger: d.Logger, Resp: responder{b}, Connections: d.Connections, Snapshots: d.Snapshots, Panes: d.Panes,
 		}),
+		updates:  updatehandler.New(responder{b}, d.Updates),
 		notifier: d.Notifier,
 		clock:    d.Clock,
 	}
@@ -80,6 +85,7 @@ func (h *Handler) Register(r gin.IRoutes) {
 	h.registerMain(r)
 	h.registerConnections(r)
 	h.panes.Register(r)
+	h.updates.Register(r)
 	h.registerPairing(r)
 	h.registerSettings(r)
 }
