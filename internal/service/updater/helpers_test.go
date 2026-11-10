@@ -110,15 +110,14 @@ func (f *fakeSource) withFiles(assetName, body string) {
 
 // fakeInstaller は適用の代わり。呼ばれたときのファイルの内容と回数を覚える。
 type fakeInstaller struct {
-	mu      sync.Mutex
-	files   []string
-	bodies  []string
-	err     error
-	onCalls func()
+	mu     sync.Mutex
+	files  []string
+	bodies []string
+	err    error
 }
 
 func (f *fakeInstaller) Install(_ context.Context, file string) error {
-	b, rerr := os.ReadFile(file)
+	b, rerr := os.ReadFile(file) //nolint:gosec // テストが作った一時フォルダの下のパス
 	f.mu.Lock()
 	f.files = append(f.files, file)
 	f.bodies = append(f.bodies, string(b))

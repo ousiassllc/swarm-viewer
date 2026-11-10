@@ -21,6 +21,8 @@ type MainProps struct {
 	Selected string
 	// Snapshot はスナップショット領域の入力。ConnectionID・Session・Initial はここで補う。
 	Snapshot organisms.SnapshotViewProps
+	// UpdateNotice は新しい版の通知の領域を出すか（リリースのビルドで、更新ファイルのある OS のとき。Issue #109）。
+	UpdateNotice bool
 }
 
 // snapshotProps は接続・セッション・初回描画を補ったスナップショット領域の入力。
@@ -72,6 +74,9 @@ templ MainContent(p MainProps) {
 			@navLink(paths.Settings, "設定")
 		</div>
 	</header>
+	if p.UpdateNotice {
+		@organisms.UpdateNotice(organisms.UpdateNoticeProps{Initial: true})
+	}
 	@organisms.SessionTabs(organisms.SessionTabsProps{ConnectionID: p.Connection.ID, Sessions: p.Sessions, Selected: p.Selected})
 	@organisms.SnapshotStatus(p.snapshotProps())
 	@organisms.SnapshotRegion(p.snapshotProps())

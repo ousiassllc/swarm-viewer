@@ -84,7 +84,7 @@ func TestSettingsForm(t *testing.T) {
 	html := webtest.Render(t, organisms.SettingsForm(organisms.SettingsFormProps{Settings: s, Permission: organisms.NotifyPermissionDenied}))
 	webtest.MustContain(t, html,
 		`hx-put="/settings"`, `hx-target="#settings-form"`, `hx-target-422="#settings-form"`,
-		`name="screen_poll_seconds"`, `name="notify_poll_minutes"`, `name="notifications_enabled"`, `name="debug_log"`,
+		`name="screen_poll_seconds"`, `name="notify_poll_minutes"`, `name="notifications_enabled"`, `name="debug_log"`, `name="auto_update_check"`, "自動で確認する",
 		`<option value="5">5 秒</option>`, `<option value="10">10 秒</option>`, `<option value="30" selected>30 秒</option>`, `<option value="60">60 秒</option>`,
 		`<option value="5" selected>5 分</option>`, `<option value="10">10 分</option>`, `<option value="30">30 分</option>`, `<option value="60">60 分</option>`,
 		"OS が通知を許可していません",
@@ -104,8 +104,8 @@ func TestSettingsForm(t *testing.T) {
 	// ラベル→入力は 8px（ガイド S2）。チェックボックスは 18px・--r-sm・外枠 --mute（ガイド S1・§4）。
 	// チェックボックス→文言は 10px（--list-marker-gap。ガイド S2 の .chk）。
 	webtest.MustContain(t, html, `<div class="flex flex-col gap-2"><label for="screen-poll"`, "rounded-sm border border-mute", "appearance-none")
-	if n := strings.Count(html, `<label class="`+atoms.CheckboxRowClass+`">`); n != 2 {
-		t.Errorf("チェックボックスの行 2 つは CheckboxRowClass（gap-(--list-marker-gap)）: %d", n)
+	if n := strings.Count(html, `<label class="`+atoms.CheckboxRowClass+`">`); n != 3 {
+		t.Errorf("チェックボックスの行 3 つは CheckboxRowClass（gap-(--list-marker-gap)）: %d", n)
 	}
 	webtest.MustNotContain(t, html, "accent-accent")
 	// 「保存」とスピナーのボタン列は 8px（ガイド S2）。
@@ -113,6 +113,24 @@ func TestSettingsForm(t *testing.T) {
 	webtest.MustContain(t, html, `<div class="flex items-center gap-2"><button`)
 	webtest.MustNotContain(t, html, `<div class="flex items-center gap-3"`)
 	webtest.MustNotContain(t, html, `<option value="15"`, "7 秒")
+}
+
+// 新しい版の自動確認（Issue #109）: 設定の値がチェック状態になる（既定はオン）。
+func TestSettingsForm_AutoUpdateCheck(t *testing.T) {
+	t.Parallel()
+	for _, on := range []bool{true, false} {
+		s := domain.DefaultSettings()
+		s.NotificationsEnabled, s.AutoUpdateCheck = false, on
+		html := webtest.Render(t, organisms.SettingsForm(organisms.SettingsFormProps{Settings: s}))
+		want := 0
+		if on {
+			want = 1
+		}
+		if n := checkedCount(html); n != want {
+			t.Errorf("AutoUpdateCheck=%v: checked = %d, want %d", on, n, want)
+		}
+		webtest.MustContain(t, html, "自動で確認する", "6 時間ごと")
+	}
 }
 
 func TestSettingsForm_DebugOnNotifyOffAndPermissions(t *testing.T) {

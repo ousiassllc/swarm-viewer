@@ -14,7 +14,7 @@ import (
 // 補助プロセスは、親（pid）の終了を待ってから後始末をする。待っている間は消さない。
 func TestRelaunchScriptWaitsForTheParentThenCleansUp(t *testing.T) {
 	cleanup := filepath.Join(t.TempDir(), "staging")
-	if err := os.MkdirAll(filepath.Join(cleanup, "old.app"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(cleanup, "old.app"), 0o750); err != nil {
 		t.Fatal(err)
 	}
 	parent := exec.Command("sleep", "30")

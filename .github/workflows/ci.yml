@@ -172,6 +172,9 @@ jobs:
       # 同、APK の署名・検証・後始末の sign-android-apk.sh のテスト（apksigner などは偽物に差し替える。SDK・ネットワーク不要）。
       - name: sign-android-apk.sh のテスト
         run: bash .github/scripts/sign-android-apk_test.sh
+      # release.yml の build-windows・build-macos ジョブが使う set-version.sh の、アプリ自身の版（internal/buildinfo）の書き換えのテスト（task は偽物。ネットワーク不要）。
+      - name: set-version.sh のテスト
+        run: bash .github/scripts/set-version_test.sh
       # 上の changes ジョブが使う detect-changes.sh の表駆動テスト（ネットワーク・git 不要）。
       - name: detect-changes.sh のテスト
         run: bash .github/scripts/detect-changes_test.sh

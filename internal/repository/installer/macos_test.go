@@ -59,7 +59,7 @@ func installedApp(t *testing.T) (apps, exe string) {
 	t.Helper()
 	apps = filepath.Join(t.TempDir(), "Applications")
 	macos := filepath.Join(apps, "swarm-viewer.app", "Contents", "MacOS")
-	if err := os.MkdirAll(macos, 0o755); err != nil {
+	if err := os.MkdirAll(macos, 0o750); err != nil {
 		t.Fatal(err)
 	}
 	exe = filepath.Join(macos, "swarm-viewer")
@@ -91,7 +91,7 @@ func macInstaller(exe string, calls *[]relaunchCall) *Installer {
 
 func readFile(t *testing.T, p string) string {
 	t.Helper()
-	b, err := os.ReadFile(p)
+	b, err := os.ReadFile(p) //nolint:gosec // テストが作った一時フォルダの下のパス
 	if err != nil {
 		t.Fatal(err)
 	}

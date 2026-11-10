@@ -51,6 +51,10 @@ func TestSpinner(t *testing.T) {
 	webtest.MustNotContain(t, html, "h-4 w-4", "h-6 w-6")
 	html = webtest.Render(t, atoms.Spinner(atoms.SpinnerProps{}))
 	webtest.MustNotContain(t, html, "id=")
+	// Static は hx-indicator の出し入れに依らず常に見える（更新中の行。ポーリングで描画し直すため）。
+	html = webtest.Render(t, atoms.Spinner(atoms.SpinnerProps{Static: true}))
+	webtest.MustContain(t, html, "animate-spin", "h-5 w-5")
+	webtest.MustNotContain(t, html, "htmx-indicator")
 }
 
 func TestToast(t *testing.T) {

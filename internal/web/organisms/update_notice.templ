@@ -1,0 +1,99 @@
+package organisms
+
+import (
+	"strconv"
+
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+)
+
+// UpdateNoticeID は新しい版の通知を包む要素の id（hx-target。メイン画面に常にある）。
+const UpdateNoticeID = "update-notice"
+
+// 通知の読み直しの間隔。更新中だけ 1 秒（進み具合を出す）、ふだんは 60 秒（定期の確認が新しい版を見つけたとき）。
+const (
+	updateIdlePoll     = "every 60s"
+	updateUpdatingPoll = "every 1s"
+	updateInitialPoll  = "load, every 60s"
+)
+
+// UpdateNoticeProps は UpdateNotice の入力。ハンドラが updater.Status を固定文言に解決して渡す（種類ごとの文言・原因の詳細は渡さない）。
+type UpdateNoticeProps struct {
+	// Initial はメイン画面の最初の描画（中身は空で、load で読み込む）。
+	Initial bool
+	// Available は新しい版がある。Latest はその版（vX.Y.Z）。
+	Available bool
+	Latest    string
+	// Updating は更新中。Percent は取得の進み具合（0〜100。負なら不明）。
+	Updating bool
+	Percent  float64
+	// FailMessage は直前の更新の失敗の固定文言（空なら出さない）。
+	FailMessage string
+	// CheckFailed は直前の確認の失敗（新しい版が無いときだけ、小さな 1 行で出す）。
+	CheckFailed bool
+}
+
+func updatePoll(p UpdateNoticeProps) string {
+	switch {
+	case p.Initial:
+		return updateInitialPoll
+	case p.Updating:
+		return updateUpdatingPoll
+	default:
+		return updateIdlePoll
+	}
+}
+
+func updatePercentLabel(p float64) string {
+	return strconv.Itoa(int(format.BarValue(p))) + "%"
+}
+
+// UpdateNotice は新しい版の通知（Issue #109）。メイン画面の本体を止めない小さな領域で、自分自身を読み直す（hx-trigger）。
+//   - 新しい版があるとき: お知らせ「新しい版 vX.Y.Z があります」と「更新する」
+//   - 更新中: 「更新中…」とスピナー・無効の「更新する」・進み具合（既知のとき）
+//   - 更新に失敗したとき: 通知は残し（押し直せる）、その下に小さなエラー 1 行
+//   - 確認に失敗したとき（新しい版が無い間だけ）: 控えめな 1 行。メイン画面の表示・操作は何も変わらない
+// 何も出すものが無いときは空（empty:hidden でセクション間の gap も出さない）。
+templ UpdateNotice(p UpdateNoticeProps) {
+	<div
+		id={ UpdateNoticeID }
+		class="flex flex-col gap-2 empty:hidden"
+		hx-get={ paths.UpdateNotice }
+		hx-trigger={ updatePoll(p) }
+		hx-swap="outerHTML"
+		hx-sync="this:drop"
+	>
+		if p.Available {
+			@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertInfo, Attrs: templ.Attributes{"data-update-notice": p.Latest}}) {
+				<div class="flex flex-wrap items-center justify-between gap-3">
+					if p.Updating {
+						<span class="inline-flex items-center gap-2">
+							@atoms.Spinner(atoms.SpinnerProps{Static: true})
+							<span role="status">更新中…</span>
+						</span>
+						@atoms.Button(atoms.ButtonProps{Label: "更新する", Variant: atoms.ButtonPrimary, Size: atoms.ButtonSmall, Attrs: templ.Attributes{"disabled": true}})
+					} else {
+						<span>新しい版 { p.Latest } があります</span>
+						@atoms.Button(atoms.ButtonProps{Label: "更新する", Variant: atoms.ButtonPrimary, Size: atoms.ButtonSmall, Attrs: templ.Attributes{
+							"hx-post":   paths.UpdateApply,
+							"hx-target": "#" + UpdateNoticeID,
+							"hx-swap":   "outerHTML",
+						}})
+					}
+				</div>
+			}
+			if p.Updating && p.Percent >= 0 {
+				<div class="flex items-center gap-3 text-sm text-mute" data-update-progress>
+					@atoms.ProgressBar(atoms.ProgressBarProps{Percent: p.Percent, Tone: format.ToneAccent, Label: "更新ファイルの取得"})
+					<span class="shrink-0 tabular-nums">{ updatePercentLabel(p.Percent) }</span>
+				</div>
+			}
+			if p.FailMessage != "" && !p.Updating {
+				@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: p.FailMessage, Attrs: templ.Attributes{"data-update-error": true}})
+			}
+		} else if p.CheckFailed {
+			<p class="text-sm text-mute" data-update-check-failed>新しい版を確認できませんでした</p>
+		}
+	</div>
+}

@@ -173,7 +173,7 @@ func extractEntry(f *zip.File, dest, name string) (int64, error) {
 		return n, err
 	}
 	// umask で落ちた実行ビットを戻す。
-	if err := os.Chmod(target, perm); err != nil { //nolint:gosec // 同上
+	if err := os.Chmod(target, perm); err != nil {
 		return n, err
 	}
 	return n, nil

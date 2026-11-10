@@ -16,6 +16,7 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/app/deeplink"
 	"github.com/ousiassllc/swarm-viewer/internal/app/idgen"
 	"github.com/ousiassllc/swarm-viewer/internal/app/swap"
+	"github.com/ousiassllc/swarm-viewer/internal/buildinfo"
 	"github.com/ousiassllc/swarm-viewer/internal/repository/secret"
 	"github.com/ousiassllc/swarm-viewer/internal/repository/store"
 	"github.com/ousiassllc/swarm-viewer/internal/service"
@@ -96,6 +97,8 @@ func run() error {
 		Secrets:  secret.NewStore(),
 		Static:   static.FS(),
 		Handler:  handler,
+		Version:  buildinfo.Version,
+		Quit:     shell.Quit, // 更新を適用できたらスケジューラを止めて終了する
 	})
 	if err := rt.Start(ctx); err != nil {
 		return fmt.Errorf("starting: %w", err)

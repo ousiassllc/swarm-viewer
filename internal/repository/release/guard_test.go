@@ -104,7 +104,10 @@ func TestGuardStripsCredentialsBeforeSending(t *testing.T) {
 	}
 	blockedReq, _ := http.NewRequest(http.MethodGet, "https://100.64.52.167:48120/report", http.NoBody)
 	got = nil
-	if _, err := g.RoundTrip(blockedReq); err == nil || got != nil {
+	if resp, err := g.RoundTrip(blockedReq); err == nil || got != nil {
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
 		t.Fatalf("tailnet へ送った: err=%v", err)
 	}
 }

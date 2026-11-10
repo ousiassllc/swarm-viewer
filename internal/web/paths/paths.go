@@ -14,6 +14,10 @@ const (
 	Settings      = "/settings"
 	RecoveryReset = "/recovery/reset"
 
+	// UpdateNotice は新しい版の通知（メイン画面の #update-notice の中身。GET が状態の読み直し）、UpdateApply は更新の開始（POST）。Issue #109。
+	UpdateNotice = "/update/notice"
+	UpdateApply  = "/update/apply"
+
 	// PairingLinkParam・PairingLinkInvalid は、ディープリンクの解析に失敗したことを /pairing へ知らせるクエリ。
 	// 受け取った文字列は載せない（token を URL 履歴に残さない）。
 	PairingLinkParam   = "link"
