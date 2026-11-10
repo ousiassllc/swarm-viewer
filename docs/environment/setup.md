@@ -30,7 +30,7 @@ swarm-viewer の開発環境・CI/CD・lint・format・Git Hooks を定める。
 swarm-viewer/
 ├── .github/workflows/ci.yml   # CI（§5.1〜§5.4）
 ├── .github/workflows/release.yml  # リリース（§5.5）
-├── .github/scripts/           # release.yml が使うスクリプト（plan-release.sh・set-version.sh・install-nsis.sh）とそのテスト
+├── .github/scripts/           # release.yml が使うスクリプト（plan-release.sh・set-version.sh（`internal/buildinfo` の版の書き換えを含む）・install-nsis.sh）とそのテスト
 ├── .golangci.yml              # Go の lint / format（§6）
 ├── .linterly.yml              # 行数管理（§8）
 ├── .linterlyignore
@@ -151,7 +151,7 @@ graph LR
 |--------|------|
 | `changes` | `lint`・`test` より前に動く。変更されたファイルから、Go 側と Android 側のどちらのジョブを動かすかを `go`・`android` の出力にする（`.github/scripts/detect-changes.sh`。§11.2）。fork の PR では動かさない |
 | `lint` | チェックアウト → Go（`actions/setup-go`、`go-version-file: go.mod`）・bun（`oven-sh/setup-bun`）の準備 → `bun install --frozen-lockfile` → **`task generate`（最初の検査より前に必ず実行）** → `golangci-lint`（`golangci/golangci-lint-action` で導入。Linux では Wails 直下を除いたパッケージ、続けて `GOOS=windows CGO_ENABLED=0` で `./...`）→ `go tool templ fmt -fail .` → `bunx biome check .` → `bunx linterly check` |
-| `test` | 同じ準備 → **`task generate`** → `go vet`（Wails 直下を除く）→ Windows / macOS 向けの `go vet`（下記）→ `go test`（Wails 直下を除く。テストは固定時間の待ちに頼らない。[NFR-QLT-3](../requirements/non-functional.md)）→ `bun test static/src/js`（`app.js`・`modal.js` の挙動テスト。§3.2）→ `bash .github/scripts/plan-release_test.sh`（リリースの版を決める `plan-release.sh` の表駆動テスト。ネットワーク不要。§5.5）→ `bash .github/scripts/install-nsis_test.sh`（NSIS の取得の再試行・sha256 検証のテスト。ネットワーク不要。§5.5）→ `bash .github/scripts/android-version_test.sh`（Android の `versionName`・`versionCode` を決める `android-version.sh` の表駆動テスト。§11.4）→ `bash .github/scripts/sign-android-apk_test.sh`（APK の署名・検証・後始末のテスト。`apksigner` などは偽物に差し替え、SDK 不要。§11.4）→ `bash .github/scripts/detect-changes_test.sh`（下の `changes` ジョブの変更検知のテスト。§11.2） |
+| `test` | 同じ準備 → **`task generate`** → `go vet`（Wails 直下を除く）→ Windows / macOS 向けの `go vet`（下記）→ `go test`（Wails 直下を除く。テストは固定時間の待ちに頼らない。[NFR-QLT-3](../requirements/non-functional.md)）→ `bun test static/src/js`（`app.js`・`modal.js` の挙動テスト。§3.2）→ `bash .github/scripts/plan-release_test.sh`（リリースの版を決める `plan-release.sh` の表駆動テスト。ネットワーク不要。§5.5）→ `bash .github/scripts/install-nsis_test.sh`（NSIS の取得の再試行・sha256 検証のテスト。ネットワーク不要。§5.5）→ `bash .github/scripts/android-version_test.sh`（Android の `versionName`・`versionCode` を決める `android-version.sh` の表駆動テスト。§11.4）→ `bash .github/scripts/sign-android-apk_test.sh`（APK の署名・検証・後始末のテスト。`apksigner` などは偽物に差し替え、SDK 不要。§11.4）→ `bash .github/scripts/set-version_test.sh`（`set-version.sh` がアプリ自身の版 `internal/buildinfo` をタグの `X.Y.Z` に書き換え、書き換えられなければ失敗するかのテスト。`task`・`wails3` は偽物に差し替え、ネットワーク不要。§5.5）→ `bash .github/scripts/detect-changes_test.sh`（下の `changes` ジョブの変更検知のテスト。§11.2） |
 | `build` | `lint`・`test` が成功したときだけ。同じ準備 → `task generate` → `GOOS=windows CGO_ENABLED=0 go build -tags production .`（Windows 向けのコンパイル確認。`wails3` CLI 自体が Linux で GTK 系の開発パッケージを要するため、CLI は使わず直接ビルドする。Linux 向けは上記の前提により現状行わない。成果物は配布しない） |
 | `android-lint`・`android-test`・`android-build` | Android（`android/**`）の検査。`changes` ジョブが Android 側を動かすと決めたときだけ動く。内容は §11.2 |
 
@@ -185,7 +185,9 @@ Release の成果物の実機確認（手動確認項目）:
 1. Release の `SHA256SUMS` と、ダウンロードしたファイルの `sha256sum -c SHA256SUMS`（Windows は `Get-FileHash`）が一致する
 2. Windows 11: インストーラを実行して起動する。ファイルのプロパティの製品バージョンがタグと一致する。`swarm-viewer://` のリンクでアプリが開く
 3. macOS（Apple Silicon。可能なら Intel も）: zip を展開し、README の回避手順で起動する。`CFBundleShortVersionString` がタグと一致する。`swarm-viewer://` のリンクでアプリが開く
-4. トレイ・通知など [アーキテクチャ設計 §11](../architecture/overview.md) の残りの項目
+4. Windows 11: 古い版（Release の NSIS インストーラで入れたもの）から、アプリの「更新する」で新しい版へ更新できる（インストーラの起動・UAC・アプリの終了・上書き。[アーキテクチャ設計 §11](../architecture/overview.md) #18。**未確認**）
+5. macOS: 古い版の `.app` から、アプリの「更新する」で新しい版へ更新できる（`.app` の差し替え・開き直し。同じフォルダに書き込めること。#19。**未確認**）
+6. トレイ・通知など [アーキテクチャ設計 §11](../architecture/overview.md) の残りの項目
 
 ### 5.5 リリース
 
@@ -197,7 +199,7 @@ Release の成果物の実機確認（手動確認項目）:
 | トリガー | (1) `workflow_run`: main への push の CI（`ci.yml`）が成功したら、main の先頭に次のパッチ版のタグを自動で付けてリリースする。(2) `push` の `v*` タグ: 手で打った `vX.Y.Z`。マイナー・メジャーを上げるときに使う。PR・フォーク・main 以外のブランチの CI では動かない |
 | 版の決め方 | タグは厳密に `vX.Y.Z`（先頭の `v` あり、プレリリース・ビルドメタデータ・先頭の 0 は不可）。自動のときは、形の合う既存タグの最大のパッチ + 1（数として比較する。`v0.1.10` > `v0.1.9`）、無ければ `v0.1.0`。手で打つときは、既存の最大より大きいことを要する（GitHub の「最新のリリース」が古い版に戻らないため）。形の合わないタグでは Release を作らず失敗させる。決める処理は `.github/scripts/plan-release.sh`（テストは `plan-release_test.sh`。CI の `test` ジョブが実行する） |
 | 古いコミット・main 以外 | 自動のタグは、CI が成功したコミットが **main の先頭**のときだけ付ける（古いコミットに新しい版を付けない。先頭に既に `v*` タグがあれば何もしない）。さらに verify ジョブが、リリースするコミットが **main の履歴にある**ことと、そのコミットで **`ci.yml` が成功している**ことを確かめる。手で打ったタグがこれを満たさなければ Release は作られない。lint・test は release.yml 内では再実行しない |
-| 版の埋め込み | タグが版の唯一の元。ビルド前に `.github/scripts/set-version.sh` が `build/config.yml` の `info.version` をタグの `X.Y.Z` に書き換え、`task common:update:build-assets`（`wails3 update build-assets`）で `Info.plist`（`CFBundleShortVersionString`・`CFBundleVersion`）・`build/windows/info.json`（Windows のファイルのプロパティ）・`wails_tools.nsh`・`wails.exe.manifest` を再生成し、各ファイルに版が入ったことを確かめる（入っていなければ失敗）。このコマンドは `project.nsi`・各 Taskfile・`protocols` の設定には触れず、plist は既存の内容にマージする。ビルド後に、Windows は exe とインストーラの固定の版（`FileVersionRaw` = `X.Y.Z.0`）とインストーラの `ProductVersion` の文字列（exe の文字列欄は .NET の `VersionInfo` では空に見えるため見ない。Explorer のプロパティ表示は実機確認。§5.4）、macOS は `Info.plist` の版・URL スキーム・universal（`x86_64` と `arm64`）・署名の検証も行う。アプリ内の版の表示は持たない（`main.go` に `version` 変数はない） |
+| 版の埋め込み | タグが版の唯一の元。ビルド前に `.github/scripts/set-version.sh` が `build/config.yml` の `info.version` をタグの `X.Y.Z` に書き換え、`task common:update:build-assets`（`wails3 update build-assets`）で `Info.plist`（`CFBundleShortVersionString`・`CFBundleVersion`）・`build/windows/info.json`（Windows のファイルのプロパティ）・`wails_tools.nsh`・`wails.exe.manifest` を再生成し、各ファイルに版が入ったことを確かめる（入っていなければ失敗）。このコマンドは `project.nsi`・各 Taskfile・`protocols` の設定には触れず、plist は既存の内容にマージする。同じスクリプトが、アプリ自身の版（新しい版の確認・自動アップデートが使う）として `internal/buildinfo/buildinfo.go` の `var Version = "dev"` の行をタグの `X.Y.Z` に書き換える（リポジトリには `dev` のまま置く。ワークツリーだけの書き換えでコミットしない。形が変わって書き換えられなければ失敗し、`dev` のままリリースしない。`.github/scripts/set-version_test.sh`・CI の `test` ジョブ）。ビルド後に、Windows は exe とインストーラの固定の版（`FileVersionRaw` = `X.Y.Z.0`）とインストーラの `ProductVersion` の文字列（exe の文字列欄は .NET の `VersionInfo` では空に見えるため見ない。Explorer のプロパティ表示は実機確認。§5.4）、macOS は `Info.plist` の版・URL スキーム・universal（`x86_64` と `arm64`）・署名の検証も行う。`wails3 dev`・手元の `go build` のビルドの版は `dev` で、新しい版の確認も更新もしない（§5.6） |
 | ジョブ構成 | 下図 |
 | ランナー | `plan`・`verify`・`release` は `ubuntu-latest`、`build-windows` は `windows-latest`、`build-macos` は `macos-latest`（いずれも GitHub ホストランナー）。**`build-android` だけは既存の Linux セルフホステッドランナー**（`[self-hosted, linux, x64]`。JDK 17・Android SDK は無ければジョブの最初にダウンロードする。§11.2）。リリースするのは `verify` を通った main の履歴のコミットだけなので、セルフホステッドでも信頼できないコードは動かない。**CI（`ci.yml`）はセルフホステッドだが、Windows / macOS のリリースは GitHub ホストランナーを使う。リポジトリは private なので、リリースごとに Actions の分数を消費する**（macOS は倍率が大きい） |
 | 権限 | 既定は `contents: read`。`contents: write` を持つのは `release` ジョブだけ（タグも `gh release create --target <コミット>` でここで作る。手で打ったタグは `--verify-tag`）。`verify` は `gh run list` のために `actions: read` も持つ。署名鍵のシークレットを参照するのは `build-android` の署名の step だけで、`release` ジョブはシークレットを持たない（§11.3） |
@@ -218,6 +220,24 @@ graph LR
 
 - `workflow_run` のワークフローは**既定ブランチ（main）にあるファイルだけ**が動く。release.yml と ci.yml が main に入るまで、自動のリリースは始まらない。また、タグを付けられるのは main の履歴にあるコミットだけなので、実装が main に入るまで最初のリリース（`v0.1.0`）は作れない
 - プレリリース（`v0.1.0-rc.1` など）は出さない。タグは `vX.Y.Z` に限る。ドライランの代わりに、最初の自動リリース（`v0.1.0`）の成果物を §5.4 の手順で実機確認する
+
+### 5.6 新しい版の確認と自動アップデート（Issue #109）
+
+アプリが GitHub Releases の最新版を確認し、「更新する」で入れ替える機能（[機能要件 §4.10](../requirements/functional.md)・[API 仕様 §6](../api/endpoints.md)）が、リリースの成果物に依存する点と、手元での確かめ方。
+
+| 項目 | 内容 |
+|------|------|
+| 依存するアセット名 | `swarm-viewer_vX.Y.Z_windows_amd64_installer.exe`・`swarm-viewer_vX.Y.Z_darwin_universal.zip`・`swarm-viewer_vX.Y.Z_android_universal.apk`・`SHA256SUMS`（§5.5・§11.4 の成果物。`domain/update.AssetName`・Android の `androidAssetName` がこの名前を決め打ちする）。**release.yml の成果物の名前・`SHA256SUMS` の形式（`sha256sum` 形式）・タグの形（`vX.Y.Z`）を変えるときは、`internal/domain/update` と Android の `domain/Release.kt` も同時に変える**。draft・prerelease の Release は更新の対象にならない（release.yml は通常の Release を作る） |
+| 版の埋め込み | §5.5 の「版の埋め込み」。`internal/buildinfo.Version` は、リポジトリでは `dev`。Android は `versionName`（`-PappVersionName`。§11.4）。版が読めない・`dev` のときは確認も更新もしない |
+| 更新に対応する OS | Windows（NSIS インストーラの起動）・macOS（`.app` の差し替えと開き直し）・Android（システムのインストーラ）。Linux には更新ファイルが無く、通知も確認もしない。macOS の更新は、実行中の `.app` と同じフォルダに書き込めることを要する（`/Applications` が書き込めない環境では「更新を始められませんでした」になる） |
+| 通信の限定 | GitHub のホスト（`api.github.com`・`github.com`・`objects.githubusercontent.com`・`release-assets.githubusercontent.com`）への https のみ。ローカルの偽のサーバーへは、本番のバイナリからは向けられない（接続先はコードに固定。[NFR-SEC-19](../requirements/non-functional.md)） |
+
+手元での確かめ方（デスクトップ）:
+
+- 通しの動作（確認 → 通知 → 取得 → SHA-256 の検証 → 適用 → 終了）は、`go test ./internal/app/compose -run TestUpdateEndToEnd` が、偽の Release の取得元と偽のインストーラで確かめる（`compose.Config` の `Version`・`GOOS`・`Releases`・`Installer`・`Quit`）。画面（通知・更新中・失敗の固定文言）は `go test ./internal/web/updatehandler ./internal/web/organisms`。個別の失敗（ハッシュの不一致・途中切れ・オフライン・資格情報・リダイレクト・macOS の zip の拒否）は `go test ./internal/service/updater ./internal/repository/release ./internal/repository/installer`
+- `devupdate` ビルドタグ付きでだけコンパイルされる `release.NewDevClient(latestURL, base)`（`internal/repository/release/dev.go`）は、ローカルの偽の Release サーバー（指定した URL と同じホストへの http / https だけを許す）へ向けた `Source` を作る部品。**`main.go`・`compose` はこれを呼ばないため、`go build -tags devupdate` だけで実行ファイルが偽のサーバーへ向くわけではない**（実行ファイルで偽のサーバーを使う起動の配線は無い。本番のビルドは常に GitHub に固定される）。自動テストが範囲外としている実機の適用は §5.4 の手順（Release の成果物での実機確認）で行う
+- 版が `dev` のビルドは更新の通知を出さないため、画面を見るには、リリースと同じ形で版を埋めたビルド（`set-version.sh` を実行したワークツリー。**コミットしない**。実行後は `git checkout internal/buildinfo/buildinfo.go` で戻す）が要る。このときの確認先は本物の GitHub なので、実際の最新リリースより古い版を埋めたときだけ通知が出る
+- 確認先の GitHub は認証なしで読むため（token・認証ヘッダーを GitHub に送らない。NFR-SEC-15）、**リポジトリが公開（public）のときだけ**最新リリースとアセットを取得できる。リポジトリが private の間は `releases/latest` が 404 になり、アプリは「新しい版なし」として通知しない（確認の失敗にもしない）。2026-11-10 時点で `ousiassllc/swarm-viewer` は private で、認証なしの `releases/latest` が 404 を返すことを確認した。実際の GitHub での更新は、公開してから §5.4 の手順で確かめる
 
 ## 6. Lint
 
@@ -345,9 +365,11 @@ Android 版（`android/`）の開発環境・CI・署名鍵・リリース。設
 | `./gradlew ktlintFormat` | ktlint の指摘を自動修正する |
 | `./gradlew test` | JVM 上のユニットテスト（テストベクタを読む domain のテストを含む） |
 | `./gradlew assembleDebug` | debug APK（debug 署名。**配布しない**） |
+| `./gradlew assembleDebug -PupdateLatestUrl=http://10.0.2.2:PORT/repos/ousiassllc/swarm-viewer/releases/latest` | **debug ビルドだけ**、新しい版の確認先を手元の偽のリリースサーバーに向ける（`BuildConfig.UPDATE_LATEST_URL`）。エミュレーターからホストの PC は `10.0.2.2`。指定した URL と同じホストへの http・任意のポートだけを許す。指定しなければ（CI の `assembleDebug` を含む）本番（GitHub）と同じ。release ビルドにはこの差し替えのコードが無い（NFR-AND-SEC-12。`src/release`・`ReleaseBuildHasNoOverrideTest`） |
 
 - push 前は `./gradlew lint ktlintCheck test` がクリーンに通ることを確認する。詳細は `android/README.md`
 - Kotlin の手書きソースにも linterly（§8）の行数上限（1 ファイル 300 行・1 ディレクトリ 2,000 行）が掛かる。Gradle のビルド成果物・生成物（`android/.gradle/`・`android/**/build/` など）だけを除外している
+- 更新の動作をエミュレーターで確かめるときは、偽のリリースサーバーが `GET /repos/ousiassllc/swarm-viewer/releases/latest`（`tag_name` が実行中の `versionName` より新しい `vX.Y.Z`、`assets` に `swarm-viewer_vX.Y.Z_android_universal.apk` と `SHA256SUMS` の `browser_download_url`）・APK・`SHA256SUMS`（`sha256sum` 形式の行）を返す。更新の APK は、実行中のアプリと**同じ署名鍵**で署名されていなければ受け付けられない（署名が違うとインストーラを開かない）。「このアプリからのインストール」は、更新の最初の「更新する」で設定画面が開くので、許可してから押し直す
 
 ### 11.2 CI（`android/**`）
 
@@ -424,6 +446,7 @@ Release の APK の確認（検証手順と実機確認。手動確認項目）:
 3. Galaxy Fold7 に APK をインストールする（初回は「提供元不明のアプリ」の許可が要る）
 4. 前の版が入った状態で、新しい APK を上書きインストールでき、接続・設定が残っている（同じ署名鍵）
 5. `swarm-viewer://` のリンクでアプリが開く。そのほか[アーキテクチャ設計 §11](../architecture/overview.md) #8〜#15
+6. 前の版が入った状態で、アプリの「更新する」から更新できる（許可の設定画面 → システムのインストーラ → 上書き。[アーキテクチャ設計 §11](../architecture/overview.md) #20。**実際の GitHub Release に対する確認と実機での確認は未実施**）
 
 ### 11.5 テストベクタ
 
@@ -449,3 +472,4 @@ Release の APK の確認（検証手順と実機確認。手動確認項目）:
 | 1.8 | 2026-11-05 | §11.2 の Android ジョブの JDK 17・Android SDK を、ランナーのホストへの事前導入から、ジョブの最初に `setup-android-toolchain.sh` が無ければダウンロードする方式に変更（固定版・sha256 検証・再試行・ランナーのツールキャッシュで再利用）。§5.2・§11.4 の関連記述を更新 | Issue #22（悠太さんの依頼: セルフホストランナーのまま、無ければダウンロード） |
 | 1.9 | 2026-11-05 | §3.2 の `task generate` と `static/dist/js/` の配置対象に `modal.js` を追加 | linterly の行数上限（300 行）への対処 |
 | 1.10 | 2026-11-05 | §3.2 に JS の挙動テスト（`bun test static/src/js`・`happy-dom`）を追加し、§5.2 の `test`・§9 の `pre-push` に載せた。§6.2 の Biome の対象を `static/src/js/*.js`・`static/src/css/*.css` に修正 | 独立レビューの指摘（JS・CSS の文字列を grep するだけのテストの置き換え） |
+| 1.11 | 2026-11-10 | 新しい版の確認と自動アップデート（Issue #109）。§5.2 の `test` に `set-version_test.sh`、§5.4・§11.4 の実機確認に更新の手順（未確認）、§5.5 の「版の埋め込み」に `internal/buildinfo` の書き換え、§5.6「新しい版の確認と自動アップデート」（依存するアセット名・対応 OS・手元での確かめ方・`devupdate` タグの限界）、§11.1 に `-PupdateLatestUrl` と偽のリリースサーバーでの確認 | Issue #109（新しい版の確認と自動アップデート） |

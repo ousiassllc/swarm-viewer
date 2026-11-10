@@ -2,7 +2,7 @@
 
 [機能要件](functional.md)を満たすうえでの性能・セキュリティ・可用性などの制約を定める。数値目標は初版の目標値で、実機での測定後に見直す。
 
-> §1〜§9 はデスクトップ版の要件。Android 版の要件は [§10](#10-android-版) に定める。共通の要件（NFR-SEC-1・4〜8・10〜14、NFR-PERF-4〜6、NFR-AVL-1〜3、NFR-CMP-1〜3、NFR-LOG-3・4、NFR-QLT-1〜4）はそのまま Android にも適用する。操作モード（Issue #97）の要件は NFR-SEC-1・5・10〜14、NFR-PERF-8、NFR-QLT-4、NFR-DSG-16（Android は NFR-AND-SEC-5・9、NFR-AND-PERF-8、NFR-AND-QLT-5）に置く。
+> §1〜§9 はデスクトップ版の要件。Android 版の要件は [§10](#10-android-版) に定める。共通の要件（NFR-SEC-1・4〜8・10〜14、NFR-PERF-4〜6、NFR-AVL-1〜3、NFR-CMP-1〜3、NFR-LOG-3・4、NFR-QLT-1〜4）はそのまま Android にも適用する。操作モード（Issue #97）の要件は NFR-SEC-1・5・10〜14、NFR-PERF-8、NFR-QLT-4、NFR-DSG-16（Android は NFR-AND-SEC-5・9、NFR-AND-PERF-8、NFR-AND-QLT-5）に置く。新しい版の確認と自動アップデート（Issue #109）の要件は NFR-SEC-15〜19、NFR-AVL-7、NFR-PERF-9、NFR-DST-3・6、NFR-QLT-5、NFR-LOG-3（Android は NFR-AND-SEC-6・7・10〜12、NFR-AND-AVL-6、NFR-AND-PERF-9、NFR-AND-DAT-4、NFR-AND-DST-5・7、NFR-AND-QLT-6、NFR-AND-LOG-2）に置く。GitHub への通信は swarm-console への接続とは別の経路で、NFR-SEC-4・5（接続先 URL の検証）・NFR-SEC-1（許可リスト）は適用されない（GitHub 用の許可リストは NFR-SEC-15）。
 
 ## 1. 対応環境
 
@@ -25,6 +25,7 @@
 | NFR-PERF-6 | 通知用ポーリングは接続・セッションを**順次**取得し、並列に発行しない（ホストへの負荷を抑える） | — |
 | NFR-PERF-7 | バックグラウンド（サスペンド中・最小化中）は画面更新ポーリングを止める。通知用ポーリングは通知がオンの間だけ動かす | — |
 | NFR-PERF-8 | ペイン詳細（[機能要件 §4.5](functional.md)）の自動更新は、画面が見えている間（ペイン詳細を開いている間）だけ 5 秒ごとに行い、前のリクエストが終わる前に次を発行しない。状態の取り直し（`report`）は既存の single-flight を使う。手動の更新は即時に行う。他の画面の更新ポーリング（NFR-PERF-5）は変えない | — |
+| NFR-PERF-9 | 新しい版の確認と更新（FR-UPD-1〜6。Issue #109）。確認は起動時と 6 時間ごと。最新リリースの確認 1 回は 30 秒で打ち切る（応答 JSON は 4 MiB まで）。更新（取得・検証・適用）全体は 15 分で打ち切る。トランスポートの接続 15 秒・TLS ハンドシェイク 15 秒・応答ヘッダー 30 秒。確認・更新の通信は同時に 1 本まで（確認は直列。更新中は確認しない。更新の二重開始は拒否する）。通知の領域の読み直しはふだん 60 秒、更新中だけ 1 秒（`hx-sync="this:drop"` で重ねない）。確認・更新が画面更新ポーリング（NFR-PERF-5）・通知用ポーリング（NFR-PERF-6）を遅らせない（別の goroutine・別のクライアント） | 確認 30 秒・更新 15 分 |
 
 ## 3. セキュリティ
 
@@ -44,6 +45,11 @@
 | NFR-SEC-12 | 中断（`send_escape`）と終了（`pane_close`）は、確認ダイアログを経ないと送れない。アプリ側も、確認済みのフォーム値（デスクトップは `confirm=true`）が無ければ `send_escape`・`pane_close` を呼ばない（`confirm_required`。`confirm: true` を無条件に付けない）。デスクトップは `POST P/close`・`POST P/start` で、送る前にサーバー側でも最新の `report` のペイン状態を再検査する（終了は `idle`・`shell`、起動は `shell`。違えば通信せず `invalid_state`）。質問カードの選択肢（`ask_pick`）は Issue #97 の決定（2026-11-08）で確認を挟まず、押したらすぐ送る。その代わり、送信中は同じペインの全ボタンを無効にし、アプリ側（service）も同じペインへの操作を排他にして二重送信を防ぐ |
 | NFR-SEC-13 | 操作の接続の token（ops スコープ）は、ペインへの送信・中断・起動・終了ができる。保存・表示・ログの扱いは report の token と同じ（NFR-SEC-2・3・7・11）。加えて、(a) ペアリング確認画面で、操作の接続のときだけ警告を出す（「この接続はペインに送信・中断・起動・終了できます」。token の漏えい・失効の案内を添える）、(b) token が漏れた・端末を紛失したときは、ホストで `swarm-console token revoke <名前>` を実行して失効する（名前は `swarm-console pair --scope ops` が `viewer-ops-<ホスト名>-<yyyymmdd>` で付ける。[API 仕様 §3](../api/endpoints.md)）。失効した token は 401 になり、viewer はその接続を `needs_repair` にして再ペアリングへ誘導する。viewer 自身は token を失効させない。README にも書く |
 | NFR-SEC-14 | 見るだけの接続は、`/ops` を呼ぶコードパスを通らず、操作の UI（選択肢のボタン・送信欄・中断・終了・「＋ 始める」・スキル選択・本文入力欄）を描画しない。デスクトップの操作系ルートを見るだけの接続に対して直接呼んでも、コンソールに通信せずに 403 と固定文言を返す。ペイン詳細・質問の閲覧（`pane_tail`・`ask_card`）は見るだけの接続でも出す |
+| NFR-SEC-15 | GitHub Releases への通信（新しい版の確認・更新ファイルの取得）は、swarm-console への接続（`repository/report`。tailnet の許可リスト・Bearer の付与）とは**別の** `http.Client`（`repository/release`）だけで行う。宛先は `api.github.com`・`github.com`・`objects.githubusercontent.com`・`release-assets.githubusercontent.com` への **https のみ**（ホストは完全一致。サブドメイン・接尾辞・ポート指定・userinfo・`https` 以外は不可）で、リダイレクトも 1 回ごとに同じ検査を通し（最大 5 回）、許可外のホストや http への転送は通信せずに失敗する。`Authorization`・`Proxy-Authorization`・`Cookie` は、どの経路でも付けず、付いていても送る前に外す（swarm-console の token を GitHub へ渡さない）。Cookie は保存せず、環境のプロキシは使わない（プロキシ経由だと接続先の検査が効かない）。swarm-console 側の許可リスト・URL 検証（NFR-SEC-1・4・5）には GitHub のホストを加えない |
+| NFR-SEC-16 | GitHub 用のクライアントは、名前解決後の**実際の接続先アドレス**を接続の直前に検査し（`net.Dialer.Control`）、ループバック・プライベート・リンクローカル・マルチキャスト・未指定・tailnet（`100.64.0.0/10`）のアドレスには接続しない。許可ホストの名前が DNS の差し替えでそれらへ解決されても届かない（tailnet・社内の宛先へ向かわせない）。通信は GET だけ |
+| NFR-SEC-17 | 更新ファイルの完全性。適用するのは、**SHA-256 が同じ Release の `SHA256SUMS`（`sha256sum` 形式）の該当行と一致したファイルだけ**。ファイル名の行が無い・複数ある・書式が不正（1 行でも）・`SHA256SUMS` が 64 KiB を超える・アセットが無い（同名が複数ある）・本文が `Content-Length`・報告されたサイズより短い・アセットが 512 MiB を超える、のどれでも適用せず、取得したファイルを消す（成功した Windows のインストーラの一時フォルダだけは、起動したインストーラが使うため OS の掃除に任せる）。取得中は SHA-256 を同時に計算し、一時フォルダへは所有者のみ読み書きの権限（`0600`）で新規作成する。限界: `SHA256SUMS` は同じ Release から取るため、Release 自体の差し替え（GitHub のアカウント・Release の乗っ取り）には対抗できない（コード署名・公証は NFR-DST-2 のとおり行っていない） |
+| NFR-SEC-18 | 適用の安全。Windows は検証済みのインストーラを `ShellExecute`（`open`）で起動する（管理者権限の昇格の確認は OS が出し、アプリは昇格を要求・回避しない）。macOS は zip を、実行中の `.app` と同じフォルダの中の作業用フォルダ（`.swarm-viewer-update-*`）へ展開する。展開は、絶対パス・`..`・バックスラッシュ・シンボリックリンク・デバイス・FIFO・`.app` でない最上位・最上位が 2 つ以上・`Contents/Info.plist` または実行可能な `Contents/MacOS/<実行ファイル>` が無い zip を拒否し、合計 1 GiB・20,000 項目を超えたら拒否する。差し替えは 2 回の `rename`（実行中の `.app` → 作業用フォルダの `old.app`、展開した `.app` → 元の場所）で、2 回目が失敗したら元へ戻す。開き直しの補助プロセス（`/bin/sh`）には pid・パスを引数で渡し、シェルの文字列に埋め込まない。実行中のバイナリが `.app` の中にない（開発ビルド）ときは何も変えない |
+| NFR-SEC-19 | GitHub への接続先（最新リリースの URL・許可ホスト）はコードに固定し、設定・環境変数・コマンドライン引数で変えられない。接続先を変えられるのは、テストと、`devupdate` ビルドタグ付きのビルド（`release.NewDevClient`。ローカルの偽の Release サーバーへ向けた確認用。リリースのビルドには含まれない）だけ |
 
 ## 4. 可用性・耐障害性
 
@@ -55,6 +61,7 @@
 | NFR-AVL-4 | OS のサスペンドから復帰したら、即時に 1 回取得する |
 | NFR-AVL-5 | SQLite が壊れた・開けない場合は起動を止めず、エラーを表示して設定を初期化できる導線を出す（token は秘密領域に残る） |
 | NFR-AVL-6 | アプリは単一インスタンスとする。2 つ目の起動・ディープリンク受信は既存インスタンスへ転送する（通知の重複記録を避ける） |
+| NFR-AVL-7 | 新しい版の確認・更新の失敗（オフライン・HTTP エラー・検証の失敗・適用の失敗）でアプリを終了・クラッシュさせず、メイン画面の表示・操作・通知用ポーリングを止めない。確認の失敗は次の周期で自動再試行する（バックオフなし）。更新の失敗は種類ごとの固定文言を小さく出し、「更新する」の押し直しで再試行できる。アプリの終了中のキャンセルは失敗として表示しない。適用に失敗しても、実行中のアプリは変更しない（macOS の差し替えの途中の失敗は元へ戻す。戻せなかったときは作業用フォルダを残して手で戻せるようにする） |
 
 ## 5. 互換性・前方互換
 
@@ -80,7 +87,7 @@
 |----|------|
 | NFR-LOG-1 | ローカルのログファイルに記録し、サイズ上限でローテーションする（上限 5 MB × 3 世代） |
 | NFR-LOG-2 | 既定ではエラー・警告のみ記録する。設定画面で**デバッグログ**のオン/オフを切り替えられる（既定オフ） |
-| NFR-LOG-3 | ログに token・完全な URL・ペインの本文（`activity`・`note`・`pane_tail`・`ask_card`）・送信本文・スキル名・`invoke` を出さない。接続は表示名と host のみで識別する |
+| NFR-LOG-3 | ログに token・完全な URL・ペインの本文（`activity`・`note`・`pane_tail`・`ask_card`）・送信本文・スキル名・`invoke` を出さない。接続は表示名と host のみで識別する。新しい版の確認・更新（Issue #109）のログに残すのは、タグ・失敗の種類（`download`・`verify`・`install`）・原因のエラーだけで、token・ヘッダー・ファイルの中身は含まれない。限界: 原因のエラーには Go の `*url.Error` が含まれうるため、GitHub の公開 URL（`api.github.com` や Release のアセットの URL。認証情報・クエリは載らない）がログに出ることがある（通信先は GitHub の公開情報で、swarm-console の URL・token ではない）。画面には原因・URL を出さない（FR-UPD-5） |
 | NFR-LOG-4 | ログ・クラッシュ情報を外部へ自動送信しない |
 
 ## 8. 配布・保守
@@ -89,9 +96,10 @@
 |----|------|
 | NFR-DST-1 | Windows / macOS 向けの配布物を CI（release.yml。[環境構築 §5.5](../environment/setup.md)）が作り、GitHub Releases で配布する。形式は、Windows が NSIS インストーラ（`.exe`、amd64）、macOS が `.app` を zip にしたもの（amd64 + arm64 のユニバーサル）。Release には配布物と一緒にチェックサム `SHA256SUMS`（`sha256sum` 形式）を載せる |
 | NFR-DST-2 | コード署名・公証は初版では行わない（unsigned。macOS の Gatekeeper 警告は許容し、README に回避手順を書く） |
-| NFR-DST-3 | 自動更新は初版では持たない（手動入れ替え） |
+| NFR-DST-3 | 自動更新は Windows・macOS にある（FR-UPD-1〜6）。GitHub Releases の最新版を確認し、利用者が「更新する」を押したときだけ取得・検証・適用する（無人の更新はしない）。Linux・手動の「いま確認する」・ロールバックは持たない。Windows はインストーラ（NFR-DST-1）の起動、macOS は `.app` の差し替えと開き直しで入れ替える（NFR-SEC-17・18）。コード署名・公証は行わない（NFR-DST-2） |
 | NFR-DST-4 | カスタム URI スキーム `swarm-viewer://` は、`build/config.yml` の `protocols:` で宣言し、インストーラ（NSIS）／`.app`（`Info.plist`）によって OS へ登録する。インストールしていない実行ファイル単体ではディープリンクは使えず、貼り付けでペアリングする |
 | NFR-DST-5 | UI の言語は日本語のみ。`report` の `lang` は指定せず、言語に依存しない `format: "json"` を使う |
+| NFR-DST-6 | 更新が参照する Release のアセット名は、release.yml が付ける名前と同じ（`swarm-viewer_vX.Y.Z_windows_amd64_installer.exe`・`swarm-viewer_vX.Y.Z_darwin_universal.zip`・`SHA256SUMS`）。アプリ自身の版は `internal/buildinfo` の `Version` で、リポジトリの値は開発ビルドを表す `dev`。release.yml の build-windows・build-macos が `.github/scripts/set-version.sh` でタグの `X.Y.Z` に書き換える（ワークツリーだけの書き換えでコミットしない。書き換えられなければ失敗し、`dev` のままリリースしない）。版が `dev` のビルドは確認も更新もしない |
 
 ## 9. 品質（テスト）
 
@@ -101,6 +109,7 @@
 | NFR-QLT-2 | URL 検証（NFR-SEC-4・5）は、tailnet 範囲の境界値、ホスト名、`0.0.0.0`、`http` 以外の scheme、path（`/report`・`/ops` ちょうどだけ通し、末尾スラッシュ・大文字小文字違い・エンコード別表記・クエリは拒否）を含むテストを持つ |
 | NFR-QLT-3 | ポーリングのテストは固定時間の待ちに頼らず、フェイククロックまたは条件待ちで行う |
 | NFR-QLT-4 | 操作モードは次の 6 項目を自動テストで検証する（Android は NFR-AND-QLT-5 で同じ内容）。(1) 見るだけの接続: ペイン詳細に操作部品（`pick`・`send`・`escape`・`close`・`start` のフォーム・ボタン・確認ダイアログ。スキル・本文の部品を含む）が出ない。`pane_tail`・`ask_card` は呼ばれる。偽の swarm-console への `/ops` のリクエストは 0 件で、操作ルートの直接呼び出し（`start/skills` を含む）は 403 かつコンソールへの通信 0 件（`skill_list` も通信 0 件）。(2) 操作の接続: `ask_pick`（`n`・`text`）・`send_text`・`send_escape`（`confirm: true`。確認なしは呼ばれない）・`dir_list`・`skill_list`（`agent` だけで `session` を付けない） → `pane_start`・`pane_close` が、期待どおりのツール名・引数（`session` 明示、`/ops` path、Bearer）で届く。新しいセッションの最初のタスクは `pane_start` → `send_text` の順に 1 つの操作で届き、`pane_start` が `ok: true` かつ `state` が `idle` のときだけ送る（`ok: false`・`idle` 以外では `send_text` を呼ばない）。`send_text` が失敗・`accepted: false` でも `pane_close` を呼ばず自動で再送しない。「もう一度送る」（`resend=1`）は `send_text` だけを送り、`pane_start` を呼ばない。(3) 許可リスト: 種類別の定数、見るだけでの操作系ツール（`skill_list` を含む）の通信なしの拒否、送信内容の検査（`/report` に操作系ツールを出せない）、`ValidateURL` の `/ops`。(4) 排他: 同じペインの操作が同時に 2 つ走らない（2 つ目は通信なしで拒否）。(5) ログに token・送信本文・スキル名・`invoke`・`pane_tail` の本文が出ない。(6) 結果の解析と固定文言（`ok: false`・`accepted: false`・`card_closed`・エラーコード・スキルの取得不可と読み込み失敗・起動したが未送信・最初のタスクを送れなかった） |
+| NFR-QLT-5 | 新しい版の確認と更新（Issue #109）は、次を自動テストで検証する（Android は NFR-AND-QLT-6）。(1) 版の比較（v0.1.9 < v0.1.13、同じ版・読めない版は通知しない）。(2) Release JSON（draft・prerelease・タグ不正）・`SHA256SUMS`（書式不正・行なし・重複）。(3) 許可ホスト（完全一致・https のみ・ポート・userinfo）・リダイレクト先の再検査・資格情報の除去・プライベート／tailnet アドレスの拒否。(4) SHA-256 の不一致・取得の途中切れ・オフライン・アセット欠落で、インストーラを呼ばずファイルを消す。(5) macOS の zip の拒否条件・差し替えの巻き戻し・補助プロセスの待ち合わせ。(6) 自動確認がオフのとき通信 0 件、開発ビルド・更新ファイルの無い OS で通信 0 件。(7) `set-version.sh` が `internal/buildinfo` を書き換え、書き換えられなければ失敗する（`.github/scripts/set-version_test.sh`。CI の `set-version.sh のテスト`）。通信は `httptest`・偽の `Source`・`Installer` で行い、実際の GitHub・実インストーラ・実機の `.app` には触れない（実機の確認は[アーキテクチャ設計 §11](../architecture/overview.md) #18・#19）。待ち合わせは固定時間でなく、フェイククロック・上限付きの条件待ちで行う（NFR-QLT-3） |
 
 ## 10. Android 版
 
@@ -130,6 +139,7 @@ Android に**適用しない**デスクトップ版の要件: NFR-ENV-1・NFR-EN
 | NFR-AND-PERF-6 | バックグラウンドの確認 1 回の実行（接続数 3・許可セッション計 10 程度まで。通信が通るとき） | 1 分以内 |
 | NFR-AND-PERF-7 | 画面が見えていない間（ライフサイクルが `STARTED` を外れている間）は画面更新ポーリングを止める。通知用の周期ジョブは通知がオンの間だけ登録する | — |
 | NFR-AND-PERF-8 | ペイン詳細の自動更新は、画面が見えている間（`STARTED` 以上。`LifecycleStartEffect`）だけ 5 秒ごとに行い、バックグラウンドでは止める。前のリクエストが終わる前に次を発行しない（NFR-PERF-8） | — |
+| NFR-AND-PERF-9 | 新しい版の確認と更新（FR-AND-13〜16）。確認は起動時にすぐ 1 回と、その後 6 時間ごと（`UpdateScheduler`。プロセスが生きている間、自動確認がオンのあいだだけ。WorkManager の周期ジョブは持たない）。OkHttp の接続 15 秒・読み取り 30 秒。テキスト（最新リリースの JSON・`SHA256SUMS`）は 1 MiB まで、APK は 200 MiB まで。確認・更新の通信は画面更新ポーリング・通知の確認とは別のクライアントで行い、遅らせない | 確認 6 時間ごと |
 
 ### 10.3 セキュリティ
 
@@ -140,10 +150,13 @@ Android に**適用しない**デスクトップ版の要件: NFR-ENV-1・NFR-EN
 | NFR-AND-SEC-3 | アプリのデータはバックアップ・端末間転送の対象外にする（`allowBackup="false"` と `dataExtractionRules`・`fullBackupContent` による全データの除外） |
 | NFR-AND-SEC-4 | 接続文字列は貼り付け・ディープリンク（Intent）・QR のどれで受けても、同じ検証（NFR-SEC-4・5・7、NFR-CMP-3）を通し、確認画面で利用者が確定するまで保存しない。確認画面に token を出さない。解析後はメモリ上の値をすぐ破棄し、受け取った文字列を保存・ログ出力しない。ディープリンクは他のアプリからも送れる信頼できない入力として扱い、処理後は Intent のデータを消す |
 | NFR-AND-SEC-5 | 呼ぶツールは、接続の種類ごとの許可リスト（NFR-SEC-1）にあるものだけ。見るだけ（`/report`）は `sessions_list`・`report`・`pane_tail`・`ask_card`、操作（`/ops`）はそれに `ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list`・`skill_list` を足した 11 個。許可リストは `data/report` の種類別の定数で、送信前（呼び出し口）と送信内容（`GuardInterceptor`。URL の path が `/report` なら 4 つ、`/ops` なら 11 個）の二重で検査する。見るだけの接続に操作系ツールを呼ぶと、通信せずに `tool_not_allowed`（`FetchException`）で断る。`tools/list` のコードパスを持たない。許可リスト外のツール名は呼べない |
-| NFR-AND-SEC-6 | アプリが自分で宣言する権限は `INTERNET`・`POST_NOTIFICATIONS`・`CAMERA` の 3 つまで。`POST_NOTIFICATIONS` は初回に、`CAMERA` は QR の読み取りを開始したときだけ要求する（QR の読み取り方式がカメラ権限を要さないものに決まれば `CAMERA` は宣言しない。[アーキテクチャ設計 §11](../architecture/overview.md) #10）。ほかの権限を要求しない。依存ライブラリがマニフェストのマージで加える権限（WorkManager の `WAKE_LOCK`・`ACCESS_NETWORK_STATE` など）は、マージ後のマニフェストを確認して許容する |
-| NFR-AND-SEC-7 | 外部に公開するコンポーネントは `MainActivity`（起動と `swarm-viewer` スキームの intent-filter）だけ。通知の `PendingIntent` は `FLAG_IMMUTABLE` とし、Intent に載せるのは接続 ID・セッション ID だけ |
+| NFR-AND-SEC-6 | アプリが自分で宣言する権限は `INTERNET`・`POST_NOTIFICATIONS`・`CAMERA`・`REQUEST_INSTALL_PACKAGES` の 4 つまで。`POST_NOTIFICATIONS` は初回に、`CAMERA` は QR の読み取りを開始したときだけ要求する（QR の読み取り方式がカメラ権限を要さないものに決まれば `CAMERA` は宣言しない。[アーキテクチャ設計 §11](../architecture/overview.md) #10）。`REQUEST_INSTALL_PACKAGES` は新しい版の APK をシステムのインストーラで開くためで、許可は端末の「このアプリからのインストール」で利用者が与える（アプリは許可が無いとき、その設定画面を開くだけ。無人のインストールはしない）。ほかの権限を要求しない。依存ライブラリがマニフェストのマージで加える権限（WorkManager の `WAKE_LOCK`・`ACCESS_NETWORK_STATE` など）は、マージ後のマニフェストを確認して許容する |
+| NFR-AND-SEC-7 | 外部に公開するコンポーネントは `MainActivity`（起動と `swarm-viewer` スキームの intent-filter）だけ。通知の `PendingIntent` は `FLAG_IMMUTABLE` とし、Intent に載せるのは接続 ID・セッション ID だけ。更新の APK をインストーラへ渡す `FileProvider`（authority は `${applicationId}.updates`）は `exported="false"` で、公開するのは `cacheDir/updates/` だけ（`res/xml/update_file_paths.xml`）。インストーラへは Intent の一時的な読み取りの許可（`FLAG_GRANT_READ_URI_PERMISSION`）だけを与える |
 | NFR-AND-SEC-8 | ツール応答の表示は常にテキストとして描画し、解釈しない（`title`・`activity`・`note`・`pane_tail`・`ask_card` の質問文・選択肢・`skill_list` の `skills[].name`・`description`・`invoke` は信頼できない入力。NFR-SEC-10 と同じ） |
 | NFR-AND-SEC-9 | 操作の UI は NFR-SEC-12〜14 と同じ規則に従う。見るだけの接続には Compose にも操作部品（選択肢のボタン・送信欄・中断・終了・「＋ 始める」・スキル選択・本文入力欄）を出さない。中断・終了は確認ダイアログ（NFR-DSG-8 の `AppDialog`）を経ないと送らない。送信中は `PaneDetailViewModel` の `busy` で同じペインの全ボタンを無効にし、`PaneService` も同じペインの操作を排他にする（新しいセッションの `pane_start` → `send_text` も同じ排他の中で行う）。操作の接続の token は ops スコープで、失効はホストの `swarm-console token revoke <名前>`（NFR-SEC-13）。送信本文（新しいセッションの最初のタスクの本文を含む）・スキル名・`invoke`・`pane_tail` の本文は、ディスク・ログ・通知・Intent に出さない（最初のタスクを送れなかったときの本文は、結果の表示の間だけ `StartSessionViewModel` のメモリに残す） |
+| NFR-AND-SEC-10 | GitHub への通信（新しい版の確認・APK の取得）は、tailnet 用（`newReportHttpClient`・`GuardInterceptor`）とは**別の** `OkHttpClient`（`newUpdateHttpClient`）と別の許可リスト（`UpdateEndpoints.PRODUCTION`）で行う。宛先は `api.github.com`・`github.com`・`objects.githubusercontent.com`・`release-assets.githubusercontent.com` への https・ポート 443 のみ。リダイレクトは OkHttp に追従させず、`GithubReleaseSource` が 1 回ごとに許可リストを検査して最大 5 回まで追う（許可外への経路は接続を開く前に止まる）。通信は GET だけで、`Authorization`・`Proxy-Authorization`・`Cookie` は `UpdateGuardInterceptor` が必ず外す。環境のプロキシ・cookie は使わない。名前解決の結果（`PublicOnlyDns`）から、ループバック・未指定・リンクローカル・プライベート（RFC 1918・IPv6 ULA）・マルチキャスト・tailnet（CGNAT `100.64.0.0/10`）のアドレスを除き、残らなければ解決失敗にする。tailnet 用の許可リスト（`GuardInterceptor`）には GitHub のホストを加えない（NFR-AND-SEC-5） |
+| NFR-AND-SEC-11 | 更新の完全性と署名。システムのインストーラを開くのは、(a) APK の SHA-256 が同じ Release の `SHA256SUMS` の該当行と一致し、かつ (b) ダウンロードした APK の署名証明書の SHA-256 の集合が、**実行中のアプリの署名証明書と同じ**（パッケージ名が同じ。どちらかが読めない・空・一部だけ一致は不可）ときだけ。`SHA256SUMS` に APK の項目が無い・書式不正・重複のときは、APK を取得しない。どの失敗（取得の途中切れ・不一致・署名違い・インストーラを開けない・キャンセルを含む）でも APK を消し、更新の前にも前回までの APK を消す。APK の保存先は `cacheDir/updates/` だけ。署名の指紋は固定値で持たず、実行中のアプリと比べる（release 署名証明書の指紋の記録は `android/README.md`。NFR-AND-DST-2）。限界: `SHA256SUMS` は同じ Release から取るため、(a) は Release の差し替えには対抗できず、(b) の署名の一致が最後の砦になる |
+| NFR-AND-SEC-12 | 更新の確認先を差し替えられるのは**デバッグビルドだけ**（Gradle の `-PupdateLatestUrl=...` を渡したときの `BuildConfig.UPDATE_LATEST_URL`。`src/debug` の `updateEndpointsOverride()` が読む。指定が無ければ空で本番と同じ）。リリースビルドには差し替えるコードが無く（`src/release` の同名の関数は常に null）、本番の宛先に固定される。差し替えた設定でも許可するのは、指定した URL と同じホストだけ。この性質は release のユニットテスト（`ReleaseBuildHasNoOverrideTest`）で確かめる |
 
 ### 10.4 可用性・耐障害性
 
@@ -154,6 +167,7 @@ Android に**適用しない**デスクトップ版の要件: NFR-ENV-1・NFR-EN
 | NFR-AND-AVL-3 | 端末を再起動しても、通知がオンなら周期ジョブが再開する（FR-AND-6） |
 | NFR-AND-AVL-4 | バックグラウンドの通知は、Doze・アプリスタンバイ・バッテリー最適化で、設定した間隔より遅れうる（best effort）。時刻の保証はしない。設定画面に明記する（FR-AND-7） |
 | NFR-AND-AVL-5 | Room の DB が開けない・新しい版で作られたときは、起動を止めずエラーを表示し、設定を初期化できる導線を出す（NFR-AVL-5・NFR-CMP-4 と同じ。token は保護領域に残る） |
+| NFR-AND-AVL-6 | 新しい版の確認・更新の失敗でアプリをクラッシュさせず、ペイン一覧・操作・通知の確認を止めない。失敗は種別ごとの固定文言を 1 行の小さな表示で出し、例外の本文・URL・応答本文は出さない。確認の失敗は次の周期で再試行し、「更新する」の押し直しで更新を再試行できる。更新中の二重開始は拒否する。コルーチンのキャンセルは失敗として扱わない（NFR-AVL-7 と同じ） |
 
 ### 10.5 ストレージ・ログ
 
@@ -162,8 +176,9 @@ Android に**適用しない**デスクトップ版の要件: NFR-ENV-1・NFR-EN
 | NFR-AND-DAT-1 | 内部の永続データは Room の 1 ファイル（アプリ専用の内部ストレージ）に保存する。token は含めない（[ER §7](../architecture/er.md)） |
 | NFR-AND-DAT-2 | 通知済み記録は接続あたり 1,000 件を上限に古いものから削除する（NFR-DAT-3）。スナップショットは接続×セッションごとに最新 1 件だけで、接続の削除で消える（NFR-DAT-4） |
 | NFR-AND-DAT-3 | スキーマは Room の `Migration` で版管理し、破壊的な再作成（`fallbackToDestructiveMigration`）を使わない |
+| NFR-AND-DAT-4 | 「自動で確認する」の設定は Room ではなく `SharedPreferences`（`update_prefs` の `auto_check`。真偽値だけで、token・URL は持たない）に保存する。バックアップ・端末間転送の対象外（NFR-AND-SEC-3） |
 | NFR-AND-LOG-1 | ログは Logcat のみ。ファイルへは書かず、外部へ自動送信しない（NFR-LOG-4） |
-| NFR-AND-LOG-2 | 既定では警告・エラーだけ記録する。設定画面の「デバッグログ」で詳細のオン/オフを切り替える（既定オフ）。どちらも token・完全な URL・ペインの本文（`activity`・`note`・`pane_tail`・`ask_card`）・送信本文・スキル名・`invoke` を出さない。操作のログに残すのは、接続 ID・ツール名・種別・コード・ペイン位置まで。接続は表示名と host だけで識別する（NFR-LOG-3・NFR-SEC-11） |
+| NFR-AND-LOG-2 | 既定では警告・エラーだけ記録する。設定画面の「デバッグログ」で詳細のオン/オフを切り替える（既定オフ）。どちらも token・完全な URL・ペインの本文（`activity`・`note`・`pane_tail`・`ask_card`）・送信本文・スキル名・`invoke` を出さない。操作のログに残すのは、接続 ID・ツール名・種別・コード・ペイン位置まで。接続は表示名と host だけで識別する（NFR-LOG-3・NFR-SEC-11）。新しい版の確認・更新（Issue #109）は、失敗を固定の種別（`UpdateFailure`）に丸めるだけで、例外の本文・URL・応答本文をログにも表示にも出さない |
 
 ### 10.6 配布・署名
 
@@ -173,8 +188,9 @@ Android に**適用しない**デスクトップ版の要件: NFR-ENV-1・NFR-EN
 | NFR-AND-DST-2 | release 署名鍵（keystore）を 1 つ作り、毎回同じ鍵で署名する。同じ鍵で署名することで、インストール済みのアプリを上書きアップデートできる。鍵を失うと上書きできないため、複数の場所にバックアップする。鍵・パスワードはリポジトリにコミットしない。CI のシークレット（keystore は base64）は release.yml の署名ジョブ（`build-android`）の署名の step だけが使う（[環境構築 §11](../environment/setup.md)） |
 | NFR-AND-DST-3 | **debug 署名の APK は配布しない**。配布物は `apksigner` で署名し、`apksigner verify` で検証してから Release に載せる |
 | NFR-AND-DST-4 | 版の唯一の元はデスクトップ版と同じくタグ（`vX.Y.Z`）。`versionName` はタグの `X.Y.Z`、`versionCode` は `X × 1,000,000 + Y × 1,000 + Z`（単調増加。上書きアップデートに必要） |
-| NFR-AND-DST-5 | 自動更新（アプリ内アップデート）は持たない（手動で APK を入れ替える。NFR-DST-3 と同じ） |
+| NFR-AND-DST-5 | 自動更新（アプリ内アップデート）は、新しい版を確認して通知し、利用者が「更新する」を押したときに APK を検証してシステムのインストーラを開くところまで（FR-AND-13〜16）。無人のインストール・Google Play 経由の更新・バックグラウンドの周期ジョブでの確認は持たない（NFR-DST-3 と同じ考え方）。インストールの許可は端末の設定で利用者が与える（NFR-AND-SEC-6） |
 | NFR-AND-DST-6 | カスタム URI スキーム `swarm-viewer://` は AndroidManifest の intent-filter で宣言する（[API 仕様 §2.3](../api/endpoints.md)）。OS への登録はインストールで済み、デスクトップ版のようなインストーラの前提はない |
+| NFR-AND-DST-7 | 更新が参照する APK は `swarm-viewer_vX.Y.Z_android_universal.apk`（NFR-AND-DST-1）と `SHA256SUMS`。アプリの版は `versionName`（`X.Y.Z`。タグから決める。NFR-AND-DST-4）で、`X.Y.Z` の形でないとき（読めないとき）は確認しない。上書きインストールは、実行中のアプリと同じ署名鍵（NFR-AND-DST-2）の APK だけが受け付けられる。debug 署名のアプリを release の APK で更新することは、署名が違うためできない |
 
 ### 10.7 品質（テスト）
 
@@ -185,6 +201,7 @@ Android に**適用しない**デスクトップ版の要件: NFR-ENV-1・NFR-EN
 | NFR-AND-QLT-3 | `./gradlew lint ktlintCheck test` がクリーンに通る（Android Lint は警告もエラー扱い）。ポーリング・ワーカーのテストは固定時間の待ちに頼らない（NFR-QLT-3） |
 | NFR-AND-QLT-4 | 実機でしか確認できない項目（cleartext・Keystore・QR・Doze・Tailscale・折りたたみ・再起動後の再開）は、[アーキテクチャ設計 §11](../architecture/overview.md) #8〜#15 に未確認として残し、確認後に確定する |
 | NFR-AND-QLT-5 | 操作モードは NFR-QLT-4 と同じ 6 項目を JUnit（MockWebServer・ViewModel のテスト）で検証する。見るだけの接続では、偽のコンソールが `/ops` へのリクエストを 0 件と記録すること、操作の部品（スキル選択・本文入力欄を含む）が出ないこと（ViewModel の状態）、`skillList` が通信 0 件で `tool_not_allowed` になることも確かめる。操作の接続では、`ReportTools` の操作が 11 個、`GuardInterceptor` が `/ops` で 11 個・`/report` で 4 個を通すこと、`PaneService` の最初のタスクが `pane_start` → `send_text` の順で `idle` のときだけ送られること、`send_text` の失敗で `pane_close` を呼ばず、「もう一度送る」が `send_text` だけを送ることも確かめる |
+| NFR-AND-QLT-6 | 新しい版の確認と更新（Issue #109）を JUnit（MockWebServer・偽の `ReleaseSource`・`ApkInstaller`・`ApkSigners`・`AutoCheckSetting`）で検証する。NFR-QLT-5 の (1)〜(6) と同じ内容に加え、署名が違う・読めない・一部だけ一致する APK をインストールしないこと、インストールの許可が無いとき設定画面を開き何もダウンロードしないこと、前回までの APK を消すこと、`GuardInterceptor` の許可リスト（tailnet 用）に GitHub のホストが入らないこと、リリースビルドが更新の確認先を差し替えられないこと（`src/testRelease`）を確かめる。実際のシステムのインストーラ（Galaxy Fold7）は[アーキテクチャ設計 §11](../architecture/overview.md) #20 に未確認として残す |
 
 ## 11. Ousiass デザインガイド準拠
 
@@ -290,3 +307,4 @@ Web UI と Android UI は Ousiass 共通デザインガイド（[brand-guide](ht
 | 6.0 | 2026-11-09 | NFR-DSG-10 のガターを、四辺とも幅の区分（Compact 16・Medium 24・Expanded 32。Web と Android で同じ境目）で決めるよう改め、Android の切り欠き（横 inset）を避けることを追記。ガイド S5（16・24）に Expanded の 32 を足すため、承認済みの逸脱に記録した | Issue #99 |
 | 6.1 | 2026-11-09 | NFR-DSG-19 を改訂。Web の S4 のヘッダもメモの `repo` と `items` を全件・全文（折り返し）で出すと明記し、承認済みの逸脱から「Web のペイン詳細（S4）のメモが要約のまま」の行を外した | Issue #106（Web のペイン詳細のメモが要約のままで、タッチ・キーボードで全文を見られない） |
 | 6.2 | 2026-11-09 | 新しいセッションの最初のタスク（Issue #103）。NFR-SEC-1・NFR-AND-SEC-5 の許可リストを 11 個にして `skill_list` を追加、NFR-PERF-4 に `skill_list`（10 秒）と `pane_start` → `send_text` の上限、NFR-SEC-10・NFR-AND-SEC-8 にスキルの `name`・`description`・`invoke`、NFR-SEC-11・NFR-LOG-3・NFR-AND-LOG-2・NFR-AND-SEC-9 にスキル名・`invoke`・最初のタスクの本文、NFR-QLT-4・NFR-AND-QLT-5 に最初のタスクの検証項目を追記 | Issue #103（空きセッションへの最初のタスク） |
+| 6.3 | 2026-11-10 | 新しい版の確認と自動アップデート（Issue #109）。NFR-SEC-15〜19（GitHub 用の別クライアント・許可ホスト・リダイレクトの再検査・資格情報なし・プライベート/tailnet 不可、SHA-256 と上限・削除、適用の安全、接続先の固定）、NFR-AVL-7・NFR-PERF-9・NFR-DST-3（書き換え）・NFR-DST-6・NFR-QLT-5・NFR-LOG-3（追記）。Android は NFR-AND-SEC-6（`REQUEST_INSTALL_PACKAGES`）・7（FileProvider）・10〜12（別クライアント・SHA-256 と署名・debug 限定の差し替え）・NFR-AND-AVL-6・NFR-AND-PERF-9・NFR-AND-DAT-4・NFR-AND-LOG-2（追記）・NFR-AND-DST-5（書き換え）・7・NFR-AND-QLT-6 | Issue #109（新しい版の確認と自動アップデート） |

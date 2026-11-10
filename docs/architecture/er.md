@@ -80,6 +80,7 @@ erDiagram
         INTEGER screen_poll_seconds "5/10/30/60"
         INTEGER notify_poll_minutes "5/10/30/60"
         INTEGER debug_log "0/1"
+        INTEGER auto_update_check "0/1。既定 1（#109）"
         TEXT last_connection_id FK "最後に使った接続。NULL 可"
         TEXT updated_at
     }
@@ -93,11 +94,13 @@ erDiagram
 | `screen_poll_seconds` | INTEGER | NOT NULL, `CHECK (… IN (5, 10, 30, 60))` | 10 | 画面更新間隔（選択中セッション） |
 | `notify_poll_minutes` | INTEGER | NOT NULL, `CHECK (… IN (5, 10, 30, 60))` | 10 | 通知用ポーリング間隔（全接続・全許可セッション） |
 | `debug_log` | INTEGER | NOT NULL, `CHECK (… IN (0, 1))` | 0 | デバッグログのオン/オフ（NFR-LOG-2） |
+| `auto_update_check` | INTEGER | NOT NULL, `CHECK (… IN (0, 1))` | 1 | 新しい版を起動時と 6 時間ごとに自動で確認するか（FR-UPD-6。Issue #109）。オフの間は GitHub に確認の通信をしない。マイグレーション 2 で追加（既存の行にも既定値の 1 が入る） |
 | `last_connection_id` | TEXT | FK → `connections.id` `ON DELETE SET NULL` | NULL | 起動時に開く接続。NULL なら先頭の接続 |
 | `updated_at` | TEXT | NOT NULL | — | 更新時刻 |
 
 - 初期化: マイグレーションで既定値の 1 行を `INSERT` する。アプリは常に `id = 1` を `UPDATE` する（`INSERT` しない）
 - 許容値は `CHECK` で強制する。項目を増やすときはマイグレーションを追加する
+- 新しい版の確認の結果（最新の版・通知の状態）は保存しない。起動ごとに確認し直し、メモリだけに持つ。保存するのは「自動で確認する」の 1 項目だけ
 
 ### 3.3 snapshots
 
@@ -184,6 +187,7 @@ erDiagram
 | 版 | 内容 |
 |----|------|
 | 1 | `connections`・`settings`（既定値の 1 行を挿入）・`snapshots`・`notified_states` と上記インデックスを作成 |
+| 2 | `settings` に `auto_update_check`（INTEGER・NOT NULL・既定 1・`CHECK (… IN (0, 1))`）を `ALTER TABLE … ADD COLUMN` で追加する（`002_auto_update_check.sql`。Issue #109）。既存の DB・行は既定値（オン）で引き継ぐ |
 
 - 版ごとに SQL を埋め込み（`go:embed`）、1 つのトランザクションで適用して最後に `PRAGMA user_version` を更新する
 - 破壊的な変更（列の削除・型変更）は新しい版でテーブルの作り直しとデータ移行を行い、ダウングレードは提供しない
@@ -212,6 +216,7 @@ Android 版は、§3 の 4 テーブル（`connections`・`settings`・`snapshot
 |--------|------|------|
 | Room（SQLite 1 ファイル `viewer.db`） | 接続・設定・スナップショット・通知済み状態 | アプリ専用の内部ストレージ（`Context.getDatabasePath`）。他のアプリから読めない。token は入れない |
 | Android Keystore で保護した領域 | 接続ごとの token | §7.3。AES-256-GCM 鍵（Keystore、エクスポート不可）で暗号化した暗号文を `noBackupFilesDir` に保存（[アーキテクチャ設計 §11](overview.md) #9） |
+| SharedPreferences（`update_prefs`） | 新しい版の「自動で確認する」（`auto_check`。真偽値。既定 true） | Room の `settings` には持たない（Android の Room に `auto_update_check` 列は無い。FR-AND-16）。バックアップ・端末間転送の対象外（NFR-AND-DAT-4）。token・URL は入れない |
 | Logcat | エラー・警告（デバッグ時は詳細） | ファイルには書かない。token・完全な URL・ペイン本文を出さない（NFR-AND-LOG-1） |
 
 ### 7.2 テーブル（Room のエンティティ）
@@ -258,3 +263,4 @@ Android 版は、§3 の 4 テーブル（`connections`・`settings`・`snapshot
 | 1.3 | 2026-11-04 | 既存 DB の権限を `0600` へ締める・`user_version` を WAL 切り替えより先に読む・`baselined_at` の残余リスクを明記 | 緩い権限の DB の保護、新しい版の DB を変更しないため |
 | 1.4 | 2026-11-05 | §7「Android 版の保存データ」を追加（Room の 4 テーブル、通知間隔の許容値 15 / 30 / 60 分、token の保護領域、バックアップ除外） | Issue #15（Android 版の仕様書への反映） |
 | 1.5 | 2026-11-08 | 操作モード（Issue #97）。接続の種類を `url` の path（`/report`・`/ops`）から導き、列は足さないと明記。token に ops スコープを追記。`pane_tail`・`ask_card`・送信本文を保存しない・ログに出さないと追記 | Issue #97（操作モード） |
+| 1.6 | 2026-11-10 | 新しい版の確認と自動アップデート（Issue #109）。`settings.auto_update_check`（FR-UPD-6）とマイグレーション 2（`002_auto_update_check.sql`）を追加し、確認の結果は保存しないと明記。Android は Room でなく SharedPreferences（`update_prefs`）に保存すると §7.1 に追記 | Issue #109（新しい版の確認と自動アップデート） |

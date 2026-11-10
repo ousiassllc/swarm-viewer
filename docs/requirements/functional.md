@@ -20,6 +20,7 @@ graph TD
     User --> UC9[指示を送る・中断する]
     User --> UC10[新しいセッションを始める・終了する]
     User --> UC11[最初のタスクを入れて始める]
+    User --> UC12[新しい版へ更新する]
     UC1 --> Secret[(OS 秘密領域<br/>token)]
     UC1 --> DB[(SQLite<br/>接続・設定・通知履歴)]
     UC2 --> DB
@@ -32,9 +33,12 @@ graph TD
     UC9 --> Send[/ops: send_text・send_escape/]
     UC10 --> Start[/ops: dir_list・pane_start・pane_close/]
     UC11 --> First[/ops: skill_list・send_text/]
+    UC12 --> Releases[GitHub Releases: releases/latest・アセット・SHA256SUMS]
 ```
 
 UC8〜UC11 は操作の接続（`/ops`）でだけ行える。UC7 は見るだけの接続でも行える（質問は読むだけ）。UC11 は UC10 の起動に続けて、スキルと本文の最初のタスクを入れる（FR-OPS-11）。
+
+UC12 は接続の種類にかかわらず使える（swarm-console には通信しない。GitHub Releases への専用の通信。FR-UPD-1〜6・FR-AND-13〜16）。
 
 ## 2. 機能一覧
 
@@ -60,7 +64,7 @@ UC8〜UC11 は操作の接続（`/ops`）でだけ行える。UC7 は見るだ�
 | FR-NTF-1 | OS 通知 | ペインが要対応状態になったとき OS 通知する（§8） |
 | FR-NTF-2 | 通知対象の範囲 | 通知は保存済み全接続の**全許可セッション**が対象。画面表示用とは別の低頻度ポーリング（既定 10 分、設定可能）で取得する |
 | FR-NTF-3 | 重複通知の抑止 | 一度通知した状態は、そのペインがその状態を抜けるまで再通知しない |
-| FR-SET-1 | 設定画面 | 通知オン/オフ・画面更新間隔・通知用ポーリング間隔・デバッグログのオン/オフを設定する（§9） |
+| FR-SET-1 | 設定画面 | 通知オン/オフ・画面更新間隔・通知用ポーリング間隔・デバッグログのオン/オフ・新しい版の自動確認のオン/オフ（FR-UPD-6）を設定する（§9） |
 | FR-ERR-1 | エラー表示 | 接続・認証・セッション許可のエラーを短い文言で表示する（§10） |
 | FR-APP-1 | トレイ常駐 | ウィンドウを閉じても終了せずトレイ（macOS はメニューバー）に常駐する。トレイメニューは「開く」「終了」。通知用ポーリングは通知オンの間、常駐中も継続する |
 | FR-APP-2 | 単一インスタンス | 2 つ目の起動は既存ウィンドウを前面に出す。ディープリンクは既存インスタンスで処理する |
@@ -75,6 +79,12 @@ UC8〜UC11 は操作の接続（`/ops`）でだけ行える。UC7 は見るだ�
 | FR-OPS-9 | 二重送信の防止 | 操作の送信中は、同じペインのボタンをすべて無効にする。アプリ側（service）も同じペインへの操作を排他にし、実行中に次が来たら通信せずに断る（§4.9） |
 | FR-OPS-10 | 操作結果・エラーの表示 | 操作の結果は固定文言のトースト（デスクトップの `pane_start`・`pane_close` の成功は画面遷移でトーストなし）、失敗は §10.1 の固定文言で出す。ホストの `message` は画面に出さない（§10.1） |
 | FR-OPS-11 | 最初のタスクを入れる | 操作の接続で、新しいセッションの起動時に、任意で「スキル」（`skill_list` の一覧から 1 つ）と「本文」を指定できる。`pane_start` に成功して `state` が `idle` のときだけ、`send_text` で最初のタスクとして送る。どちらも空なら今までどおり起動だけ。送信に失敗しても起動は取り消さず、「もう一度送る」で `send_text` だけを送り直せる。`pane_start` から `send_text` までは 1 つの操作として同じペインの排他（FR-OPS-9）を保つ（§4.8） |
+| FR-UPD-1 | 新しい版の確認 | 起動時と 6 時間ごとに、`ousiassllc/swarm-viewer` の最新 Release（draft・prerelease は除く。`tag_name` が `vX.Y.Z` のものだけ）を確認し、実行中の版より新しいときだけ知らせる。版は成分ごとに数値で比べる（v0.1.9 < v0.1.13）。開発ビルド（版が `dev`）・更新ファイルの無い OS（Linux など）は確認も通知もしない（§4.10。Issue #109） |
+| FR-UPD-2 | 新しい版の通知 | メイン画面（S2）の上部に小さな通知の領域を出し、新しい版があるとき「新しい版 vX.Y.Z があります」と「更新する」を出す。通知の領域は自分で読み直し（ふだん 60 秒ごと）、定期の確認が新しい版を見つけたら出る。ペイン一覧・操作を止めない（§4.10） |
+| FR-UPD-3 | 取得と検証 | 「更新する」で、この OS 用のアセット（Windows は `swarm-viewer_vX.Y.Z_windows_amd64_installer.exe`、macOS は `swarm-viewer_vX.Y.Z_darwin_universal.zip`）と `SHA256SUMS` を取得し、**SHA-256 が `SHA256SUMS` の該当行と一致したものだけ**適用する。不一致・途中で切れた・`SHA256SUMS` に該当行が無い（複数・書式不正を含む）・アセットが無いときは何も適用せず、取得したファイルを消す（§4.10） |
+| FR-UPD-4 | 適用 | Windows は、検証済みのインストーラ（NSIS）を起動してアプリを終了する（管理者権限の確認は OS が出す）。macOS は、zip を実行中の `.app` と同じボリュームへ展開・検査して `.app` を差し替え、アプリの終了を待って開き直す補助プロセスを起動してアプリを終了する。適用に失敗したときは実行中のアプリを変えない（macOS は差し替えの途中なら元へ戻す）（§4.10） |
+| FR-UPD-5 | 失敗の表示 | 更新の失敗は、種類（取得・検証・適用）ごとの固定文言を通知の下に小さく出し、「更新する」を押し直せる。確認の失敗は、新しい版が無い間だけ「新しい版を確認できませんでした」の 1 行。原因・URL・ファイル名は画面に出さない。どの失敗もメイン画面の表示・操作を変えない（§4.10） |
+| FR-UPD-6 | 自動で確認する | 設定（S3）の「自動で確認する」（既定オン）。オフの間は、起動時も定期も GitHub に通信しない。オフからオンへ戻したときは、次の周期を待たずに 1 回確認する（§9。保存は ER §3.2 `settings.auto_update_check`） |
 
 ### 2.1 操作モード（Issue #97）の受け入れ条件との対応
 
@@ -104,6 +114,26 @@ UC8〜UC11 は操作の接続（`/ops`）でだけ行える。UC7 は見るだ�
 | 6 | 許可リストは `/ops` 11 個・`/report` 4 個（種類別の定数）で、スキル名・本文がログに出ない | NFR-SEC-1・NFR-SEC-11、NFR-AND-SEC-5・NFR-AND-SEC-9、NFR-LOG-3、NFR-AND-LOG-2、NFR-QLT-4（5）、[API 仕様 §1.2](../api/endpoints.md) |
 | 7 | 折りたたみ（Compact）・展開（Medium 以上）・デスクトップで片手でも迷わず操作できる（最小 48dp） | FR-AND-11・FR-AND-12（§12.6）、NFR-DSG-16、NFR-AND-ENV-2 |
 
+### 2.3 新しい版の確認と更新（Issue #109）の受け入れ条件との対応
+
+テスト名はデスクトップ（Go。パッケージ・関数）と Android（Kotlin。クラス・メソッド）の実在するもの。実機・実インストーラでしか確かめられない項目は表の下に分けて示す。
+
+| # | 受け入れ条件 | 仕様 | 自動テスト |
+|---|-------------|------|-----------|
+| 1 | 版の比較（v0.1.9 と v0.1.13 など）が数値で行われ、同じ版・古い版・読めない版は通知しない | FR-UPD-1・FR-AND-13 | デスクトップ: `domain/update` の `TestParse`・`TestNewer`・`TestCompare`。Android: `UpdateVersionTest` の `versionsAreComparedNumericallyPerComponent`・`equalAndOlderVersionsAreNotNewer`・`aTagMustBeVPrefixedMajorMinorPatch`、`UpdateServiceTest` の `sameOlderOrUnreadableCurrentVersionOffersNothing` |
+| 2 | 起動時と 6 時間ごとに最新 Release を確認し、新しいときだけ知らせる。draft・prerelease・タグが `vX.Y.Z` でないものは無視 | FR-UPD-1・FR-UPD-2・FR-AND-13 | デスクトップ: `domain/update` の `TestParseRelease`・`TestParseReleaseRejects`、`service/updater` の `TestCheckSetsAvailableWhenNewer`・`TestCheckIgnoresUnusableReleases`・`TestAutoCheckOnChecksAtStartupAndEverySixHours`、`web/updatehandler` の `TestNoticeShowsAvailableVersionWithUpdateButton`。Android: `UpdateServiceTest` の `aNewerReleaseIsOfferedWithItsVersion`・`noReleaseToOfferLeavesNoNotice`、`UpdateVersionTest` の `aLatestReleaseIsReadWithItsAssets`・`draftAndPrereleaseAreIgnored`・`anUnparsableTagIsIgnoredWithoutError`、`UpdateSchedulerTest` の `theDefaultIntervalIsSixHours`・`itChecksAtStartAndThenEverySixHours`・`startingTwiceDoesNotDoubleTheChecks` |
+| 3 | 通知 → 更新 → 入れ替えが、取得・検証・適用の順に 1 回だけ行われる | FR-UPD-3・FR-UPD-4・FR-AND-14 | デスクトップ: `service/updater` の `TestApplyHappyPathInstallsOnceAndQuits`・`TestApplyAsyncIsSingleFlight`、`app/compose` の `TestUpdateEndToEnd`、`repository/installer` の `TestInstallWindowsLaunchesTheFileOnce`・`TestInstallMacOSSwapsTheApp`、`web/updatehandler` の `TestApplyStartsTheUpdateOnce`。Android: `UpdateServiceTest` の `theHappyPathLaunchesTheInstallerExactlyOnceWithTheVerifiedFile`・`pressingUpdateWhileUpdatingDoesNothing` |
+| 4 | SHA256SUMS の不一致・項目なし・書式不正・重複、アセットの欠落のときは入れ替えず、取得したファイルを消す | FR-UPD-3・FR-AND-14・NFR-SEC-17・NFR-AND-SEC-11 | デスクトップ: `domain/update` の `TestParseSumsRejectsBadFormat`・`TestSumsLookupMissingAndDuplicate`・`TestReleaseAssetMissingOrAmbiguous`、`service/updater` の `TestApplyHashMismatchDoesNotInstallAndDeletesFile`・`TestApplyBadSumsDoesNotInstall`・`TestApplyMissingAssetDoesNotInstall`。Android: `UpdateServiceTest` の `aHashMismatchInstallsNothingAndDeletesTheFile`・`sha256sumsWithoutTheAssetInstallsNothingAndDownloadsNothing`・`badlyFormattedOrDuplicateSha256sumsInstallsNothing`・`aReleaseWithoutTheApkOrSha256sumsInstallsNothing` |
+| 5 | （Android）署名が実行中のアプリと違う・読めない APK は入れ替えない（デスクトップはコード署名をしていないため対象外。NFR-DST-2） | FR-AND-14・NFR-AND-SEC-11 | `UpdateServiceTest` の `aDifferentSigningCertificateInstallsNothingAndDeletesTheFile`・`anUnreadableOrPartiallyMatchingSignatureInstallsNothing` |
+| 6 | オフライン・ダウンロードが途中で切れたときは入れ替えない。確認の失敗は小さく出すだけ | FR-UPD-5・FR-AND-15・NFR-AVL-7・NFR-AND-AVL-6 | デスクトップ: `service/updater` の `TestCheckFailureIsSmallAndRecovers`・`TestApplyDownloadFailuresDoNotInstall`・`TestApplyTruncatedBodyWithoutErrorIsCaughtByHash`・`TestApplyRetryAfterFailure`、`repository/release` の `TestLatestOffline`・`TestDownloadTruncated`・`TestDownloadSizeMismatchWithReportedSize`、`web/updatehandler` の `TestNoticeFailuresAreSmallFixedMessages`。Android: `UpdateServiceTest` の `anOfflineCheckShowsASmallFailureAndKeepsEverythingElse`・`aFailedLaterCheckKeepsTheNoticeAndASuccessfulOneClearsTheFailure`・`offlineWhileDownloadingInstallsNothing`・`aTruncatedDownloadInstallsNothingAndDeletesThePartialFile`、`GithubReleaseSourceTest` の `offlineIsANetworkFailure`・`aDownloadCutOffMidwayIsTruncatedAndTheFileIsDeleted`・`aDownloadShorterThanItsContentLengthIsTruncated` |
+| 7 | GitHub への通信は、tailnet の接続用とは別のクライアント・許可リスト（`api.github.com` と Releases の配信元だけ）で行い、token・認証ヘッダー・cookie を送らず、tailnet・プライベートのアドレスへ届かない | NFR-SEC-15・NFR-SEC-16・NFR-AND-SEC-10 | デスクトップ: `domain/update` の `TestCheckURL`・`TestAllowedHostsIsExactlyGitHub`、`repository/release` の `TestProductionClientOnlyTalksToGitHubOverHTTPS`・`TestProductionLatestURLIsGitHubAPI`・`TestCheckRedirectStripsCredentials`・`TestGuardStripsCredentialsBeforeSending`・`TestDenyPrivateAddresses`・`TestLatestParsesReleaseAndSendsNoCredentials`・`TestDownloadRefusesRedirectToDisallowedHost`・`TestDownloadRefusesRedirectToHTTP`・`TestDownloadStopsRedirectLoop`。Android: `UpdateEndpointsTest` の `productionPermitsOnlyHttpsToTheGithubHosts`・`productionRejectsEveryOtherHost`・`theTailnetGuardDoesNotAllowGithubHosts`・`privateLoopbackAndTailnetAddressesAreNotPublic`、`GithubReleaseSourceTest` の `theLatestReleaseIsReadAndNoCredentialsAreSent`・`theGuardStripsAuthorizationAndCookieEvenIfACallerSetsThem`・`theGuardRefusesNonGetAndForeignHostsBeforeConnecting`・`productionSourceRejectsForeignUrlsWithoutAnyNetworkAccess`・`theProductionNameResolutionNeverYieldsLoopbackOrPrivateAddresses`・`aRedirectToAForeignHostIsRejectedAndNeverContacted`・`anEndlessRedirectLoopGivesUp` |
+| 8 | 「自動で確認する」をオフにすると確認の通信をしない（既定はオン） | FR-UPD-6・FR-AND-16 | デスクトップ: `service/updater` の `TestAutoCheckOffMakesNoNetworkCall`、`repository/store`・`web/handler` の `TestSettingsAutoUpdateCheck`、`web/organisms` の `TestSettingsForm_AutoUpdateCheck`。Android: `UpdateServiceTest` の `withAutoCheckOffNoNetworkCallIsMade`、`UpdateSchedulerTest` の `withAutoCheckOffNothingIsChecked`・`turningItOffStopsAndTurningItOnChecksAgainAtOnce` |
+| 9 | 開発ビルド・更新ファイルの無い OS では確認も通知もしない。通知の領域は有効なときだけ出す | FR-UPD-1・FR-UPD-2 | `service/updater` の `TestDisabledEnvironmentsNeverCheck`、`app/compose` の `TestUpdateDisabledForDevBuild`、`web/updatehandler` の `TestMainScreenHasNoticeSlotOnlyWhenEnabled`・`TestNoticeEmptyWhenNothingToShowOrDisabled`、`buildinfo` の `TestVersionIsDevInTheRepository`、`.github/scripts/set-version_test.sh` |
+| 10 | macOS の zip の展開が安全（`..`・絶対パス・シンボリックリンク・最上位が `.app` 1 つでない・実行ファイルが無い zip を拒否）で、差し替えに失敗したら元へ戻る | FR-UPD-4・NFR-SEC-18 | `repository/installer` の `TestInstallMacOSBadArchiveLeavesTheAppUntouched`・`TestInstallMacOSNotAZip`・`TestInstallMacOSNotInABundle`・`TestInstallMacOSRollsBackWhenSwapFails`・`TestInstallMacOSRelaunchFailureIsReported`・`TestRelaunchScriptWaitsForTheParentThenCleansUp`・`TestBundleOf` |
+| 11 | （Android）インストールの許可が無いときは、先に設定画面を開き、何もダウンロードしない。前回までの APK は消す。インストーラを開けなかった APK は消す。リリースビルドは本番の宛先に固定される | FR-AND-14・NFR-AND-SEC-12 | `UpdateServiceTest` の `withoutInstallPermissionTheSettingsPageOpensFirstAndNothingIsDownloaded`・`staleDownloadsAreClearedBeforeANewDownload`・`aFailureToOpenTheInstallerDeletesTheFile`、`ReleaseBuildHasNoOverrideTest` の `theReleaseBuildAlwaysUsesTheGithubProductionEndpoints` |
+
+実機・実インストーラで確かめるものは自動テストの範囲外で、確認済みとは見なさない（[アーキテクチャ設計 §11](../architecture/overview.md) の未確認事項 #18〜#21）: Windows の NSIS インストーラの実際の起動・昇格・アプリの終了とのつながり、macOS の `.app` の実際の差し替えと開き直し（配置場所・Gatekeeper・App Translocation の影響）、Android のシステムのインストーラ（Galaxy Fold7）、実際の GitHub Release に対する確認と更新（GitHub へは認証なしで届くため、リポジトリが公開されているときだけ動く。private の間は `releases/latest` が 404 で「新しい版なし」になる。#21）。
+
 ## 3. ペインの状態と表示ラベル
 
 `state` の値は swarm-console の公式値（6 種）。表示ラベルは次のとおり。
@@ -130,7 +160,7 @@ UC8〜UC11 は操作の接続（`/ops`）でだけ行える。UC7 は見るだ�
 |------|----|------|
 | 接続管理 / ペアリング | S1 | 接続の追加（貼り付け・ディープリンク）、保存済み接続の一覧・切替・削除 |
 | メイン | S2 | 接続切替、セッションタブ、ペイングリッド、利用上限パネル、ホスト負荷、要対応表示 |
-| 設定 | S3 | 通知・ポーリング間隔 |
+| 設定 | S3 | 通知・ポーリング間隔・新しい版の自動確認 |
 | ペイン詳細 | S4 | ペインの状態・`pane_tail`・質問カード。操作の接続では送信欄・中断・終了も出す（§4.5〜§4.7） |
 | 新しいセッション | S5 | `shell` のペインでエージェント・フォルダ・（任意の最初のタスク: スキル・本文）・タイトルを選んで起動する。操作の接続だけ（§4.8） |
 
@@ -179,6 +209,7 @@ stateDiagram-v2
 - ペイングリッドの下、または側部に利用上限パネルとホスト負荷を置く。利用上限・ホスト負荷はセッションに属さないホスト全体の値で、タブを切り替えても同じ値になる
 - 接続の種類のバッジ（「操作」「見るだけ」）を、接続名の隣（接続が 1 つのときも）に出す（FR-OPS-2）
 - ペイン詳細（S4）への入口は、ペインカード（§4.4）と要対応バー（§7）の項目。操作の接続では、`shell` のペインのカードに「＋ 始める」（S5 への入口）を出す。見るだけの接続には出さない
+- メイン画面の上部（ヘッダの下）に、新しい版の通知の領域（`#update-notice`）を置く。新しい版が無いときは空で、何も出さず間隔も取らない。リリースのビルドで、更新ファイルのある OS のときだけ領域を出す（§4.10）
 
 ### 4.4 ペインカード
 
@@ -286,6 +317,72 @@ stateDiagram-v2
 - 同じペインへの操作は排他にする。アプリ側（service）も、実行中に次の操作が来たら通信せず「前の操作がまだ終わっていません」で断る（ホストの `busy_timeout` を避ける）
 - 操作結果・エラーは日本語の固定文言で出す（§10.1）。token・送信本文・最初のタスクの本文・スキル名・`invoke`・`pane_tail` と `ask_card` の本文はログに出さない（NFR-SEC-11・NFR-LOG-3）
 
+### 4.10 新しい版の通知と更新（FR-UPD-1〜6）
+
+デスクトップ（Windows / macOS）だけ。通知の領域は `organisms/update_notice.templ`（`UpdateNotice`）。swarm-console の接続・セッションとは無関係で、メイン画面の本体（ペイン一覧・操作）を止めない小さな領域として、自分自身を `GET /update/notice` で読み直す（[API 仕様 §4.2](../api/endpoints.md)）。
+
+| 状態 | 表示 |
+|------|------|
+| 新しい版が無い（確認していない・同じ版・古い版を含む） | 何も出さない（空） |
+| 新しい版がある | お知らせ（Info）「新しい版 vX.Y.Z があります」と主ボタン「更新する」 |
+| 更新中 | 「更新中…」とスピナー（`atoms.Spinner` の `Static`。`hx-indicator` に頼らず常に表示）、押せない「更新する」。更新ファイルの全体のサイズが分かるときだけ、進み具合のバー（ラベル「更新ファイルの取得」）と百分率 |
+| 更新に失敗した（新しい版がある間） | 通知は残し（押し直せる）、その下に危険のアラート 1 行（下の固定文言） |
+| 確認に失敗した（新しい版が無い間だけ） | 控えめな 1 行「新しい版を確認できませんでした」。次の確認の成功で消える |
+
+読み直しの間隔は、最初の描画が `load` で 1 回読み込んだあと、ふだん 60 秒ごと、更新中は 1 秒ごと（進み具合を出す）。同時に 2 つ以上の読み直しを走らせない（`hx-sync="this:drop"`）。
+
+更新の失敗は 3 種類で、画面は種類ごとの固定文言だけを出す（原因の詳細・URL・ファイル名・エラー文は出さない）。
+
+| 種類（`FailKind`） | 主な原因 | 固定文言 |
+|--------------------|---------|---------|
+| `download`（取得） | オフライン・HTTP エラー・途中で切れた・サイズ上限超え・許可外のホスト・http へのリダイレクト・一時フォルダを作れない | 更新ファイルを取得できませんでした。ネットワークを確認して、もう一度お試しください |
+| `verify`（検証） | アセットまたは `SHA256SUMS` が Release に無い（同名が複数あるときを含む）・`SHA256SUMS` が書式不正・該当行が無い・複数ある・64 KiB を超える・SHA-256 の不一致 | 更新ファイルを検証できなかったため、更新しませんでした |
+| `install`（適用） | Windows のインストーラを起動できない・macOS で実行中のバイナリが `.app` の中にない（開発ビルド）・`.app` の隣に作業用フォルダを作れない（書き込めない）・zip が不正・差し替えに失敗・開き直しの補助プロセスを起動できない | 更新を始められませんでした。もう一度お試しください |
+
+```mermaid
+stateDiagram-v2
+    [*] --> 対象外: 版が dev / Linux
+    [*] --> 確認待ち: 起動
+    確認待ち --> 最新: 確認（起動時・6 時間ごと）で新しい版なし
+    確認待ち --> 新しい版あり: 確認で vX.Y.Z が新しい
+    確認待ち --> 確認失敗: 通信失敗（小さく表示）
+    確認失敗 --> 確認待ち: 次の周期
+    最新 --> 確認待ち: 次の周期
+    新しい版あり --> 更新中: 「更新する」
+    更新中 --> 適用済み: 検証に通り、適用に成功
+    更新中 --> 更新失敗: 取得 / 検証 / 適用の失敗（ファイルを消す）
+    更新失敗 --> 更新中: 「更新する」を押し直す
+    適用済み --> [*]: アプリを終了（Windows はインストーラが動く。macOS は開き直す）
+```
+
+「自動で確認する」（FR-UPD-6）がオフの間は、「確認待ち」から確認へ進まない（通信しない）。確認は更新中には行わない。
+
+```mermaid
+sequenceDiagram
+    participant U as 利用者
+    participant H as updatehandler<br/>POST /update/apply
+    participant S as service/updater
+    participant G as repository/release<br/>（GitHub）
+    participant I as repository/installer
+    U->>H: 「更新する」
+    H->>S: ApplyAsync（更新中へ。更新中・新しい版なしなら何もしない）
+    S->>S: この OS のアセットと SHA256SUMS が Release にあるか確認（無ければ verify の失敗）
+    S->>G: SHA256SUMS を取得（64 KiB まで）
+    S->>S: 該当行のハッシュを読む（無い・書式不正・複数は verify の失敗）
+    S->>G: アセットを取得（一時フォルダへ。512 MiB まで。SHA-256 を同時に計算）
+    S->>S: ハッシュを比べる（不一致は verify の失敗）
+    S->>I: Install（検証済みのファイル）
+    I-->>S: 成功（Windows: インストーラ起動。macOS: .app を差し替えて補助プロセスを起動）
+    S->>S: アプリを終了（Quit）
+    Note over S: どの失敗も、一時フォルダを消し、種類を状態に入れて更新中を終える
+```
+
+- 更新（取得・検証・適用）全体の上限は 15 分。最新リリースの確認 1 回は 30 秒
+- 成功したあと、Windows ではインストーラが取得したファイルを使うため一時フォルダを残す（OS の一時フォルダの掃除に任せる）。macOS は zip を消し、差し替え前の `.app` と作業用フォルダは開き直しの補助プロセスがアプリの終了後に消す
+- macOS で、`.app` の差し替えは済んだが開き直しの補助プロセスを起動できなかったときは、`install` の失敗として表示し、アプリは終了しない（次に手で起動すると新しい版になる）。画面の文言は上のとおりで、差し替え済みであることは出さない
+- 版が `dev` のビルド（`wails3 dev`・手元の `go build`）は更新の対象外。リリースのビルドだけが、`.github/scripts/set-version.sh` で埋め込まれたタグの `X.Y.Z` を持つ（[環境構築 §5.5](../environment/setup.md)）
+- 手動で「いま確認する」を行うボタンは無い（確認は起動時と 6 時間ごと、およびオフからオンへ戻したとき）
+
 ## 5. 利用上限パネル（FR-USE-1）
 
 `report` の `usage` を表示する。ホスト全体の値で、セッションを絞っても変わらない。
@@ -392,9 +489,11 @@ stateDiagram-v2
 | 画面更新間隔（選択中セッション） | 5 / 10 / 30 / 60 秒 | 10 秒 |
 | 通知用ポーリング間隔（全セッション） | 5 / 10 / 30 / 60 分 | 10 分 |
 | デバッグログ | オン / オフ | オフ |
+| 自動で確認する（新しい版） | オン / オフ | オン |
 
 - 設定は SQLite に保存する（アプリ全体で 1 セット。接続ごとの設定は持たない）
 - 画面更新間隔を 5 秒より細かくしても、サーバのサンプラー（`poll_interval` 既定 5 秒）より新鮮にはならないため、選択肢に含めない
+- 「自動で確認する」はチェックボックス。説明「新しい版を起動時と 6 時間ごとに確認します（GitHub Releases）」を添える。オフにすると GitHub への確認の通信をしない（FR-UPD-6）。保存は他の設定と同じ SQLite の `settings`（[ER §3.2](../architecture/er.md)）
 
 ## 10. エラー表示（FR-ERR-1）
 
@@ -473,8 +572,8 @@ stateDiagram-v2
 - `dispatch`・`note_set`・`note_log`・`file_get`（画像・動画の表示は別 Issue）、および `panes_status`・`host_status`・`report_read`・`tools/list` の利用（操作モード（§4.5〜§4.9）が呼ぶツールは [API 仕様 §1.2](../api/endpoints.md) の許可リストだけ）
 - Ctrl-C など任意のキーの送信（ホスト側でも不可）
 - 接続文字列・QR の生成（swarm-console の `pair`）
-- 自動更新、コード署名（デスクトップ版。Android 版の署名は §12・[非機能要件 §10](non-functional.md)）
-- Android 版の範囲外: Google Play での公開、プッシュ通知（FCM）、iOS 版、ウィジェット・Wear OS、アプリ内アップデート、Tailscale の同梱・制御、tailnet 外（インターネット経由）の接続
+- コード署名・公証（デスクトップ版。Android 版の署名は §12・[非機能要件 §10](non-functional.md)）。自動更新は Windows・macOS（§4.10）と Android（§12.7）にあるが、Linux、バックグラウンドでの無人の更新（利用者が「更新する」を押さずに入れ替わること）、手動の「いま確認する」ボタン、更新履歴・変更点の表示、ロールバックは範囲外
+- Android 版の範囲外: Google Play での公開、プッシュ通知（FCM）、iOS 版、ウィジェット・Wear OS、Tailscale の同梱・制御、tailnet 外（インターネット経由）の接続。アプリ内アップデートは、システムのインストーラを開くところまで（§12.7。無人のインストールはしない）
 - Issue #103 の範囲外: スキルの内容の表示・作成・編集、複数ペインへの一斉投入、時刻指定の予約実行、見るだけの接続での利用、起動済み（`shell` でない）ペインへの「スキル付き送信」（既存の送信欄（§4.7）で本文を送ればよい。送信欄へのスキル選択の追加は対象外）
 
 ## 12. Android 版
@@ -499,6 +598,10 @@ Kotlin + Jetpack Compose のネイティブアプリ。デスクトップ版と�
 | FR-AND-10 | ペイン詳細・操作の画面 | ペインカードのタップ・要対応のタップでペイン詳細（A4）を開き、§4.5〜§4.7 と同じ規則で `pane_tail`・質問カード・送信・中断・終了を出す（操作は操作の接続だけ）。自動更新は画面が見えている間（`LifecycleStartEffect`）だけ 5 秒ごと。中断・終了の確認はモーダルのダイアログ（`AppDialog`。§12.6） |
 | FR-AND-11 | 折りたたみ・親指で押せる大きさ | ペイン詳細・新しいセッション（A5）は、折りたたみ（Compact）でも展開（Medium 以上）でも使える。Compact は 1 列、Medium 以上は本文の最大幅を制限して中央寄せにする。ボタン・選択肢は親指で押せる大きさ（最小 48dp。NFR-DSG-16） |
 | FR-AND-12 | 最初のタスク（A5） | 新しいセッション（A5）に、スキルの選択（`skill_list`）と本文の入力欄を足し、起動後に最初のタスクを送る（FR-OPS-11・§4.8）。操作の接続だけ。選択中のスキル・本文は ViewModel が保持し、折りたたみ⇔展開でも失われない（§12.6） |
+| FR-AND-13 | 新しい版の確認と通知 | 起動時と 6 時間ごと（プロセスが生きている間。周期ジョブは持たない）に GitHub の最新 Release を確認し、`versionName` より新しいときだけ、メイン画面（A2）の上部に「新しい版 vX.Y.Z があります」と「更新する」を出す。draft・prerelease・タグが `vX.Y.Z` でないものは無視する。実行中の版が読めないときは通信しない（§12.7。FR-UPD-1 と同じ規則） |
+| FR-AND-14 | 更新（検証とシステムのインストーラ） | 「更新する」で `swarm-viewer_vX.Y.Z_android_universal.apk` と `SHA256SUMS` を取得し、**APK の SHA-256 が `SHA256SUMS` の該当行と一致し、かつ APK の署名証明書の SHA-256 が実行中のアプリと同じ**ときだけ、システムのパッケージインストーラを 1 回開く（`REQUEST_INSTALL_PACKAGES` と FileProvider）。どの失敗でも APK を消し、インストールしない。「このアプリからのインストール」の許可が無いときは、先にその設定画面を開き、何もダウンロードしない（§12.7） |
+| FR-AND-15 | 失敗の表示 | 更新・確認の失敗は種別ごとの固定文言を 1 行の小さな表示で出す（URL・応答本文・例外の本文は出さない）。ペイン一覧・操作は止めない（§12.7。FR-UPD-5 と同じ規則） |
+| FR-AND-16 | 自動で確認する | 設定（A3）の「アップデート」の項目「自動で確認する」（既定オン）。オフの間は確認の通信をしない。オフからオンへ戻したときは、すぐに確認し直す（§12.4。FR-UPD-6 と同じ規則） |
 
 - Android では FR-APP-1（トレイ常駐）・FR-APP-2（単一インスタンス）は適用されない。ホーム画面・最近使ったアプリからの起動と、ディープリンク・通知からの起動が入口になる
 - 取得失敗時は直前の表示をグレーアウトして残す（FR-POLL-4・§10）。401・403 の接続は画面・通知の自動ポーリングと操作を止めて再ペアリングへ誘導する
@@ -510,7 +613,7 @@ Kotlin + Jetpack Compose のネイティブアプリ。デスクトップ版と�
 |------|----|------|
 | 接続管理 / ペアリング | A1 | 接続の追加（貼り付け・QR 読み取り）、ディープリンクで受けたときの確認、保存済み接続の一覧・切替・削除（S1 に相当） |
 | メイン | A2 | 接続切替、セッションのタブ、ペイン（リスト / グリッド）、利用上限、ホスト負荷、要対応・警告（S2 に相当） |
-| 設定 | A3 | 通知・各間隔・デバッグログ・通知権限の状態（S3 に相当） |
+| 設定 | A3 | 通知・各間隔・デバッグログ・通知権限の状態・新しい版の自動確認（S3 に相当） |
 | ペイン詳細 | A4 | ペインの状態・`pane_tail`・質問カード。操作の接続では送信欄・中断・終了も（S4 に相当。§12.6） |
 | 新しいセッション | A5 | `shell` のペインから、エージェント・フォルダ・（任意の最初のタスク: スキル・本文）・タイトルを選んで起動（操作の接続だけ。S5 に相当） |
 
@@ -547,6 +650,7 @@ A2（S2 との差分）:
 - ペインのカード項目は §4.4 と同じ（`pos`・`agent`・`state` のラベル・`title`・`elapsed`・`activity`・`changed_ago`・`note` 要約）。カードのタップでペイン詳細（A4）を開き、`cwd` やメモの全文はそこで見る
 - 利用上限（§5）・ホスト負荷（§6）・要対応と警告（§7）の表示規則はデスクトップ版と同じ
 - 接続名の隣に接続の種類のバッジ（「操作」「見るだけ」）を出す。操作の接続の `shell` のペインのカードには「＋ 始める」（A5 への入口）を出す。見るだけの接続には、操作の UI を一切出さない（§4.9）
+- メイン画面の上部に、新しい版の通知（「新しい版 vX.Y.Z があります」と「更新する」）を出す。新しい版が無いときは何も出さない（§12.7）
 
 A3 の項目は §12.4。
 
@@ -570,10 +674,12 @@ A3 の項目は §12.4。
 | 画面更新間隔（選択中セッション） | 5 / 10 / 30 / 60 秒 | 10 秒 |
 | 通知確認間隔（全接続・全許可セッション） | **15 / 30 / 60 分** | **15 分** |
 | デバッグログ | オン / オフ | オフ（Logcat の詳細ログ。ファイルには書かない） |
+| 自動で確認する（新しい版） | オン / オフ | オン（`SharedPreferences` の `update_prefs`・`auto_check`。Room には持たない） |
 
 - 設定は Room に保存する（アプリ全体で 1 セット。接続ごとの設定は持たない）
 - 通知確認間隔の選択肢に 5 / 10 分を含めない（WorkManager の周期ジョブの最小間隔が 15 分のため）。選択肢の下に「Doze・バッテリー最適化により、通知は設定した間隔より遅れることがあります」を常に表示する（FR-AND-7）
 - 通知の権限が許可されていないとき（Android 13 以降）は、その旨とシステムの通知設定を開くボタンを表示する（FR-AND-4）
+- 「自動で確認する」は設定画面の「アップデート」の項目（スイッチ）。説明「起動時と 6 時間ごとに、新しい版を GitHub で確認します。」を添える（FR-AND-16）
 
 ### 12.5 通知（Android）
 
@@ -597,6 +703,53 @@ A3 の項目は §12.4。
 - ボタン・選択肢・フォルダの行は、親指で押せる大きさ（最小 48dp。NFR-DSG-16）。操作の文言は `ui/OperationMessages.kt` に置き、デスクトップ版と同じ文言を使う（§10.1）
 - 画面に出す本文（`pane_tail`・質問文・選択肢・メモ）は常に `Text` で描画する（NFR-AND-SEC-8）
 
+### 12.7 新しい版の通知と更新（Android。FR-AND-13〜FR-AND-16）
+
+規則は §4.10・FR-UPD-1〜6 と同じで、入れ替えだけが違う（システムのインストーラ）。通知は `ui/update/UpdateNotice`（メイン画面 A2 の上部）、設定は `ui/update/UpdateSettings`（A3 の「アップデート」）、状態は `UpdateViewModel`・`service/UpdateService` が持つ。
+
+| 状態（`UpdateState`） | 表示 |
+|----------------------|------|
+| 新しい版が無い・確認していない | 何も出さない（確認の失敗だけは 1 行） |
+| 新しい版がある（`release`） | お知らせ（Info）「新しい版 vX.Y.Z があります」と「更新する」 |
+| 更新中（`updating`） | ボタンは「更新中…」で押せず、進行表示（不確定のバー）を出す |
+| インストールの許可待ち（`needsInstallPermission`） | 「「このアプリからのインストールを許可」をオンにしてから、もう一度「更新する」を押してください」 |
+| 失敗（`failure`） | 下の固定文言を 1 行の小さな文字で出す |
+
+| 失敗の種別（`UpdateFailure`） | 主な原因 | 固定文言 |
+|------------------------------|---------|---------|
+| `Network` / `Rejected` | 通信できない・HTTP エラー・応答の形が想定外・許可外の宛先や https 以外を止めた | 更新を確認できませんでした。通信を確認してください |
+| `Truncated` | ダウンロードが途中で切れた・`Content-Length` に足りない・上限超え | ダウンロードが途中で止まりました。もう一度お試しください |
+| `AssetMissing` | Release に APK または `SHA256SUMS` が無い | この版の更新ファイルが見つかりません |
+| `ChecksumInvalid` / `ChecksumMismatch` | `SHA256SUMS` に項目が無い・書式不正・重複／APK の SHA-256 が違う | 更新ファイルを確認できなかったため、インストールしませんでした |
+| `SignatureMismatch` | APK の署名証明書が実行中のアプリと違う・読めない（パッケージ名が違う APK を含む） | 更新ファイルの署名がこのアプリと違うため、インストールしませんでした |
+| `Storage` | 保存領域に書けない・APK を開けない | 更新ファイルを保存できませんでした |
+| `Installer` | システムのインストーラを開けない | インストーラを開けませんでした |
+
+```mermaid
+sequenceDiagram
+    participant U as 利用者
+    participant V as UpdateViewModel
+    participant S as UpdateService
+    participant G as GithubReleaseSource（GitHub）
+    participant A as ApkInstaller / ApkSigners
+    U->>V: 「更新する」
+    V->>S: update（更新中・新しい版なしなら何もしない）
+    S->>A: インストールの許可は？
+    A-->>S: 無し → 「このアプリからのインストール」の設定画面を開いて終了（許可待ち）
+    S->>G: SHA256SUMS を取得し、APK の項目を読む（無い・書式不正・重複は失敗）
+    S->>S: 前回までの APK を消す
+    S->>G: APK を取得（cacheDir/updates/ へ。200 MiB まで）
+    S->>S: SHA-256 を比べる
+    S->>A: 署名証明書の SHA-256 を、実行中のアプリと比べる（空・不一致は失敗）
+    S->>A: システムのインストーラを開く（FileProvider の一時的な読み取りの許可）
+    Note over S: どの失敗も APK を消し、種別を状態に入れて更新中を終える
+```
+
+- 確認は `UpdateScheduler` が、プロセスが生きている間、自動確認がオンのあいだ（起動時にすぐ 1 回、その後 6 時間ごと）に行う。オフにすると止まり、オンへ戻すとすぐ確認する。WorkManager の周期ジョブ（FR-AND-3）とは別で、アプリが動いていない間は確認しない
+- システムのインストーラが APK を入れ替え、アプリを終了・再起動するかどうかは OS が決める（アプリは終了を指示しない）。入れ替えを取り消したときは、通知がそのまま残る
+- 署名の比較は「実行中のアプリの署名証明書と同じか」で行い、証明書の指紋を固定値として持たない。release 署名証明書の指紋は [`android/README.md`](../../android/README.md) に記録している。debug 署名のアプリは、release の APK の署名と違うため更新できない（意図どおり）
+- 手元の確認用に、デバッグビルドだけ更新の確認先を差し替えられる（[環境構築 §11.1](../environment/setup.md)）。release ビルドには差し替えるコードが無い（NFR-AND-SEC-12）
+
 ## 改訂履歴
 
 | 版 | 日付 | 変更内容 | 変更理由 |
@@ -616,3 +769,4 @@ A3 の項目は §12.4。
 | 2.2 | 2026-11-09 | 独立レビューの指摘とコード修正を反映。確認ダイアログの取り消しの文言（デスクトップ「キャンセル」・Android「取り消し」）、`pane_start`・`pane_close` の成功のトースト（デスクトップは遷移、Android はトースト）、`pane_close` の `confirm=true`・サーバー側の状態の再検査、自動更新と確認ダイアログ・入力の保持、`forbidden_scope` の文言の既知の制約、Android の入力保持（ViewModel）・`reset()`・フォルダ一覧の再読み込みを追記 | Issue #97（独立レビュー ReviewDocs） |
 | 2.3 | 2026-11-09 | §4.4 のメモ要約は S2 のカードだけの規則と明記し、§4.5 の S4 のヘッダは `note.repo` と `note.items` を全件・全文（折り返し）で出すと追記 | Issue #106（Web のペイン詳細のメモが要約のまま） |
 | 2.4 | 2026-11-09 | 新しいセッションに「最初のタスク」を追加。UC11、FR-OPS-11、受け入れ条件との対応（§2.2）、S5 の手順（§4.8: スキル（任意。`skill_list`）→ 本文（任意）→ 起動後に `send_text`、`idle` でなければ送らない、失敗時は起動を取り消さず「もう一度送る」）、§4.9 の呼べるツールを `/ops` 11 個に、§10.1 の固定文言 4 件、§11 の範囲外。Android は FR-AND-12（§12.6） | Issue #103（空きセッションへの最初のタスク） |
+| 2.5 | 2026-11-10 | 新しい版の確認と自動アップデートを追加。UC12、FR-UPD-1〜6（デスクトップ。§2・§4.10）、受け入れ条件との対応（§2.3。テスト名を併記）、設定画面 S3 に「自動で確認する」（FR-SET-1・§9）、§11 の範囲外を書き換え（自動更新の有無を OS ごとに）。Android は FR-AND-13〜16（§12.1・§12.4・§12.7） | Issue #109（新しい版の確認と自動アップデート） |

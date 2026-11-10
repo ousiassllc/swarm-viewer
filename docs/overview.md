@@ -31,6 +31,7 @@
 - ペイン詳細（`pane_tail`・`ask_card`）の閲覧（見るだけの接続でも）。操作の接続では質問への回答（`ask_pick`）・指示の送信（`send_text`）・中断（`send_escape`）・新しいセッションの起動（`dir_list` → `pane_start`）・終了（`pane_close`）。中断・終了は確認ダイアログを経る（FR-OPS-1〜10）
 - 操作の接続の新しいセッションに、任意の最初のタスク（スキル・本文）を入れる（`skill_list` → `pane_start` → `send_text`。FR-OPS-11）
 - ウィンドウを閉じてもトレイ（macOS はメニューバー）に常駐し、通知を継続する。単一インスタンス
+- 新しい版の確認と更新（Issue #109）。起動時と 6 時間ごとに GitHub Releases の最新版を確認し、新しいときだけ通知して、「更新する」で SHA-256 を検証したうえで入れ替える（Windows はインストーラの起動、macOS は `.app` の差し替え）。設定の「自動で確認する」（既定オン）でオフにできる。確認の失敗は小さく表示するだけで、画面を止めない
 - 接続・認証・セッション許可のエラー表示
 - Windows / macOS ネイティブアプリ（Wails v3、フロントは HALT: Gin + Templ + HTMX）
 
@@ -43,6 +44,7 @@
 - 画面は WindowSizeClass で切り替える（Compact: ペインのリスト、Medium / Expanded: `layout` のグリッド + 利用上限を横に）。フォアグラウンドの更新間隔はデスクトップと同じ（既定 10 秒）
 - `asking` / `stalled` への遷移の通知は WorkManager の周期ジョブ（15 / 30 / 60 分、既定 15 分）で全接続・全許可セッションを確認する。Doze・バッテリー最適化で遅れうる。FCM・フォアグラウンドサービスは使わない
 - 署名済み APK を GitHub Releases で配布する（サイドロード。Google Play は対象外）
+- 新しい版の確認と更新（Issue #109）。デスクトップと同じ規則（起動時と 6 時間ごとの確認・SHA-256 の検証・「自動で確認する」）に加え、APK の署名証明書が実行中のアプリと同じときだけ、システムのインストーラ（`REQUEST_INSTALL_PACKAGES`・FileProvider）を開く。無人のインストールはしない
 
 ### 含まないもの
 
@@ -51,7 +53,7 @@
 - インターネット公開・クラウド経由の中継
 - Google Play での公開、プッシュ通知（FCM）、iOS 版
 - swarm-console 本体の機能追加の実装（本リポの範囲外。`pair`・`dir_list` は swarm-console 側で実装済み。`skill_list` は viewer が前提とする要望で、swarm-console 側は未実装）、接続文字列・QR の生成
-- 自動更新、コード署名・公証（デスクトップ版は初版は手動入れ替え・unsigned。Android 版は署名済み APK を手動で入れ替える。自動更新はしない）
+- コード署名・公証（デスクトップ版は unsigned。Android 版は署名済み APK）。Linux 向けの更新、利用者が押さずに入れ替わる無人の更新、手動の「いま確認する」ボタン、ロールバック。自動更新は上の Windows・macOS・Android にあり、GitHub への通信は swarm-console への接続とは別の経路で行う（NFR-SEC-15〜19）
 
 ## ステークホルダー / 想定ユーザー
 
@@ -73,6 +75,8 @@ graph TD
     Console --> Tmux[tmux セッション群]
     Console --> Usage[omp usage --json<br/>claude / codex / cursor]
     Pair[swarm-console pair<br/>--scope report / ops] -.->|接続文字列 / swarm-viewer:// / QR| Viewer
+    Viewer -->|https のみ・別クライアント<br/>認証情報なし| GH[GitHub Releases<br/>最新版・更新ファイル・SHA256SUMS]
+    Android -->|https のみ・別クライアント<br/>認証情報なし| GH
     Pair -.->|接続文字列 / swarm-viewer:// / QR| Android
 ```
 
@@ -84,13 +88,13 @@ graph TD
 
 | ドキュメント | パス | 概要 |
 |------------|------|------|
-| 機能要件 | `docs/requirements/functional.md` | ユースケース、機能一覧（ペアリング・セッション切替・ペイン表示・利用上限・通知・設定・操作モード FR-OPS）、ペイン `state` の表示ラベル、画面（ペイン詳細・質問カード・新しいセッション・最初のタスク）、エラー表示 |
-| 非機能要件 | `docs/requirements/non-functional.md` | 対応環境、性能・リソース目標、セキュリティ（種類別の許可リスト・tailnet 範囲の URL 検証・token 保護・操作の確認）、可用性、ストレージ、ログ、配布 |
-| アーキテクチャ設計 | `docs/architecture/overview.md` | HALT（Gin + Huma + Templ + HTMX）× Wails v3 の構成、レイヤー構造、通信フロー（ペイン詳細・操作を含む）、トレイ常駐、セキュリティ境界、未確認事項 |
-| ER / データモデル | `docs/architecture/er.md` | SQLite 4 テーブル（connections・settings・snapshots・notified_states）、接続の種類は `url` の path から導出、秘密領域（token）、マイグレーション |
-| API 仕様 | `docs/api/endpoints.md` | swarm-console `/report`・`/ops` の利用（種類別の許可リスト）、ペアリング形式、`pair [--scope report\|ops]`、画面ルート（ペイン詳細・操作） |
+| 機能要件 | `docs/requirements/functional.md` | ユースケース、機能一覧（ペアリング・セッション切替・ペイン表示・利用上限・通知・設定・操作モード FR-OPS・新しい版の確認と更新 FR-UPD）、ペイン `state` の表示ラベル、画面（ペイン詳細・質問カード・新しいセッション・最初のタスク・新しい版の通知）、エラー表示、新しい版の更新の受け入れ条件とテストの対応（§2.3） |
+| 非機能要件 | `docs/requirements/non-functional.md` | 対応環境、性能・リソース目標、セキュリティ（種類別の許可リスト・tailnet 範囲の URL 検証・token 保護・操作の確認・GitHub 通信の許可ホストと更新ファイルの検証）、可用性、ストレージ、ログ、配布 |
+| アーキテクチャ設計 | `docs/architecture/overview.md` | HALT（Gin + Huma + Templ + HTMX）× Wails v3 の構成、レイヤー構造、通信フロー（ペイン詳細・操作・新しい版の更新を含む）、トレイ常駐、セキュリティ境界、未確認事項（実機の更新を含む） |
+| ER / データモデル | `docs/architecture/er.md` | SQLite 4 テーブル（connections・settings・snapshots・notified_states。settings に `auto_update_check`）、接続の種類は `url` の path から導出、秘密領域（token）、マイグレーション |
+| API 仕様 | `docs/api/endpoints.md` | swarm-console `/report`・`/ops` の利用（種類別の許可リスト）、ペアリング形式、`pair [--scope report\|ops]`、画面ルート（ペイン詳細・操作・新しい版の通知と更新）、GitHub Releases の利用（§6） |
 | コンポーネント設計 | `docs/components/overview.md` | 採用ライブラリ、domain/repository/service/web/app の責務・interface、並行性、テスト設計、要件との対応 |
-| Android 版の設計 | `docs/android/overview.md` | WorkManager による通知の確認、通知チャンネル、権限、WindowSizeClass によるレイアウト切替、フォアグラウンドの更新、テストベクタの置き場所と読み方、操作モード（ペイン詳細・質問・送信・新しいセッション） |
+| Android 版の設計 | `docs/android/overview.md` | WorkManager による通知の確認、通知チャンネル、権限（`REQUEST_INSTALL_PACKAGES`・FileProvider を含む）、WindowSizeClass によるレイアウト切替、フォアグラウンドの更新、テストベクタの置き場所と読み方、操作モード（ペイン詳細・質問・送信・新しいセッション）、アプリの更新（§11） |
 | 環境構築 | `docs/environment/setup.md` | 開発環境のセットアップ、Taskfile、CI（GitHub Actions・セルフホステッドランナー）、lint/format、linterly、Git Hooks（bun 前提）、Android の開発環境・CI・署名鍵・リリース（§11） |
 
 ## 用語集
@@ -113,6 +117,7 @@ graph TD
 | WorkManager | Android の永続的なバックグラウンド処理の仕組み。Android 版は周期ジョブ（最小 15 分）で通知用の確認を行う |
 | WindowSizeClass | 画面の幅の区分（Compact / Medium / Expanded）。Android 版はこれでペインの出し方（リスト / グリッド）を切り替える |
 | テストベクタ | デスクトップ（Go）と Android（Kotlin）が同じ JSON ファイル（`testdata/vectors/`）を読み、挙動の一致を保つテストの入力と期待値 |
+| `SHA256SUMS` | Release に載る配布物の SHA-256 の一覧（`sha256sum` 形式）。更新は、取得したファイルのハッシュがこの該当行と一致したものだけを入れ替える |
 
 ## 改訂履歴
 
@@ -126,3 +131,4 @@ graph TD
 | 1.5 | 2026-11-05 | Android 版をスコープに追加（「含まないもの」から外す）。システム全体像・ドキュメントマップ・用語集に Android を反映 | Issue #15（Android 版の仕様書への反映） |
 | 1.6 | 2026-11-08 | 操作モード（Issue #97）。目的・スコープ・範囲外を「既定は見るだけ、操作の接続のときだけ操作できる」に変更。システム全体像・ドキュメントマップ・用語集（`/ops`・ops トークン・接続の種類）を更新 | Issue #97（操作モード） |
 | 1.7 | 2026-11-09 | 最初のタスクをスコープに追加（FR-OPS-11）。`skill_list`（要望・swarm-console 側は未実装）をステークホルダー・範囲外・用語集（`/ops`）に反映 | Issue #103（空きセッションへの最初のタスク） |
+| 1.8 | 2026-11-10 | 新しい版の確認と自動アップデートをスコープに追加（デスクトップ・Android）。「含まないもの」の自動更新を、Linux・無人の更新・手動の確認ボタン・ロールバックに書き換え。システム全体像に GitHub Releases、ドキュメントマップ・用語集（`SHA256SUMS`）を更新 | Issue #109（新しい版の確認と自動アップデート） |

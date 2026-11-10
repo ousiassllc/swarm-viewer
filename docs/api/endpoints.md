@@ -1,6 +1,6 @@
 # API 仕様
 
-swarm-viewer が関わる API は 4 種類ある。viewer 自身は**外部に公開する API を持たない**（TCP ポートを開かない。[アーキテクチャ設計 §1](../architecture/overview.md)）。
+swarm-viewer が関わる API は 5 種類ある。viewer 自身は**外部に公開する API を持たない**（TCP ポートを開かない。[アーキテクチャ設計 §1](../architecture/overview.md)）。
 
 | 種別 | 向き | 内容 | 節 |
 |------|------|------|----|
@@ -8,6 +8,7 @@ swarm-viewer が関わる API は 4 種類ある。viewer 自身は**外部に�
 | ペアリング形式 | swarm-console → viewer | 接続文字列 / `swarm-viewer://` ディープリンク（`url` の path で見るだけ / 操作を見分ける） | §2 |
 | swarm-console の `pair` コマンド | — | `swarm-console pair [--scope report\|ops]`（swarm-console 側が実装。viewer が前提とする出力） | §3 |
 | 画面ルート（アプリ内 HTTP） | WebView → Go | Gin のルート。HTMX が HTML フラグメントを取得 | §4 |
+| GitHub Releases の利用 | viewer → GitHub | 新しい版の確認・更新ファイルの取得（`GET` のみ。swarm-console とは別の経路。デスクトップ・Android 共通。Issue #109） | §6 |
 
 Huma（OpenAPI）で登録する JSON オペレーションは **v1 では 0 本**（[アーキテクチャ設計 §4.3](../architecture/overview.md)）。
 
@@ -331,7 +332,9 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | GET | `P/start/skills?agent=` | ページ（部分） | フラグメント | スキルの選択部品（`skill_list`。`agent` は `omp`・`claude`・`codex`（それ以外は通信せず 400 と固定文言「入力内容を受け付けられませんでした」）。エージェントを選んだときに取得し、結果は画面を開いている間のメモリだけに持つ）。1 つ選ぶか「スキルなし」。`unknown_tool`（ホストが古い）は固定文言「スキルの一覧を取得できません（ホストの swarm-console が古い可能性があります）」、それ以外の失敗は「スキルの一覧を読み込めませんでした」＋「再読み込み」。どちらも「スキルなし」で起動は続けられる。`skills[].name`・`description`・`invoke` は信頼できない入力として常にテキストで描画する（`templ.Raw` を使わない）。**操作の接続のみ**（見るだけは 403 と固定文言で、コンソールに通信しない） |
 | POST | `P/start` | アクション | フラグメント / `HX-Redirect: P`（成功） | `agent`・`cwd`・`title` と、任意の `skill`（`skill_list` が返した `invoke` の文字列。長さと制御文字だけ検査し、一覧との照合はしない。任意の文字列は本文欄からも送れるため権限は増えない）・`task`（本文）。2 段階: `edit=1` は入力画面へ戻す、`confirm=1` が無ければ入力を検査して確認画面（エージェント・フォルダ・スキル・本文の先頭の要約）を返すだけ（`pane_start` は呼ばない。不正な入力は入力画面に固定文言）、`confirm=1` で `pane_start`。`confirm=1` でも送る前に最新の `report` でペインが `shell` であることを再検査し、違えば通信せず `invalid_state`。`skill`・`task` のどちらかがあるときは、送る文字列（両方 = `<invoke> <本文>`、スキルだけ = `<invoke>`、本文だけ = `<本文>`。合計 1〜8000 字、許可する制御文字は `\n`・`\t` だけ）を `pane_start` の前に検査し、違反は `pane_start` を呼ばずに入力欄の固定文言で拒否する。`pane_start` が `ok: true` かつ `state` が `idle` のときだけ、同じペインの排他（機能要件 FR-OPS-9）を保ったまま続けて `send_text` で最初のタスクを送る（1 つの操作。合算の上限は設けない）。`pane_start` が `ok: false` ならタスクは送らない。起動したが `idle` 以外なら送らず、遷移せずに結果の表示で固定文言「起動しました。最初のタスクはまだ送っていません（状態: …）。ペイン詳細から送れます」と「ペイン詳細を開く」を出す（`HX-Redirect` ではトーストが消えるため。「もう一度送る」は出さない）。`send_text` が失敗・`accepted: false` のときは自動で再送せず、起動も取り消さず（`pane_close` は呼ばない）、「起動しました。最初のタスクを送れませんでした」＋理由の固定文言の結果の表示に「ペイン詳細を開く」と「もう一度送る」を出す（本文はこの表示の間だけフラグメントの hidden 項目に残し、保存・ログ出力しない）。`resend=1`（「もう一度送る」）は `skill`・`task` だけを使い `send_text` だけを送る（`pane_start` は呼ばない。ペインが `idle` でなければ通信せず `invalid_state`）。成功はトーストなしでペイン詳細へ。失敗（`ok: false`・エラー）は確認画面に固定文言。**操作の接続のみ** |
 | GET | `/settings` | ページ | フルページ / フラグメント | 設定画面。OS が通知を許可していないときはその旨を表示する |
-| PUT | `/settings` | アクション | フラグメント（設定フォーム）+ トースト OOB / 422 | 設定を保存する。許容値は[ER §3.2](../architecture/er.md)。許容外は 422 でフォームを再描画 |
+| PUT | `/settings` | アクション | フラグメント（設定フォーム）+ トースト OOB / 422 | 設定を保存する。フォーム値は通知・画面更新間隔・通知用ポーリング間隔・デバッグログ・`auto_update_check`（新しい版の自動確認。チェックボックス。`on` のときだけ true で、送られなければ false。FR-UPD-6）。許容値は[ER §3.2](../architecture/er.md)。許容外は 422 でフォームを再描画（チェックボックスは入力を反映する）。保存した設定は購読者（`updater.Service`）へ通知され、オフからオンへの変更で新しい版をすぐ確認する |
+| GET | `/update/notice` | ページ（部分） | フラグメント（`#update-notice` の中身。200 のみ） | 新しい版の通知の領域をいまの状態で描画する（`UpdateNotice`。[機能要件 §4.10](../requirements/functional.md)）。メイン画面が `load` で 1 回読み込み、以降は自分自身を読み直す（ふだん 60 秒ごと、更新中は 1 秒ごと。`hx-sync="this:drop"`）。新しい版が無い・この環境が対象外（版が `dev`・更新ファイルの無い OS）のときは空のフラグメント。失敗は種類ごとの固定文言だけで、原因・URL は出さない。swarm-console の接続・セッションとは無関係（`{cid}` を持たない） |
+| POST | `/update/apply` | アクション | フラグメント（`#update-notice`。200 のみ） | 「更新する」。`ApplyAsync` で更新（取得 → SHA-256 の検証 → 適用 → アプリの終了。別 goroutine）を始め、「更新中…」の状態を返す。更新中・新しい版が無い・対象外のときは何も始めず、いまの状態を返す（エラーにしない）。`X-CSRF-Token` を要求する（無ければ 403）。進み具合は `GET /update/notice` の読み直しが出す |
 | GET | `/static/*` | — | 埋め込みアセット | `htmx.min.js`・`app.js`（§4.5 の可視性制御）・`modal.js`（確認ダイアログとモーダル）・`app.css`。外部ホストは参照しない |
 | GET / POST | `/`・`/recovery/reset` | ページ / アクション | フルページ / フラグメント | **recovery モードのみ**（DB が開けない・スキーマが新しすぎる。上記の画面ルートは登録しない）。`/` は初期化導線、`POST /recovery/reset` は保存データを退避して作り直し、成功したら `HX-Redirect: /`（`HX-Request` なしなら案内のみ）。それ以外の GET は初期化導線を 200 で描画し、その他のメソッドは 404 |
 
@@ -424,6 +427,36 @@ HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"include
 | swarm-console が `dir_list` を持たない古い版（`/ops` の `unknown_tool`） | 新しいセッションのフォルダピッカーが使えない（固定文言「この接続では使えない操作です（ホストの swarm-console が古い可能性があります）」。他の操作は動く） |
 | swarm-console が `skill_list` を持たない版（`/ops` の `unknown_tool`） | 新しいセッションのスキル選択が使えない（固定文言「スキルの一覧を取得できません（ホストの swarm-console が古い可能性があります）」。本文だけのタスク・タスクなしの起動は動く） |
 | swarm-console が操作ツールの返り値のキーを変えた・足した | 未知のキーは無視する。想定するキーが無い・型が違うときは `protocol`（§1.5.2） |
+| GitHub のアセット名・`SHA256SUMS` の形式・リリースのタグの形（`vX.Y.Z`）が変わる | 更新が `verify`（アセットが無い）で失敗する、またはタグを読めず通知しない（§6。release.yml・`domain/update`・Android の `domain/Release.kt` を同時に変える） |
+| GitHub のホスト（API・Releases の配信元）が変わる | 許可ホスト（`domain/update` の `AllowedHosts`・Android の `UpdateEndpoints.GITHUB_HOSTS`）に無いと、リダイレクト先で止まり `download`（Android は `Rejected`）で失敗する。両方を同時に直す |
+
+## 6. GitHub Releases の利用（新しい版の確認と更新。Issue #109）
+
+swarm-console への接続（§1。tailnet・Bearer）とは**完全に別の経路**。デスクトップは `repository/release`、Android は `data/update` の専用クライアントが、次の宛先へ GET するだけ。token・認証ヘッダー・Cookie は付けない（付いていても送る前に外す）。要件は [NFR-SEC-15〜19](../requirements/non-functional.md)（Android は NFR-AND-SEC-10〜12）。
+
+### 6.1 呼ぶエンドポイント
+
+| 用途 | メソッド・URL | 使う項目・上限 |
+|------|--------------|---------------|
+| 最新リリースの確認 | `GET https://api.github.com/repos/ousiassllc/swarm-viewer/releases/latest`（コードに固定。`Accept: application/vnd.github+json`、`User-Agent`: デスクトップは `swarm-viewer/<版>`・Android は `swarm-viewer-android`） | `tag_name`（`vX.Y.Z` だけ）・`draft`・`prerelease`（どちらかが true なら無視）・`assets[].name`・`assets[].browser_download_url`・`assets[].size`。応答はデスクトップ 4 MiB・Android 1 MiB まで。404（リリースなし）はエラーにせず「新しい版なし」。それ以外の 200 以外は確認の失敗（小さく表示） |
+| `SHA256SUMS` の取得 | `GET <browser_download_url>`（`https://github.com/ousiassllc/swarm-viewer/releases/download/vX.Y.Z/SHA256SUMS`。実際の配信元へのリダイレクトを含む） | `sha256sum` 形式。デスクトップ 64 KiB・Android 1 MiB まで。該当ファイルの行が 1 つだけのとき有効（形式不正・行なし・複数は検証の失敗） |
+| 更新ファイルの取得 | `GET <browser_download_url>`（同上。`Accept: application/octet-stream`。圧縮は無効） | Windows `swarm-viewer_vX.Y.Z_windows_amd64_installer.exe`、macOS `swarm-viewer_vX.Y.Z_darwin_universal.zip`、Android `swarm-viewer_vX.Y.Z_android_universal.apk`。デスクトップ 512 MiB・Android 200 MiB まで。`Content-Length`・`assets[].size` より短ければ途中切れ（失敗） |
+
+- 許可するホストは `api.github.com`・`github.com`・`objects.githubusercontent.com`・`release-assets.githubusercontent.com`（完全一致・https のみ。ポート指定・userinfo は不可。Android は 443 のみ）。ダウンロードはリダイレクトで配信元のホストへ移ることがあり、リダイレクトも 1 回ごとに同じ検査を通す（最大 5 回）。許可外のホスト・http への転送は通信せずに失敗する
+- 名前解決後のアドレスがループバック・プライベート・リンクローカル・tailnet（`100.64.0.0/10`）のときは接続しない（デスクトップは接続の直前、Android は名前解決の結果から除く）
+- 環境のプロキシは使わず、Cookie は保存しない。通信は GET だけ
+- リポジトリが private の間は、認証なしの `releases/latest` が 404 になり、「新しい版なし」として扱われる（確認の失敗にならない。2026-11-10 に確認）。取得は認証なしのため、公開（public）されているときだけ動く（[アーキテクチャ設計 §11](../architecture/overview.md) #21）
+- 未認証の GitHub API にはレート制限がある（確認は起動時と 6 時間ごと・1 回 1 リクエストのため、通常は届かない）。制限などで 200 以外が返ったときは確認の失敗として扱い、次の周期で再試行する
+- Release に載るアセット（release.yml が作る。[環境構築 §5.5](../environment/setup.md)）: `swarm-viewer_vX.Y.Z_windows_amd64_installer.exe`・`swarm-viewer_vX.Y.Z_darwin_universal.zip`・`swarm-viewer_vX.Y.Z_android_universal.apk`・`SHA256SUMS`（上の 3 ファイルのハッシュ）。同名のアセットが複数あるとき・無いときは更新しない
+
+### 6.2 本番の接続先を変えられる場所
+
+接続先はコードに固定され、設定・環境変数では変えられない。差し替えられるのは次だけで、どれもリリースの成果物には含まれない。
+
+| 対象 | 方法 | 用途 |
+|------|------|------|
+| デスクトップ | `devupdate` ビルドタグ付きのビルドだけにある `release.NewDevClient(latestURL, base)`（`internal/repository/release/dev.go`）。指定した URL と同じホスト（ポート込み）への http / https だけを許す。**`main.go`・`compose` はこの関数を呼ばない**（配線は無い）。`compose.Config` の `Version`・`GOOS`・`Releases`・`Installer`・`Quit` を差し替えられる（組み立ての通しのテスト `TestUpdateEndToEnd` がこれを使う） | ローカルの偽の Release サーバー・偽のインストーラでの確認の部品。タグ付きビルドだけで実行ファイルの接続先が変わるわけではない（手順と限界は[環境構築 §5.6](../environment/setup.md)） |
+| Android | デバッグビルドだけ、`./gradlew assembleDebug -PupdateLatestUrl=http://10.0.2.2:PORT/repos/ousiassllc/swarm-viewer/releases/latest`（`BuildConfig.UPDATE_LATEST_URL`）。リリースビルドは常に本番の宛先（NFR-AND-SEC-12） | エミュレーターでの偽サーバーによる確認。手順は[環境構築 §11.1](../environment/setup.md) |
 
 ## 改訂履歴
 
@@ -442,3 +475,4 @@ HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"include
 | 2.0 | 2026-11-08 | 操作モード（Issue #97）。§1.1 に `/ops` の接続（種類・scope）、§1.2 を種類別の許可リストに変更（`pane_tail`・`ask_card`・`ask_pick`・`send_text`・`send_escape`・`pane_start`・`pane_close`・`dir_list` の引数）、§1.5 に `operation` と `tool_not_allowed`、§1.5.1・§1.5.2（操作ツールのエラー・結果）、§2.1 の `url` の path に `/ops`、§3 を `pair [--scope report\|ops]` に更新（swarm-console 側で実装済み）、§4 にペイン詳細・操作・新しいセッションのルートと HTMX パターン（§4.5・§4.6） | Issue #97（操作モード）、swarm-console endpoints.md 1.21（`dir_list`・`pair --scope ops`） |
 | 2.1 | 2026-11-09 | 独立レビューの指摘とコード修正の反映。§1.1・§1.2 にツール別のタイムアウト（読み取り 10 秒、`ask_pick`・`send_text`・`send_escape` 30 秒、`pane_start`・`pane_close` 50 秒）、§4.2 のルート表を実装に合わせて訂正（`live?first=1`、`start/dirs?pick=1`、`POST P/start` の 2 段階、`lines`、`POST P/close` の `confirm=true`・状態の再検査）、§4.5 の `hx-sync`・`hx-preserve`・確認ダイアログ中の自動更新停止、§4.6 に確認と状態の再検査を追記 | Issue #97（独立レビュー ReviewDocs） |
 | 2.2 | 2026-11-09 | 新しいセッションの最初のタスク（Issue #103）。§1.1・§1.2 の許可リストを 11 個にして `skill_list`（仮称・swarm-console 側は未実装の要望）を追加、`pane_start` 成功後の `send_text` を追記、§1.5.1・§1.5.2 に `skill_list` の行、§4.2 に `GET P/start/skills?agent=` と `POST P/start` の `skill`・`task`・`resend=1`、§4.5・§4.6、§5 に `skill_list` の無い版の影響 | Issue #103（空きセッションへの最初のタスク） |
+| 2.3 | 2026-11-10 | 新しい版の確認と自動アップデート（Issue #109）。冒頭の表を 5 種類に（GitHub Releases の利用）、§4.2 に `GET /update/notice`・`POST /update/apply` と `PUT /settings` の `auto_update_check`、§5 に GitHub のアセット名・ホストの変更の影響、§6 に GitHub Releases の利用（呼ぶエンドポイント・許可ホスト・上限・接続先を変えられる場所） | Issue #109（新しい版の確認と自動アップデート） |

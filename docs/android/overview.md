@@ -10,7 +10,7 @@ swarm-viewer の Android 版（Kotlin + Jetpack Compose）に固有の設計を�
 | 保存データ（Room・token の保護領域） | [ER / データモデル §7](../architecture/er.md) |
 | ペアリング形式（QR・intent-filter） | [API 仕様 §2.3](../api/endpoints.md) |
 | 環境構築・CI・署名鍵・リリース | [環境構築 §11](../environment/setup.md) |
-| 本書 | WorkManager・通知チャンネル・権限・WindowSizeClass・テストベクタ・操作モード（§10） |
+| 本書 | WorkManager・通知チャンネル・権限・WindowSizeClass・テストベクタ・操作モード（§10）・アプリの更新（§11） |
 
 ## 1. 前提
 
@@ -30,10 +30,10 @@ swarm-viewer の Android 版（Kotlin + Jetpack Compose）に固有の設計を�
 ```
 android/app/src/main/kotlin/com/ousiassllc/swarmviewer/
 ├── domain/   # 型・検証・解析・通知判定（副作用なし）。デスクトップの internal/domain と同じ責務
-├── data/     # OkHttp の /report・/ops クライアント（種類別の許可リスト）、Room、Keystore による token 保護
-├── service/  # ペアリング・接続管理・画面更新の取得とスナップショット保存・設定・ペインの操作（PaneService）（data を使うユースケース）
+├── data/     # OkHttp の /report・/ops クライアント（種類別の許可リスト）、Room、Keystore による token 保護、`data/update`（GitHub Releases の取得・APK の署名・インストーラ・自動確認の設定。tailnet 用とは別のクライアント。§11）
+├── service/  # ペアリング・接続管理・画面更新の取得とスナップショット保存・設定・ペインの操作（PaneService）・新しい版の確認と更新（UpdateService・UpdateScheduler）（data を使うユースケース）
 ├── notify/   # WorkManager の周期ジョブ（通知用の確認）・通知チャンネル・通知の組み立て・権限
-└── ui/       # Compose 画面（接続管理・メイン・設定・ペイン詳細・新しいセッション）、WindowSizeClass による切替
+└── ui/       # Compose 画面（接続管理・メイン・設定・ペイン詳細・新しいセッション）、WindowSizeClass による切替、`ui/update`（新しい版の通知・自動確認のスイッチ）
 ```
 
 - `domain/` の純粋ロジック（`parseReport`・`parseSessions`・`parsePairing`・`validateUrl`（`/report`・`/ops`）・ツール結果のパーサ・`detect`・`classify`（`operation` を含む）・`usageTone`）は、デスクトップの Go 実装とテストベクタ（§8）で挙動の一致を保つ。Go のコードは共有しない
@@ -114,8 +114,10 @@ sequenceDiagram
 | `INTERNET` | 通常 | `/report`・`/ops` への通信 |
 | `POST_NOTIFICATIONS` | 実行時（Android 13 / API 33 以降） | 通知。初回起動時に要求し、拒否されたら設定画面に、システムの通知設定を開く案内を出す（FR-AND-4）。API 29〜32 は実行時の許可なしで通知できる |
 | `CAMERA` | 実行時 | QR 読み取りを開始したときだけ要求する。拒否されても貼り付け・ディープリンクで使える（FR-AND-1）。QR 読み取りは CameraX + ML Kit（同梱モデル）で、カメラ権限が要る（[アーキテクチャ設計 §11](../architecture/overview.md) #10）。マニフェストには `android.hardware.camera` を `required="false"` で宣言し、カメラのない端末にも入れられるようにする |
+| `REQUEST_INSTALL_PACKAGES` | 通常（宣言のみ。許可は端末の設定で利用者が与える） | 新しい版の APK をシステムのパッケージインストーラで開く（FR-AND-14。§11）。「このアプリからのインストール」が許可されていないとき、アプリはその設定画面（`ACTION_MANAGE_UNKNOWN_APP_SOURCES`）を開くだけで、許可の付与も無人のインストールもしない |
 
-- アプリが自分で宣言する権限は上の 3 つだけ。WorkManager などの依存ライブラリがマニフェストのマージで加える権限（`WAKE_LOCK`・`ACCESS_NETWORK_STATE`・`RECEIVE_BOOT_COMPLETED` など）は、マージ後のマニフェストに現れる
+- アプリが自分で宣言する権限は上の 4 つだけ。WorkManager などの依存ライブラリがマニフェストのマージで加える権限（`WAKE_LOCK`・`ACCESS_NETWORK_STATE`・`RECEIVE_BOOT_COMPLETED` など）は、マージ後のマニフェストに現れる
+- 更新の APK をインストーラへ渡す `FileProvider`（authority `${applicationId}.updates`）を宣言する。`exported="false"`・`grantUriPermissions="true"` で、公開するパスは `cacheDir/updates/` だけ（`res/xml/update_file_paths.xml`）。外部に公開するコンポーネントは `MainActivity` だけという規則（NFR-AND-SEC-7）は変わらない
 - 位置情報・連絡先・ストレージの権限は要求しない
 
 ## 6. WindowSizeClass によるレイアウト切替
@@ -208,6 +210,43 @@ sequenceDiagram
 
 JUnit（MockWebServer・`ViewModel` のテスト）で NFR-AND-QLT-5 の 6 項目を検証する（見るだけの接続では偽のコンソールの `/ops` へのリクエスト 0 件・操作部品が出ない、操作の接続での期待どおりのツール名・引数、許可リスト、排他、ログ、結果の解析と固定文言）。最初のタスクでは、許可リストが `/ops` 11 個・`/report` 4 個で見るだけから `skillList` が通信 0 件の `tool_not_allowed`、`skill_list` の引数（`agent` だけ・`session` なし）と結果の解析・`unknown_tool` と他の失敗の固定文言、`pane_start` が `ok: true` かつ `idle` のときだけ `send_text` を送る（`ok: false`・`idle` 以外では 0 件）、スキルと本文の組み立て（両方・スキルだけ・本文だけ・どちらも空は起動だけ）と制御文字・8000 字の拒否（`pane_start` も 0 件）、`pane_start` から `send_text` まで排他が途切れない、`send_text` の失敗で `pane_close` が 0 件・自動再送なし・「もう一度送る」が `send_text` だけを送る、選択中のスキル・本文が構成変更で保たれ `reset()` で破棄される、スキル名・本文がログに出ないことを検証する。ドメインの `validateUrl`・パーサ・`classify` は §8 のテストベクタで Go と一致を保つ。操作の実機確認は[アーキテクチャ設計 §11](../architecture/overview.md) #16・#17。
 
+## 11. アプリの更新（新しい版の確認・APK の検証・インストーラの起動）
+
+機能は[機能要件 §12.7](../requirements/functional.md)（FR-AND-13〜16）、要件は NFR-AND-SEC-6・7・10〜12・NFR-AND-AVL-6・NFR-AND-PERF-9・NFR-AND-DAT-4・NFR-AND-DST-5・7・NFR-AND-QLT-6、GitHub への通信は [API 仕様 §6](../api/endpoints.md)、デスクトップの対応する仕様は[機能要件 §4.10](../requirements/functional.md) に従う。
+
+### 11.1 構成
+
+| 部品 | 内容 |
+|------|------|
+| `domain/AppVersion.kt` | `AppVersion`（`MAJOR.MINOR.PATCH`。成分ごとの数値の比較）・`parseTag`（`vX.Y.Z`）・`parseVersionName`（`X.Y.Z`）。先頭の 0・4 成分以上・数字以外・9 桁超は読まない（`android-version.sh` と同じ形） |
+| `domain/Release.kt` | `Release`（タグ・版・アセット名 → URL）・`parseLatestRelease`（draft・prerelease・不正なタグは null）・`androidAssetName`・`expectedSha256`（`SHA256SUMS` の形式検証と項目の取り出し）・`UpdateFailure`（失敗の種別 9 種）・`UpdateException`（メッセージは種別名だけ） |
+| `data/update/UpdateEndpoints.kt`・`UpdateGuard.kt` | `UpdateEndpoints.PRODUCTION`（GitHub の 4 ホスト・https・443）と、`UpdateGuardInterceptor`（GET だけ・許可リスト・認証系ヘッダーの除去）・`PublicOnlyDns`（プライベート・ループバック・tailnet のアドレスを除く）・`newUpdateHttpClient`（プロキシなし・リダイレクト追従なし・cookie なし）。tailnet 用の `GuardInterceptor` とは別 |
+| `data/update/GithubReleaseSource.kt`・`ReleaseSource.kt` | `ReleaseSource`（`latest`・`text`・`download`）の実装。リダイレクトを 1 回ごとに許可リストで検査して 5 回まで追う。ダウンロードは 200 MiB まで・`Content-Length` との一致を確かめ、失敗したら APK を消す |
+| `data/update/ApkSigners.kt`・`Sha256.kt` | `ApkSigners`（実行中のアプリと APK の署名証明書の SHA-256 の集合。`PackageManager` の `GET_SIGNING_CERTIFICATES`）・`sha256Hex` |
+| `data/update/ApkInstaller.kt` | `ApkInstaller`（`canInstall`・`openInstallPermissionSettings`・`install`）。`SystemApkInstaller` は `FileProvider` の URI で `ACTION_VIEW`（`application/vnd.android.package-archive`・読み取りの一時許可）を開く |
+| `data/update/AutoCheckSetting.kt` | `AutoCheckSetting`（`enabled: StateFlow<Boolean>`・`set`）。`PrefsAutoCheck` は `SharedPreferences`（`update_prefs`・`auto_check`・既定 true） |
+| `service/UpdateService.kt`・`UpdateScheduler.kt` | `UpdateService`（`check`・`update`。状態 `UpdateState`: `release`・`updating`・`failure`・`needsInstallPermission`）、`UpdateScheduler`（`start(scope)`。自動確認がオンのあいだ、すぐ 1 回と 6 時間ごとに `check`。切り替えに追随する） |
+| `ui/update/` | `UpdateNotice`（メイン画面の上部）・`UpdateSettings`（設定画面の「アップデート」のスイッチ）・`UpdateViewModel`・`UpdateMessages.kt`（失敗の固定文言） |
+| `AppContainer` | `updates`・`updateScheduler`・`autoCheck`・`appScope`。確認先は `updateEndpointsOverride() ?: UpdateEndpoints.PRODUCTION`、保存先は `cacheDir/updates/`、実行中の版は `versionName`（読めなければ null で確認しない）。`MainActivity.onCreate` が `updateScheduler.start(appScope)` を呼ぶ（すでに動いていれば何もしない） |
+| `src/debug`・`src/release` の `UpdateEndpointsOverride.kt` | debug は `BuildConfig.UPDATE_LATEST_URL`（Gradle の `-PupdateLatestUrl`。空なら null）を `UpdateEndpoints.forTesting` に渡す。release は常に null |
+
+### 11.2 振る舞い
+
+- **確認**: `UpdateService.check` は、自動確認がオフ・更新中・実行中の版が読めないときは通信しない。最新リリースの版が実行中の版より新しいときだけ `release` に出す。確認が失敗しても通知は保ち、成功で失敗の表示が消える。確認の前に（通知する版が無いとき）前回までの APK を消す
+- **更新**: `update` はまず「このアプリからのインストール」の許可を確かめ、無ければ設定画面を開いて何もダウンロードせず終える（`needsInstallPermission`。許可して戻ったあとにもう一度押す）。あれば APK と `SHA256SUMS` が Release にあるか確かめ、`SHA256SUMS` を取得して APK の項目を読み（無い・書式不正・重複なら APK を取得しない）、前回までの APK を消してから APK を取得し、SHA-256 を比べ、署名証明書の SHA-256 を実行中のアプリと比べ、すべて通ったときだけ `ApkInstaller.install` を 1 回呼ぶ。どの失敗（キャンセルを含む）でも APK を消す
+- **署名の判定**: 実行中のアプリの署名が読めない（空）、または APK の署名が（パッケージ名の違いを含め）読めない・一部しか一致しないときは、`SignatureMismatch`（インストールしない）。指紋の固定値は持たない（release 署名証明書の指紋の記録は [`android/README.md`](../../android/README.md)）
+- **インストールの後**: システムのインストーラが入れ替えと再起動を行う。アプリは終了を指示せず、取り消されたときは通知が残るので押し直せる
+- **画面**: メイン画面の本文の先頭（アプリバーの下。セッションのタブ・ペイン一覧の上）に 1 区画。新しい版が無いときは何も出さない。失敗は 1 行の小さな文字（`NoticeText`）で、一覧・操作を止めない。設定画面の「アップデート」に「自動で確認する」のスイッチ（既定オン）と説明を出す
+- **ログ・表示**: 失敗は固定の種別に丸め、例外の本文・URL・応答本文をログにも画面にも出さない（NFR-AND-LOG-2）
+
+### 11.3 デバッグビルドでの確認
+
+エミュレーターで、手元の偽のリリースサーバー（`GET /repos/ousiassllc/swarm-viewer/releases/latest`・アセット・`SHA256SUMS` を返す）に向けて動作を確かめられる。手順は[環境構築 §11.1](../environment/setup.md)。release ビルドは常に GitHub（本番）に固定され、差し替えられない（NFR-AND-SEC-12。`ReleaseBuildHasNoOverrideTest`）。
+
+### 11.4 テスト
+
+JUnit で NFR-AND-QLT-6 を検証する: `UpdateVersionTest`（版の比較・タグの形・Release JSON）、`UpdateEndpointsTest`（許可リスト・プライベート／tailnet アドレス・tailnet 用 `GuardInterceptor` に GitHub が無いこと）、`GithubReleaseSourceTest`（MockWebServer。資格情報の除去・リダイレクト・途中切れ・上限）、`UpdateServiceTest`（偽の `ReleaseSource`・`ApkInstaller`・`ApkSigners`。SHA-256・署名・許可・自動確認オフ・失敗時の APK の削除）、`UpdateSchedulerTest`（6 時間・オフ・オンへの復帰。フェイクの時間）、`src/testRelease` の `ReleaseBuildHasNoOverrideTest`。実際のシステムのインストーラ（Galaxy Fold7）は[アーキテクチャ設計 §11](../architecture/overview.md) #20 に未確認として残す。
+
 ## 改訂履歴
 
 | 版 | 日付 | 変更内容 | 変更理由 |
@@ -216,3 +255,4 @@ JUnit（MockWebServer・`ViewModel` のテスト）で NFR-AND-QLT-5 の 6 項�
 | 1.1 | 2026-11-08 | 操作モード（Issue #97）。§1 の通信・操作系を種類別の許可リストに、§5 の権限、§8 のベクタ（`/ops`・`operation`）、§9 のログ（`pane_tail`・送信本文）、§10「操作モード」を追加 | Issue #97（操作モード） |
 | 1.2 | 2026-11-09 | ツールごとのタイムアウト（§10.1）、入力の保持を ViewModel（`StateFlow`）に訂正（`rememberSaveable` の記述を削除）、画面を離れたときの `reset()`・フォルダ一覧の「再読み込み」・`pick` 成功後のカードの扱い・`exit_timeout` の「もう一度試す」・`invalid_args` の分類を §10.2 に追記 | Issue #97（独立レビューの指摘とコード修正の反映） |
 | 1.3 | 2026-11-09 | 最初のタスク（Issue #103）。§1・§10.1 の許可リストを操作 11 個（`skill_list` 追加）に、§10.1 に `ReportClient.skillList`・`PaneService` の `pane_start` → `send_text`・`StartSessionScreen` のスキル選択と本文、§10.2 にスキル一覧の再読み込み・最初のタスクの送信と失敗時の結果の表示（もう一度送る）・入力の保持・`reset()`、§9・§10.3 のログ・テストを追記 | Issue #103（空きセッションへの最初のタスク） |
+| 1.4 | 2026-11-10 | 新しい版の確認と更新（Issue #109）。§5 の権限に `REQUEST_INSTALL_PACKAGES` と `FileProvider`、§11「アプリの更新」（構成・振る舞い・デバッグビルドでの確認・テスト）を追加 | Issue #109（新しい版の確認と自動アップデート） |
