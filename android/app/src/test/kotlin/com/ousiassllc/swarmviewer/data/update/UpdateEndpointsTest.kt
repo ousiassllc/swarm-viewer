@@ -1,8 +1,11 @@
 package com.ousiassllc.swarmviewer.data.update
 
+import com.ousiassllc.swarmviewer.domain.InvalidUrlException
+import com.ousiassllc.swarmviewer.domain.validateUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.InetAddress
@@ -51,6 +54,15 @@ class UpdateEndpointsTest {
             )
         for (url in rejected) assertFalse(url, production.permits(url.toHttpUrl()))
         assertFalse(production.permits("http://100.64.0.1:48120/report".toHttpUrl()))
+    }
+
+    @Test
+    fun theTailnetGuardDoesNotAllowGithubHosts() {
+        // GitHub のホストは tailnet 用（report/ops）の許可リストには入れていない（別のクライアント・別の許可リスト）
+        for (host in UpdateEndpoints.GITHUB_HOSTS) {
+            val url = "https://$host/report"
+            assertThrows(url, InvalidUrlException::class.java) { validateUrl(url) }
+        }
     }
 
     @Test
