@@ -1,8 +1,7 @@
 # CI（docs/environment/setup.md §5）。
-# セルフホステッドランナー（Linux）で実行する。ランナーのホストには Wails の依存
-# （gcc・gtk4・webkitgtk-6.0 の開発パッケージ）を事前に導入しておく。ジョブ内で apt / sudo は使わない。
-# ランナーのラベルは登録するランナーに合わせて確定する（現状は self-hosted, linux, x64）。
-# Android（android/）のジョブの JDK 17 と Android SDK は、ジョブの最初に無ければダウンロードする（docs/environment/setup.md §11.2）。
+# GitHub のランナー（ubuntu-latest）で実行する。ジョブ内で apt / sudo は使わない。
+# Wails（internal/app 直下と main.go）の Linux ビルドに要る gtk4・webkitgtk-6.0 の開発パッケージは入れず、Linux の検査対象から外す（各ジョブのコメント参照）。
+# Android（android/）のジョブの JDK 17 は actions/setup-java で用意し、Android SDK は無ければダウンロードする（docs/environment/setup.md §11.2）。
 # Go 側と Android 側のジョブは、変更されたファイルに応じて changes ジョブの結果で出し分ける（workflow の paths は使わない）。
 name: CI
 
@@ -34,7 +33,7 @@ jobs:
   # 迷ったときは動かす側に倒す（.github/scripts/detect-changes.sh）。fork の PR では動かさない（下のジョブも同じ）。
   changes:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
       go: ${{ steps.detect.outputs.go }}
@@ -60,11 +59,11 @@ jobs:
           printf '%s\n' "$changed" | bash .github/scripts/detect-changes.sh
 
   lint:
-    # セルフホステッドランナーで信頼できないコードを実行しないよう、
+    # 信頼できないコードを実行しないよう、
     # pull_request は同一リポジトリのブランチ（fork 以外）のときだけ実行する。
     if: needs.changes.outputs.go == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     needs: changes
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
@@ -73,9 +72,6 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          # セルフホステッドでは post ステップのキャッシュ保存が 20 分以上止まったため無効にする。
-          # Go のモジュール・ビルドキャッシュはランナーのローカルに残る。
-          cache: false
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -86,7 +82,7 @@ jobs:
       # 最初の検査より前に必ず生成する（*_templ.go・static/dist/ が無いと golangci-lint が失敗する）。
       - run: task generate
       # Wails（internal/app 直下と main.go）は Linux では gtk4・webkitgtk-6.0・libsoup-3.0 の開発パッケージを要する。
-      # このランナーには未導入のため、Linux の検査対象から外し、Windows 向け（CGO 不要）の検査で補う。
+      # ランナーには未導入のため、Linux の検査対象から外し、Windows 向け（CGO 不要）の検査で補う。
       - name: Linux の検査対象パッケージを決める
         run: |
           mod="$(go list -m)"
@@ -111,7 +107,7 @@ jobs:
   test:
     if: needs.changes.outputs.go == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     needs: changes
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
@@ -120,9 +116,6 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          # セルフホステッドでは post ステップのキャッシュ保存が 20 分以上止まったため無効にする。
-          # Go のモジュール・ビルドキャッシュはランナーのローカルに残る。
-          cache: false
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -132,7 +125,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: task generate
       # Wails（internal/app 直下と main.go）は Linux では gtk4・webkitgtk-6.0・libsoup-3.0 の開発パッケージを要する。
-      # このランナーには未導入のため、Linux の検査対象から外し、Windows 向け（CGO 不要）の検査で補う。
+      # ランナーには未導入のため、Linux の検査対象から外し、Windows 向け（CGO 不要）の検査で補う。
       - name: Linux の検査対象パッケージを決める
         run: |
           mod="$(go list -m)"
@@ -182,7 +175,7 @@ jobs:
   build:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     needs: [lint, test]
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -191,9 +184,6 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-          # セルフホステッドでは post ステップのキャッシュ保存が 20 分以上止まったため無効にする。
-          # Go のモジュール・ビルドキャッシュはランナーのローカルに残る。
-          cache: false
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -202,7 +192,7 @@ jobs:
           version: ${{ env.TASK_VERSION }}
       - run: bun install --frozen-lockfile
       - run: task generate
-      # wails3 CLI 自体が Linux では gtk4・webkitgtk-6.0 の開発パッケージ（このランナーには未導入）を要するため、
+      # wails3 CLI 自体が Linux では gtk4・webkitgtk-6.0 の開発パッケージ（ランナーには未導入）を要するため、
       # CLI は使わず Windows 向け（CGO 不要）に直接ビルドして、コンパイルできることだけを確認する。成果物は配布しない。
       - name: go build (windows)
         run: go build -tags production -o "${RUNNER_TEMP}/swarm-viewer.exe" .
@@ -211,19 +201,26 @@ jobs:
           GOOS: windows
 
   # --- Android（android/。docs/environment/setup.md §11.2）---
-  # ランナーのホストには何も導入しない。各ジョブの最初に setup-android-toolchain.sh が、環境（JAVA_HOME・ANDROID_HOME）に JDK 17 と
-  # Android SDK が無ければ固定版をダウンロードして使う（導入先はランナーのツールキャッシュで、2 回目以降は再利用する。apt / sudo は使わない）。
-  # check-android-env.sh は、その結果（JDK 17・SDK）を確かめる。
-  # Gradle のキャッシュは保存するステップを置かず、ランナーのローカル（GRADLE_USER_HOME）に任せる。署名鍵などのシークレットは使わない。
+  # GitHub のランナー（ubuntu-latest）で実行する。JDK 17 は actions/setup-java（Gradle の依存は同 action のキャッシュ）で用意し、
+  # setup-android-toolchain.sh が、環境（ANDROID_HOME）に Android SDK が無いときだけ固定版をダウンロードして使う（apt / sudo は使わない）。
+  # check-android-env.sh は、その結果（JDK 17・SDK）を確かめる。署名鍵などのシークレットは使わない。
   android-lint:
     if: needs.changes.outputs.android == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     needs: changes
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
           clean: true
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle*
+            android/gradle/**
       - run: bash .github/scripts/setup-android-toolchain.sh
       - run: bash .github/scripts/check-android-env.sh
       # Kotlin の手書きソースにも linterly の行数上限が掛かる。Go 側の lint ジョブは android/ だけの変更では動かないため、ここでも検査する。
@@ -238,12 +235,20 @@ jobs:
   android-test:
     if: needs.changes.outputs.android == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     needs: changes
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
           clean: true
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle*
+            android/gradle/**
       - run: bash .github/scripts/setup-android-toolchain.sh
       - run: bash .github/scripts/check-android-env.sh
       - run: ./gradlew test
@@ -252,12 +257,20 @@ jobs:
   android-build:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     needs: [android-lint, android-test]
-    runs-on: [self-hosted, linux, x64]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
           clean: true
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+          cache-dependency-path: |
+            android/**/*.gradle*
+            android/gradle/**
       - run: bash .github/scripts/setup-android-toolchain.sh
       - run: bash .github/scripts/check-android-env.sh
       # コンパイルできることの確認だけ。debug 署名の APK は配布しない（成果物はアップロードしない）。
