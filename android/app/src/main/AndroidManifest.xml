@@ -8,6 +8,9 @@
     <!-- QR 読み取りを開始したときだけ実行時に要求する。カメラが無い端末でも貼り付け・ディープリンクで使える。 -->
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- 新しい版の APK をシステムのインストーラで開く（#109）。許可は端末の設定（このアプリからのインストール）で利用者が与える。 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
@@ -39,6 +42,18 @@
                     android:host="pair" />
             </intent-filter>
         </activity>
+
+        <!-- 更新の APK だけをインストーラへ渡す FileProvider（#109）。非公開（exported=false）で、インストーラへは Intent の一時的な読み取りの許可だけ。
+             公開するのは cacheDir/updates/ だけ（res/xml/update_file_paths.xml）。authority は ${applicationId}.updates（updateFileAuthority）。 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_file_paths" />
+        </provider>
     </application>
 
 </manifest>

@@ -62,6 +62,14 @@ push 前は `./gradlew lint ktlintCheck test` がクリーンに通ることを�
 - 通知（`notify/`）: `NotificationService` が取得した `report` を `detect` に流し、通知済みの記録（`notified_states`）に**実際に挿入できた**遷移だけ通知する（主キー制約が、画面更新とバックグラウンドの二重通知を防ぐ）。新規ペアリング後の最初の一巡・通知オフの間は記録だけ。`AttentionCheck` がバックグラウンドの 1 回（全接続・全許可セッションを順次。失敗は飛ばして記録を変えない。401・403 は `RepairFlags` に記録して対象から外し、再ペアリングの通知を 1 回）、`NotificationWorker`（WorkManager の `CoroutineWorker`。常に成功で終え、リトライしない）が呼ぶ。`NotificationScheduler` が設定（通知のオン / オフ・15 / 30 / 60 分）どおりに周期ジョブ `attention-check` を登録・取り消し、`SettingsService` の保存とアプリ起動時に呼ばれる。通知チャンネルは `asking`・`stalled`・`repair`。通知のタップは `SessionLink` の Intent（接続 ID・セッション ID だけ）で、`MainActivity` が検証して `MainViewModel.openSession` に渡す。権限（`POST_NOTIFICATIONS`）は通知をオンにするとき・初回起動時に要求し、拒否されたら設定画面に案内を出す
 - QR 読み取りは CameraX + ML Kit の同梱モデル版（[アーキテクチャ設計 §11](../docs/architecture/overview.md) #10）。`AppContainer` が data 層とサービスを組み立てる（Application サブクラスは持たない）
 
+## アプリの更新（#109）
+
+新しい版の確認と更新（`data/update`・`service/UpdateService`・`ui/update`）。確認は `GET https://api.github.com/repos/ousiassllc/swarm-viewer/releases/latest`（draft・prerelease・タグが `vX.Y.Z` でないものは無視）を起動時と 6 時間ごと（`UpdateScheduler`）に行い、実行中の版より新しいときだけメイン画面に「新しい版 vX.Y.Z があります」と「更新する」を出す。設定の「自動で確認する」（既定オン。`update_prefs` の `auto_check`）がオフの間は通信しない。
+
+- 更新は `swarm-viewer_${TAG}_android_universal.apk` と `SHA256SUMS` をダウンロードし、`SHA256SUMS` の項目と APK の SHA-256 が一致し、かつ APK の署名証明書の SHA-256 が実行中のアプリと同じときだけ、システムのパッケージインストーラ（FileProvider・`res/xml/update_file_paths.xml`＝`cacheDir/updates/` だけ）を開く。どの失敗でも APK は消し、インストールしない。許可が無いときは先に「このアプリからのインストール」の設定画面を開く
+- GitHub への通信は tailnet 用とは別の `OkHttpClient`（`newUpdateHttpClient`）と別の許可リスト（`UpdateEndpoints.PRODUCTION`: `api.github.com`・`github.com`・`objects.githubusercontent.com`・`release-assets.githubusercontent.com` への https のみ。リダイレクト先も検査）で行い、認証ヘッダー・cookie は送らず、tailnet・プライベートのアドレスには名前解決の段階で届かない。`GuardInterceptor` には GitHub のホストを加えない
+- 手元の偽のリリースサーバーに向けた確認は、デバッグビルドだけ、`./gradlew assembleDebug -PupdateLatestUrl=http://10.0.2.2:PORT/repos/ousiassllc/swarm-viewer/releases/latest` で可能（`BuildConfig.UPDATE_LATEST_URL` は debug のビルドタイプだけにあり、`src/debug` の `updateEndpointsOverride()` が読む。`src/release` の同名の関数は常に null）。リリースでは本番の宛先に固定される
+
 ## 依存の版について
 
 - `compileSdk` は 35 に固定している（親 Issue #7 の確定事項）。このため、`minCompileSdk` が 36 以上の版（Compose BOM 2025.08.00 以降・`activity-compose` 1.11 以降・`core-ktx` 1.17 以降・OkHttp 5.4 以降）は使えない。詳細は `gradle/libs.versions.toml` の先頭コメントを参照。
@@ -69,7 +77,7 @@ push 前は `./gradlew lint ktlintCheck test` がクリーンに通ることを�
 
 ## マニフェストの方針
 
-- アプリが宣言する権限は `INTERNET` と `CAMERA`（QR 読み取りを開始したときだけ実行時に要求する。`android.hardware.camera` は `required="false"`）。WorkManager など依存ライブラリが自身のマニフェストで追加する権限（`WAKE_LOCK`・`ACCESS_NETWORK_STATE` など）は、マージ後のマニフェストに加わる。
+- アプリが宣言する権限は `INTERNET`・`POST_NOTIFICATIONS`・`CAMERA`（QR 読み取りを開始したときだけ実行時に要求する。`android.hardware.camera` は `required="false"`）・`REQUEST_INSTALL_PACKAGES`（新しい版の APK をシステムのインストーラで開く。許可は端末の「このアプリからのインストール」で利用者が与える。下の「アプリの更新」）。WorkManager など依存ライブラリが自身のマニフェストで追加する権限（`WAKE_LOCK`・`ACCESS_NETWORK_STATE` など）は、マージ後のマニフェストに加わる。
 - `allowBackup="false"` に加え、`dataExtractionRules`（Android 12 以降）と `fullBackupContent`（Android 11 以前）で全データをバックアップ・端末間転送から除外する。
 - `MainActivity` は `launchMode="singleTask"` で、`swarm-viewer://pair?...` の intent-filter（`VIEW`・`DEFAULT`・`BROWSABLE`）を 1 つだけ公開する。リンクは信頼できない入力として `parsePairing` で検証し、利用者が確認画面で確定するまで保存しない（処理後は Intent のデータを消す）。
 - cleartext（http）はアプリ全体で許可する（`res/xml/network_security_config.xml`）。tailnet の IP は範囲指定できないため。接続先 URL の検証は domain 層が担う。

@@ -24,6 +24,7 @@ import com.ousiassllc.swarmviewer.ui.pane.StartSessionScreen
 import com.ousiassllc.swarmviewer.ui.pane.StartSessionViewModel
 import com.ousiassllc.swarmviewer.ui.settings.SettingsScreen
 import com.ousiassllc.swarmviewer.ui.settings.SettingsViewModel
+import com.ousiassllc.swarmviewer.ui.update.UpdateViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -119,6 +120,7 @@ fun AppNavigation(
     navigation: NavigationViewModel,
     main: MainViewModel,
     settings: SettingsViewModel,
+    update: UpdateViewModel,
     connections: ConnectionsViewModel,
     pairing: PairingViewModel,
     paneDetail: PaneDetailViewModel,
@@ -149,6 +151,7 @@ fun AppNavigation(
         Route.Main ->
             MainScreen(
                 viewModel = main,
+                update = update,
                 widthClass = widthClass,
                 onManageConnections = { navigation.push(Route.Connections) },
                 onSettings = { navigation.push(Route.Settings) },
@@ -159,6 +162,7 @@ fun AppNavigation(
         Route.Settings ->
             SettingsScreen(
                 viewModel = settings,
+                update = update,
                 onOpenConnections = { navigation.push(Route.Connections) },
                 onBack = { navigation.pop() },
             )

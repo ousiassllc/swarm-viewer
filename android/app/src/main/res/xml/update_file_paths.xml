@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider が公開するパス（#109）。更新でダウンロードした APK の保存先 cacheDir/updates/ だけで、ほかのファイルは公開しない。 -->
+<paths>
+    <cache-path
+        name="updates"
+        path="updates/" />
+</paths>

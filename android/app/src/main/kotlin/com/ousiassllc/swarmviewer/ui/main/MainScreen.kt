@@ -48,6 +48,8 @@ import com.ousiassllc.swarmviewer.ui.theme.AppEmptyState
 import com.ousiassllc.swarmviewer.ui.theme.AppNavTextButton
 import com.ousiassllc.swarmviewer.ui.theme.AppPullToRefreshIndicator
 import com.ousiassllc.swarmviewer.ui.theme.LocalGutter
+import com.ousiassllc.swarmviewer.ui.update.UpdateNotice
+import com.ousiassllc.swarmviewer.ui.update.UpdateViewModel
 import java.time.Instant
 
 /**
@@ -62,6 +64,7 @@ import java.time.Instant
 @Composable
 fun MainScreen(
     viewModel: MainViewModel,
+    update: UpdateViewModel,
     widthClass: WindowWidthSizeClass,
     onManageConnections: () -> Unit,
     onSettings: () -> Unit,
@@ -93,6 +96,7 @@ fun MainScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            UpdateNotice(update) // 新しい版の通知。小さな 1 区画だけで、下の一覧・操作は止めない
             when {
                 state.connections == null -> NoticeText("読み込み中…", modifier = Modifier.padding(LocalGutter.current))
                 state.noConnections -> EmptyConnections(onManageConnections)
