@@ -27,7 +27,8 @@ cat >"$SDK/build-tools/35.0.0/zipalign" <<'EOF'
 echo "zipalign $*" >>"$STUB_LOG"
 [ "${STUB_ALIGN:-ok}" = ok ]
 EOF
-# 偽の apksigner：sign は --out にファイルを作り、パスワードの env 名だけを記録する。verify は STUB_DN の署名者を返す
+# 偽の apksigner：sign は --out にファイルを作り、パスワードの env 名だけを記録する。verify は STUB_DN の署名者を返す。
+# STUB_VERIFY_FORMAT=v37 は build-tools 37 の書式（"V3.0 Signer: certificate ..."）、STUB_DIGEST=none は SHA-256 の行なし
 cat >"$SDK/build-tools/35.0.0/apksigner" <<'EOF'
 #!/bin/sh
 echo "apksigner $*" >>"$STUB_LOG"
@@ -43,8 +44,13 @@ else
   echo Verifies
   echo "Verified using v3 scheme (APK Signature Scheme v3): ${STUB_V3:-true}"
   echo "Number of signers: ${STUB_SIGNERS:-1}"
-  echo "Signer #1 certificate DN: ${STUB_DN:-CN=Release}"
-  echo "Signer #1 certificate SHA-256 digest: 00ff"
+  if [ "${STUB_VERIFY_FORMAT:-legacy}" = v37 ]; then
+    echo "V3.0 Signer: certificate DN: ${STUB_DN:-CN=Release}"
+    [ "${STUB_DIGEST:-ok}" = none ] || echo "V3.0 Signer: certificate SHA-256 digest: 00ff"
+  else
+    echo "Signer #1 certificate DN: ${STUB_DN:-CN=Release}"
+    [ "${STUB_DIGEST:-ok}" = none ] || echo "Signer #1 certificate SHA-256 digest: 00ff"
+  fi
 fi
 EOF
 # 偽の aapt2：dump badging の 1 行目を STUB_BADGING で変えられる
@@ -120,6 +126,10 @@ run_case "署名の失敗" error "apksigner sign failed" STUB_SIGN=bad
 run_case "v2・v3 のどちらでも署名されていない" error "Signature Scheme v2 or v3" STUB_V3=false
 run_case "署名者が複数" error "exactly one signer" STUB_SIGNERS=2
 run_case "debug 署名は配布しない" error "debug certificate" "STUB_DN=CN=Android Debug, O=Android, C=US"
+run_case "build-tools 37 の書式で署名して検証する" ok "" STUB_VERIFY_FORMAT=v37
+run_case "build-tools 37 の書式でも debug 署名は配布しない" error "debug certificate" STUB_VERIFY_FORMAT=v37 "STUB_DN=CN=Android Debug, O=Android, C=US"
+run_case "証明書の SHA-256 の行が無い（旧書式）" error "no signer certificate SHA-256 digest line" STUB_DIGEST=none
+run_case "証明書の SHA-256 の行が無い（build-tools 37 の書式）" error "no signer certificate SHA-256 digest line" STUB_VERIFY_FORMAT=v37 STUB_DIGEST=none
 run_case "versionCode が違う" error "versionCode or versionName" VERSION_CODE=1003
 run_case "versionName が違う" error "versionCode or versionName" VERSION_NAME=0.1.3
 run_case "パッケージが違う" error "versionCode or versionName" "STUB_BADGING=package: name='com.example.other' versionCode='1002' versionName='0.1.2'"

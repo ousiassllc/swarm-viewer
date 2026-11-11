@@ -76,7 +76,10 @@ if grep -qiE 'certificate DN:.*Android Debug' <<<"$verify_out"; then
   fail "the APK is signed with a debug certificate: never publish it"
 fi
 # 証明書の SHA-256 は公開情報。docs/environment/setup.md §11.3 に記録した値と、リリースのたびに照合する
-grep -E '^Signer #1 certificate SHA-256 digest:' <<<"$verify_out"
+# apksigner の書式は build-tools で違う：36 まで "Signer #1 certificate SHA-256 digest:"、37 以降 "V3.0 Signer: certificate SHA-256 digest:"
+# 一致する行が無いとき、grep の終了コードで黙って落ちずに、fail で理由を出す
+grep -E '^(Signer #1 |V[0-9.]+ Signer: )certificate SHA-256 digest:' <<<"$verify_out" ||
+  fail "apksigner verify printed no signer certificate SHA-256 digest line (expected 'Signer #1 certificate SHA-256 digest:' or 'V3.0 Signer: certificate SHA-256 digest:')"
 
 badging="$("$build_tools/aapt2" dump badging "$signed")"
 head -n 1 <<<"$badging" | grep -qF "package: name='com.ousiassllc.swarmviewer' versionCode='${VERSION_CODE}' versionName='${VERSION_NAME}'" ||

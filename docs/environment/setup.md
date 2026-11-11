@@ -442,7 +442,7 @@ Android 版も、デスクトップ版と同じ release.yml（§5.5）のタグ�
 Release の APK の確認（検証手順と実機確認。手動確認項目）:
 
 1. ダウンロードしたファイルと `SHA256SUMS` を同じディレクトリに置き、`sha256sum -c SHA256SUMS`（APK を含む。ほかの OS の成果物を落としていなければ `--ignore-missing`）が一致する
-2. `apksigner verify --verbose --print-certs swarm-viewer_vX.Y.Z_android_universal.apk` が `Verifies` で、`Number of signers: 1`。`Signer #1 certificate SHA-256 digest` が、記録した値（§11.3）と一致し、`CN=Android Debug` でない（`apksigner` は `$ANDROID_HOME/build-tools/<版>/` にある）
+2. `apksigner verify --verbose --print-certs swarm-viewer_vX.Y.Z_android_universal.apk` が `Verifies` で、`Number of signers: 1`。証明書の SHA-256（build-tools 36 までは `Signer #1 certificate SHA-256 digest`、37 以降は `V3.0 Signer: certificate SHA-256 digest`）が、記録した値（§11.3）と一致し、`CN=Android Debug` でない（`apksigner` は `$ANDROID_HOME/build-tools/<版>/` にある）
 3. Galaxy Fold7 に APK をインストールする（初回は「提供元不明のアプリ」の許可が要る）
 4. 前の版が入った状態で、新しい APK を上書きインストールでき、接続・設定が残っている（同じ署名鍵）
 5. `swarm-viewer://` のリンクでアプリが開く。そのほか[アーキテクチャ設計 §11](../architecture/overview.md) #8〜#15
@@ -473,3 +473,4 @@ Release の APK の確認（検証手順と実機確認。手動確認項目）:
 | 1.9 | 2026-11-05 | §3.2 の `task generate` と `static/dist/js/` の配置対象に `modal.js` を追加 | linterly の行数上限（300 行）への対処 |
 | 1.10 | 2026-11-05 | §3.2 に JS の挙動テスト（`bun test static/src/js`・`happy-dom`）を追加し、§5.2 の `test`・§9 の `pre-push` に載せた。§6.2 の Biome の対象を `static/src/js/*.js`・`static/src/css/*.css` に修正 | 独立レビューの指摘（JS・CSS の文字列を grep するだけのテストの置き換え） |
 | 1.11 | 2026-11-10 | 新しい版の確認と自動アップデート（Issue #109）。§5.2 の `test` に `set-version_test.sh`、§5.4・§11.4 の実機確認に更新の手順（未確認）、§5.5 の「版の埋め込み」に `internal/buildinfo` の書き換え、§5.6「新しい版の確認と自動アップデート」（依存するアセット名・対応 OS・手元での確かめ方・`devupdate` タグの限界）、§11.1 に `-PupdateLatestUrl` と偽のリリースサーバーでの確認 | Issue #109（新しい版の確認と自動アップデート） |
+| 1.12 | 2026-11-11 | §11.4 の APK の確認手順に、build-tools 37 の `apksigner` の証明書の行の書式（`V3.0 Signer: certificate SHA-256 digest`）を追記 | Issue #112（新しい apksigner の出力で署名スクリプトが失敗する） |
