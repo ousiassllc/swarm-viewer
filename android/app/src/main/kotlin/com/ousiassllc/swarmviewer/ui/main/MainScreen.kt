@@ -137,7 +137,7 @@ private fun ConnectionTitle(
 ) {
     val selected = connections?.firstOrNull { it.selected }
     if (connections == null || selected == null || connections.size < 2) {
-        Text(selected?.name ?: "swarm-viewer", maxLines = 1)
+        Text(selected?.name ?: "Nefos Monitor", maxLines = 1)
         return
     }
     var open by remember { mutableStateOf(false) }

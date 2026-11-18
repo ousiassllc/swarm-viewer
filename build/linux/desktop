@@ -1,6 +1,6 @@
 [Desktop Entry]
 Version=1.0
-Name=swarm-viewer
+Name=Nefos Monitor
 Comment=swarm-console の read-only ビューア
 # The Exec line includes %u to pass the URL to the application
 Exec=/usr/local/bin/swarm-viewer %u

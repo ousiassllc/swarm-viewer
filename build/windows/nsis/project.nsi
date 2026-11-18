@@ -33,6 +33,8 @@ Unicode true
 ####
 ## Include the wails tools
 ####
+# 表示名を変えても旧版と同じインストール先・アンインストールのキーを使い、更新のインストーラが旧版を上書きできるようにする。
+!define UNINST_KEY_NAME "ousiassllcswarm-viewer"
 !include "wails_tools.nsh"
 
 # The version information for this two must consist of 4 parts
@@ -74,9 +76,9 @@ ManifestDPIAware true
 Name "${INFO_PRODUCTNAME}"
 OutFile "..\..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the installer's file.
 !if "${WAILS_INSTALL_SCOPE}" == "user"
-    InstallDir "$LOCALAPPDATA\Programs\${INFO_PRODUCTNAME}"
+    InstallDir "$LOCALAPPDATA\Programs\${INFO_PROJECTNAME}"
 !else
-    InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}"
+    InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PROJECTNAME}"
 !endif
 ShowInstDetails show # This will always show the installation details.
 
@@ -92,6 +94,10 @@ Section
     SetOutPath $INSTDIR
     
     !insertmacro wails.files
+
+    # 旧名（swarm-viewer）のショートカットが残らないよう、表示名を変えた版のインストールで先に消す。
+    Delete "$SMPROGRAMS\${INFO_PROJECTNAME}.lnk"
+    Delete "$DESKTOP\${INFO_PROJECTNAME}.lnk"
 
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
     CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"

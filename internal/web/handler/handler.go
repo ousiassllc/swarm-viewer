@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	appTitle      = "swarm-viewer"
+	appTitle      = "Nefos Monitor"
 	htmxRequest   = "HX-Request"
 	htmxRedirect  = "HX-Redirect"
 	htmlMediaType = "text/html; charset=utf-8"

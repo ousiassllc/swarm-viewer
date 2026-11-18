@@ -5,7 +5,7 @@ version: '3'
 
 info:
   companyName: "ousiassllc"
-  productName: "swarm-viewer"
+  productName: "Nefos Monitor"
   productIdentifier: "com.ousiassllc.swarm-viewer"
   description: "swarm-console の read-only ビューア"
   copyright: "(c) 2026, ousiassllc"
@@ -17,7 +17,7 @@ info:
 # `wails3 dev` ではスキームが OS に登録されないため、ディープリンクは配布物で確認する。
 protocols:
   - scheme: swarm-viewer
-    description: swarm-viewer pairing
+    description: Nefos Monitor pairing
 
 # 開発モード: Templ・Tailwind・htmx の生成物は `task generate` が作る。
 # Go と Templ の変更を監視して再ビルドする。

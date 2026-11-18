@@ -1,6 +1,6 @@
 # サードパーティの通知
 
-swarm-viewer が同梱する第三者の成果物と、そのライセンス。
+Nefos Monitor が同梱する第三者の成果物と、そのライセンス。
 
 ## Nerd Fonts「Symbols Only」（Symbols Nerd Font Mono）
 

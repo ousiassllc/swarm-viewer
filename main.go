@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	appName = "swarm-viewer"
+	appName = "Nefos Monitor"
 	// appID は単一インスタンスの識別子。build/config.yml の productIdentifier と同じにする。
 	appID          = "com.ousiassllc.swarm-viewer"
 	appDescription = "swarm-console の read-only ビューア"

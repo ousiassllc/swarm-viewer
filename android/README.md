@@ -1,6 +1,6 @@
-# swarm-viewer Android
+# Nefos Monitor Android
 
-swarm-viewer の Android 版（Kotlin + Jetpack Compose）。親 Issue は [#7](https://github.com/ousiassllc/swarm-viewer/issues/7)、操作モードは [#97](https://github.com/ousiassllc/swarm-viewer/issues/97)。接続の種類（`/report` = 見るだけ、`/ops` = 操作）は接続文字列の `url` の path で決まり、操作の接続だけがペインへの回答・送信・中断・起動・終了をできる（設計は [`docs/android/overview.md`](../docs/android/overview.md) §10）。
+Nefos Monitor の Android 版（Kotlin + Jetpack Compose。リポジトリ名・パッケージ名は swarm-viewer のまま）。親 Issue は [#7](https://github.com/ousiassllc/swarm-viewer/issues/7)、操作モードは [#97](https://github.com/ousiassllc/swarm-viewer/issues/97)。接続の種類（`/report` = 見るだけ、`/ops` = 操作）は接続文字列の `url` の path で決まり、操作の接続だけがペインへの回答・送信・中断・起動・終了をできる（設計は [`docs/android/overview.md`](../docs/android/overview.md) §10）。
 
 | 項目 | 内容 |
 |------|------|

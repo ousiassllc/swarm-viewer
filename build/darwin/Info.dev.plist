@@ -4,7 +4,7 @@
         <key>CFBundlePackageType</key>
             <string>APPL</string>
         <key>CFBundleName</key>
-            <string>swarm-viewer</string>
+            <string>Nefos Monitor</string>
         <key>CFBundleExecutable</key>
             <string>swarm-viewer</string>
         <key>CFBundleIdentifier</key>
