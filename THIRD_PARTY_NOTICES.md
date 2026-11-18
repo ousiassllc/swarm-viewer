@@ -36,3 +36,12 @@ Nefos Monitor が同梱する第三者の成果物と、そのライセンス。
 | 加工 | 線の太さ 1.5・丸い端のまま、色を `currentColor`（Android は使う側の tint。`ic_notification.xml` は OS が単色に置き換える通知の小アイコンなので白の線） |
 | 用途 | インラインアラートの種別アイコン、メニューの矢印、Android の通知の小アイコン |
 | ライセンス | MIT（Copyright (c) 2021 Luca Burgio） |
+
+## Nefos Monitor のロゴ・アイコン
+
+| 項目 | 内容 |
+|------|------|
+| 同梱物 | `static/src/img/lockup-light.svg`・`lockup-dark.svg`（画面上部・README のロゴ）、`build/appicon.png`・`build/windows/icon.ico`・`build/darwin/icons.icns`（デスクトップのアプリアイコン）、`android/app/src/main/res/drawable/ic_launcher_foreground.xml`（Android のランチャーアイコンの前景） |
+| 元 | Ousiass の Nefos ロゴ一式 v5c（monitor）。マークは手描きのベクター |
+| 加工 | アイコンのサイズ違い（ico・icns）は素材の PNG から作る。Android の前景は素材 SVG の輪と波のパスをそのまま移したもの（色・形は変えない） |
+| 文字 | ロゴの文字（円形の o を除く）は Sora Light（SIL Open Font License 1.1）をアウトライン化したもの。原文は [`static/src/fonts/LICENSE-OFL-sora.txt`](static/src/fonts/LICENSE-OFL-sora.txt) |

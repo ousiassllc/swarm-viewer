@@ -1,5 +1,12 @@
 # Nefos Monitor
 
+<p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="static/src/img/lockup-dark.svg">
+    <img src="static/src/img/lockup-light.svg" alt="Nefos Monitor" width="357" height="100">
+  </picture>
+</p>
+
 Nefos Monitor は、デスクトップ（Wails v3 / Go）から、[swarm-console](https://github.com/ousiassllc/swarm-console) が管理する tmux セッションの状態と、Claude Code・Codex の利用上限を一目で確認できるアプリです。既定は見るだけで、接続を「操作」として登録したときだけ、ペインの中身を見る・質問に答える・指示を送る・中断する・新しいセッションを始める・終了することもできます。Android 版は `android/` にあります。
 
 アプリの表示名は「Nefos Monitor」です。リポジトリ名・ファイル名・配布物の名前・パッケージ名・URL スキーム（`swarm-viewer`）は変わりません。

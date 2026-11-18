@@ -73,7 +73,7 @@ push 前は `./gradlew lint ktlintCheck test` がクリーンに通ることを�
 ## 依存の版について
 
 - `compileSdk` は 35 に固定している（親 Issue #7 の確定事項）。このため、`minCompileSdk` が 36 以上の版（Compose BOM 2025.08.00 以降・`activity-compose` 1.11 以降・`core-ktx` 1.17 以降・OkHttp 5.4 以降）は使えない。詳細は `gradle/libs.versions.toml` の先頭コメントを参照。
-- 「新しい版がある」系の lint（`GradleDependency`・`NewerVersionAvailable`・`OldTargetApi`）は、新しいコミットなしに CI が失敗するのを避けるため無効にしている。
+- 「新しい版がある」系の lint（`GradleDependency`・`NewerVersionAvailable`・`OldTargetApi`・`AndroidGradlePluginVersion`）は、新しいコミットなしに CI が失敗するのを避けるため無効にしている。
 
 ## マニフェストの方針
 
