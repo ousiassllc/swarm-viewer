@@ -11,7 +11,7 @@
     !define INFO_COMPANYNAME "ousiassllc"
 !endif
 !ifndef INFO_PRODUCTNAME
-    !define INFO_PRODUCTNAME "swarm-viewer"
+    !define INFO_PRODUCTNAME "Nefos Monitor"
 !endif
 !ifndef INFO_PRODUCTVERSION
     !define INFO_PRODUCTVERSION "0.1.0"
@@ -253,7 +253,7 @@ RequestExecutionLevel "${REQUEST_EXECUTION_LEVEL}"
 !macro wails.associateCustomProtocols
     ; Create custom protocols associations
     
-      !insertmacro CUSTOM_PROTOCOL_ASSOCIATE "swarm-viewer" "swarm-viewer pairing" "$INSTDIR\${PRODUCT_EXECUTABLE},0" "$INSTDIR\${PRODUCT_EXECUTABLE} $\"%1$\""
+      !insertmacro CUSTOM_PROTOCOL_ASSOCIATE "swarm-viewer" "Nefos Monitor pairing" "$INSTDIR\${PRODUCT_EXECUTABLE},0" "$INSTDIR\${PRODUCT_EXECUTABLE} $\"%1$\""
     
 !macroend
 

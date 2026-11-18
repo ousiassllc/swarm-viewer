@@ -56,7 +56,7 @@ func TestBuild_SanitizesAndTruncatesHostSuppliedText(t *testing.T) {
 }
 
 func TestBuild_EmptyNameFallsBack(t *testing.T) {
-	if m := Build("N5", service.Notification{State: domain.StateAsking}); m.Title != "swarm-viewer" {
+	if m := Build("N5", service.Notification{State: domain.StateAsking}); m.Title != "Nefos Monitor" {
 		t.Fatalf("title = %q", m.Title)
 	}
 }

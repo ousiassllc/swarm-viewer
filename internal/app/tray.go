@@ -10,7 +10,7 @@ import (
 const (
 	trayLabelOpen = "開く"
 	trayLabelQuit = "終了"
-	trayTooltip   = "swarm-viewer"
+	trayTooltip   = "Nefos Monitor"
 )
 
 // newTray はシステムトレイ（macOS はメニューバー）を作る。メニューは「開く」「終了」のみ。

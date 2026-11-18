@@ -33,7 +33,7 @@ func newWindow(app *application.App, log *slog.Logger) *Window {
 	w := &Window{log: log}
 	w.win = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:      "main",
-		Title:     "swarm-viewer",
+		Title:     "Nefos Monitor",
 		Width:     1100,
 		Height:    760,
 		MinWidth:  640,

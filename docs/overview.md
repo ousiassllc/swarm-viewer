@@ -2,7 +2,7 @@
 
 ## 目的
 
-デスクトップ・スマートフォンから、swarm-console が管理する tmux セッションの状態と、Claude Code・Codex の利用上限を **一目で** 確認できるアプリ（swarm-viewer）を提供する。既定は見るだけで、接続を「操作」（`/ops`）として登録したときだけ、ペインの中身を見る・質問に答える・指示を送る・中断する・新しいセッションを始める・終了することもできる（操作モード。Issue #97）。デスクトップ（Windows / macOS）に加え、Android 版（Kotlin + Jetpack Compose。まず Galaxy Fold7）を同じリポジトリで提供する。
+デスクトップ・スマートフォンから、swarm-console が管理する tmux セッションの状態と、Claude Code・Codex の利用上限を **一目で** 確認できるアプリ（Nefos Monitor。リポジトリ名・パッケージ名・URL スキームは swarm-viewer のまま。Issue #114）を提供する。既定は見るだけで、接続を「操作」（`/ops`）として登録したときだけ、ペインの中身を見る・質問に答える・指示を送る・中断する・新しいセッションを始める・終了することもできる（操作モード。Issue #97）。デスクトップ（Windows / macOS）に加え、Android 版（Kotlin + Jetpack Compose。まず Galaxy Fold7）を同じリポジトリで提供する。
 
 - tmux セッションごと・ペインごとに「どのエージェントが、いま何をしているか」を見る
 - Claude Code（`claude`）と Codex（`codex`）の 5 時間枠・7 日枠の使用率とリセット時刻を見る
@@ -66,8 +66,8 @@
 
 ```mermaid
 graph TD
-    User[ユーザー] --> Viewer[swarm-viewer デスクトップ版<br/>Wails: Go + Web フロント]
-    User --> Android[swarm-viewer Android 版<br/>Kotlin + Compose]
+    User[ユーザー] --> Viewer[Nefos Monitor デスクトップ版<br/>Wails: Go + Web フロント]
+    User --> Android[Nefos Monitor Android 版<br/>Kotlin + Compose]
     Viewer -->|OS 秘密領域| Secret[Keychain / Credential Manager]
     Android -->|Android Keystore| KS[保護された token]
     Android -->|MCP tools/call<br/>POST /report か /ops<br/>Bearer: report / ops トークン| Console

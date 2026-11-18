@@ -38,7 +38,7 @@ type Message struct {
 func Build(id string, n service.Notification) Message {
 	title := clean(n.ConnectionName, maxTitleRunes)
 	if title == "" {
-		title = "swarm-viewer"
+		title = "Nefos Monitor"
 	}
 	line := strings.Join(nonEmpty(
 		clean(n.Session, maxLineRunes),
