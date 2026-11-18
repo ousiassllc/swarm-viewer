@@ -30,6 +30,8 @@ const (
 	StaticResponseTarget = "/static/js/response-targets.min.js"
 	StaticAppJS          = "/static/js/app.js"
 	StaticModalJS        = "/static/js/modal.js"
+	StaticLockupLight    = "/static/img/lockup-light.svg"
+	StaticLockupDark     = "/static/img/lockup-dark.svg"
 )
 
 // Connection は `/connections/{cid}`。

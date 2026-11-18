@@ -38,6 +38,9 @@ tasks:
             ["node_modules/htmx-ext-response-targets/dist/response-targets.min.js", "static/dist/js/response-targets.min.js"],
             ["static/src/js/app.js", "static/dist/js/app.js"],
             ["static/src/js/modal.js", "static/dist/js/modal.js"],
+            // ロゴ（Nefos Monitor v5c のロックアップ。ライト・ダーク）。layout の logo が /static/img/ で参照する。
+            ["static/src/img/lockup-light.svg", "static/dist/img/lockup-light.svg"],
+            ["static/src/img/lockup-dark.svg", "static/dist/img/lockup-dark.svg"],
             // Nerd Font の Symbols Only（PUA のアイコン）。app.css の @font-face が ../fonts/ で参照する。
             ["static/src/fonts/SymbolsNerdFontMono-Regular.woff2", "static/dist/fonts/SymbolsNerdFontMono-Regular.woff2"],
             // Ousiass デザインガイドの書体（Sora・Noto Sans JP の JIS X 0208 サブセット・JetBrains Mono。いずれも SIL OFL）。

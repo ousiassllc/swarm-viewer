@@ -21,6 +21,8 @@ func TestFS_EmbedsRequiredAssets(t *testing.T) {
 		"js/response-targets.min.js",
 		"js/app.js",
 		"js/modal.js",
+		"img/lockup-light.svg",
+		"img/lockup-dark.svg",
 	} {
 		data, err := fs.ReadFile(assets, name)
 		if err != nil {

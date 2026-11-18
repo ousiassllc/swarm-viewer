@@ -7,7 +7,12 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["static/src/**", "!static/dist", "!node_modules"]
+    "includes": [
+      "static/src/**",
+      "!static/src/img",
+      "!static/dist",
+      "!node_modules"
+    ]
   },
   "formatter": {
     "enabled": true,

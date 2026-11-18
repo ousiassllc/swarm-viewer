@@ -34,6 +34,7 @@ func TestBase_HeadAndBody(t *testing.T) {
 		`<meta name="csrf-token" content="csrf-test-token">`,
 		`href="/static/css/app.css"`,
 		`src="/static/js/htmx.min.js"`, `src="/static/js/response-targets.min.js"`, `src="/static/js/app.js"`, `src="/static/js/modal.js"`,
+		`srcset="/static/img/lockup-dark.svg"`, `src="/static/img/lockup-light.svg"`, `alt="Nefos Monitor"`, // ロゴ（ダークは picture の source で切り替える）
 		`hx-ext="response-targets, leave-fade"`, `<main id="main"`, `id="child"`, `id="toasts"`,
 		"p-4 medium:p-6 expanded:p-8", // ガターは幅の区分で Compact 16・Medium 24・Expanded 32（NFR-DSG-10。Android の区分と同じ境目）
 		`<dialog id="confirm-dialog"`, "data-modal", "rounded-xl", "[box-shadow:var(--shadow-modal)]", `data-modal-result="cancel"`, `data-modal-result="confirm"`, "border-danger/45",

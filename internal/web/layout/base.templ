@@ -41,7 +41,7 @@ func csrfHeaders(token string) string {
 //   - <body>: hx-headers で全リクエストに X-CSRF-Token を付け、response-targets 拡張と、退出のフェードを待つ leave-fade 拡張（app.js。response-targets の後に動く順で並べる）を有効にする
 //   - スクリプトは htmx.min.js・response-targets.min.js・app.js・modal.js の外部ファイルだけ（インラインスクリプト・hx-on を使わない）
 //
-// 子要素は <main id="main"> に入る。四辺のガターは幅の区分で Compact 16・Medium（600px〜）24・Expanded（840px〜）32（NFR-DSG-10。Android と同じ境目）。
+// 子要素は <main id="main"> に入る。<main> の上に Nefos Monitor のロゴ（ロックアップ）を置く。背景はテーマの色（--bone）と同じ画像で、ダークは picture の prefers-color-scheme で専用の画像に切り替える（JS なし。CSP の img は default-src 'self'）。ロゴは #main の外なので、画面の差し替えでは消えない。四辺のガターは幅の区分で Compact 16・Medium（600px〜）24・Expanded（840px〜）32（NFR-DSG-10。Android と同じ境目）。
 templ Base(p BaseProps) {
 	<!DOCTYPE html>
 	<html lang="ja" class="bg-bone">
@@ -64,9 +64,15 @@ templ Base(p BaseProps) {
 		>
 			<div id={ atoms.ToastContainerID } class={ atoms.ToastContainerClass } aria-live="polite"></div>
 			@atoms.ConfirmDialog()
-			<main id={ MainID } class="mx-auto flex max-w-6xl flex-col gap-4 p-4 medium:p-6 expanded:p-8">
-				{ children... }
-			</main>
+			<div class="mx-auto flex max-w-6xl flex-col gap-4 p-4 medium:p-6 expanded:p-8">
+				<picture>
+					<source media="(prefers-color-scheme: dark)" srcset={ paths.StaticLockupDark }/>
+					<img src={ paths.StaticLockupLight } alt="Nefos Monitor" width="171" height="48" class="h-12 w-auto self-start"/>
+				</picture>
+				<main id={ MainID } class="flex flex-col gap-4">
+					{ children... }
+				</main>
+			</div>
 		</body>
 	</html>
 }
