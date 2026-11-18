@@ -51,9 +51,9 @@ android {
     lint {
         warningsAsErrors = true
         abortOnError = true
-        // 次の 3 件は「新しい版がある」という指摘で、時間が経つと新しいコミットなしに CI が失敗するため無効にする。
+        // 次の 4 件は「新しい版がある」という指摘で、時間が経つと新しいコミットなしに CI が失敗するため無効にする。
         // compileSdk / targetSdk は親 Issue #7 の確定事項（35）、依存の上限は gradle/libs.versions.toml の先頭コメントを参照。
-        disable += setOf("OldTargetApi", "GradleDependency", "NewerVersionAvailable")
+        disable += setOf("OldTargetApi", "GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
     }
 }
 
