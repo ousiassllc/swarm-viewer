@@ -115,3 +115,30 @@ func TestFetchErrorText(t *testing.T) {
 		t.Error("ErrKind の並びが仕様と違う")
 	}
 }
+
+func TestFetchError_NeedsRepair(t *testing.T) {
+	t.Parallel()
+	for kind, want := range map[ErrKind]bool{
+		ErrUnauthorized: true, ErrForbiddenScope: true,
+		ErrUnreachable: false, ErrProtocol: false, ErrSessionForbidden: false, ErrOperation: false,
+	} {
+		if got := (&FetchError{Kind: kind}).NeedsRepair(); got != want {
+			t.Errorf("%v: NeedsRepair = %v, want %v", kind, got, want)
+		}
+	}
+	var nilErr *FetchError
+	if nilErr.NeedsRepair() {
+		t.Error("nil は false")
+	}
+}
+
+func TestAsFetchError(t *testing.T) {
+	t.Parallel()
+	fe := &FetchError{Kind: ErrUnauthorized}
+	if got, ok := AsFetchError(fmt.Errorf("wrap: %w", fe)); !ok || got != fe {
+		t.Errorf("AsFetchError(wrapped) = %v, %v", got, ok)
+	}
+	if got, ok := AsFetchError(errors.New("other")); ok || got != nil {
+		t.Errorf("AsFetchError(other) = %v, %v", got, ok)
+	}
+}

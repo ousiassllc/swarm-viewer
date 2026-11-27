@@ -36,16 +36,6 @@ func TestFetchErrorMessage_AllKindsAreFixedText(t *testing.T) {
 	}
 }
 
-func TestNeedsRepair(t *testing.T) {
-	t.Parallel()
-	if !format.NeedsRepair(&domain.FetchError{Kind: domain.ErrUnauthorized}) || !format.NeedsRepair(&domain.FetchError{Kind: domain.ErrForbiddenScope}) {
-		t.Error("401・403 は再ペアリングが必要")
-	}
-	if format.NeedsRepair(nil) || format.NeedsRepair(&domain.FetchError{Kind: domain.ErrUnreachable}) {
-		t.Error("それ以外は不要")
-	}
-}
-
 func TestPairingErrorMessage(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

@@ -227,11 +227,6 @@ func FetchErrorMessage(e *domain.FetchError) string {
 	}
 }
 
-// NeedsRepair は再ペアリングが必要な失敗（401・403）かを返す。ポーリングを止める判断に使う（API 仕様 §4.4）。
-func NeedsRepair(e *domain.FetchError) bool {
-	return e != nil && (e.Kind == domain.ErrUnauthorized || e.Kind == domain.ErrForbiddenScope)
-}
-
 // PairingErrorMessage は接続文字列の検証失敗の固定文言を返す（API 仕様 §2.2）。
 // 入力値（token を含みうる）はエラーにも画面にも含めない。nil は空文字、想定外のエラーは形式不正と同じ文言。
 func PairingErrorMessage(err error) string {

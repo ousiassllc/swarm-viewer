@@ -87,7 +87,7 @@ func (s *SnapshotService) fetch(ctx context.Context, connID, session string) Sna
 	r, err := s.report.Report(ctx, conn, session)
 	if err != nil {
 		fe := classify(err)
-		if needsRepair(fe) {
+		if fe.NeedsRepair() {
 			s.conns.MarkNeedsRepair(connID)
 		}
 		s.log.Warn("report failed", fetchLogAttrs(conn, session, fe)...)

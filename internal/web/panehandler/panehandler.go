@@ -130,12 +130,3 @@ func findPane(panes []domain.Pane, pos string) (domain.Pane, bool) {
 	}
 	return domain.Pane{}, false
 }
-
-// fetchError は err が取得失敗（*domain.FetchError）ならそれを返す。
-func fetchError(err error) (*domain.FetchError, bool) {
-	var fe *domain.FetchError
-	if errors.As(err, &fe) {
-		return fe, true
-	}
-	return nil, false
-}

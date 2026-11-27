@@ -44,7 +44,7 @@ type SnapshotViewProps struct {
 
 // polling はポーリング属性を出すか。needs_repair、または再ペアリングが必要な失敗（401・403）のときは止める。
 func polling(p SnapshotViewProps) bool {
-	return !p.Repair && !format.NeedsRepair(p.Err)
+	return !p.Repair && !p.Err.NeedsRepair()
 }
 
 func pollSeconds(p SnapshotViewProps) int {

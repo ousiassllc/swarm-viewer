@@ -74,7 +74,7 @@ func noticeOf(err error) string {
 }
 
 func isExitTimeout(err error) bool {
-	fe, ok := fetchError(err)
+	fe, ok := domain.AsFetchError(err)
 	return ok && fe.Kind == domain.ErrOperation && fe.Code == "exit_timeout"
 }
 

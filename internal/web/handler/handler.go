@@ -7,7 +7,6 @@ package handler
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -15,7 +14,6 @@ import (
 	"github.com/a-h/templ"
 	"github.com/gin-gonic/gin"
 
-	"github.com/ousiassllc/swarm-viewer/internal/domain"
 	"github.com/ousiassllc/swarm-viewer/internal/service"
 	"github.com/ousiassllc/swarm-viewer/internal/service/paneservice"
 	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
@@ -154,13 +152,4 @@ func inLayout(shell layout.BaseProps, child templ.Component) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
 		return layout.Base(shell).Render(templ.WithChildren(ctx, child), w)
 	})
-}
-
-// fetchError は err が取得失敗（*domain.FetchError）ならそれを返す。
-func fetchError(err error) (*domain.FetchError, bool) {
-	var fe *domain.FetchError
-	if errors.As(err, &fe) {
-		return fe, true
-	}
-	return nil, false
 }

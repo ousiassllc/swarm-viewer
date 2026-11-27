@@ -7,6 +7,7 @@ import (
 	"github.com/a-h/templ"
 	"github.com/gin-gonic/gin"
 
+	"github.com/ousiassllc/swarm-viewer/internal/domain"
 	"github.com/ousiassllc/swarm-viewer/internal/service"
 	"github.com/ousiassllc/swarm-viewer/internal/web/format"
 	"github.com/ousiassllc/swarm-viewer/internal/web/layout"
@@ -140,7 +141,7 @@ func (h *Handler) draftConfirm(c *gin.Context) {
 		return
 	}
 	msg := "接続を保存できませんでした。もう一度お試しください"
-	if fe, ok := fetchError(err); ok {
+	if fe, ok := domain.AsFetchError(err); ok {
 		msg = format.FetchErrorMessage(fe)
 	} else {
 		h.log.Error("confirming pairing failed", "err", err)
