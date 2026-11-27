@@ -88,7 +88,8 @@ class StartSessionViewModel(
                     mutableState.update { it.copy(viewOnly = true) }
                     return@launch
                 }
-                val recent = mutableState.attempt { snapshots.cached(target.connectionId, target.session) }?.report?.panes.orEmpty()
+                val cached = mutableState.attempt { snapshots.cached(target.connectionId, target.session) }
+                val recent = cached?.report?.panes.orEmpty()
                 mutableState.update { it.copy(recent = recentFolders(recent)) }
                 history.clear()
                 load(null)
