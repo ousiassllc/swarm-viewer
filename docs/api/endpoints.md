@@ -317,7 +317,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | POST | `/pairing/drafts/{did}/confirm` | アクション | `HX-Redirect: /connections/{cid}`（`HX-Request` なしならメイン画面を描画）/ 200 エラーフラグメント | `sessions_list` で疎通確認（FR-PAIR-2）。成功したら秘密領域に token、SQLite に接続を保存し、下書きを削除する（§4.3）。失敗は保存せず、下書きは残す（再試行可。期限は §4.3） |
 | POST | `/pairing/drafts/{did}/discard` | アクション | `HX-Redirect: /pairing` または `/`（`HX-Request` なしならその画面を描画） | 下書きを即時削除する |
 | GET | `/connections` | ページ | フルページ / フラグメント | 保存済み接続の一覧。表示名・URL の host のみ・「切替」・「削除」 |
-| DELETE | `/connections/{cid}` | アクション | フラグメント（一覧）+ 成功時のみトースト OOB（失敗は一覧の上にインラインアラート） | 接続を削除する（SQLite 行を先に削除し、秘密領域を削除。[ER §4](../architecture/er.md)） |
+| DELETE | `/connections/{cid}` | アクション | フラグメント（一覧）+ 成功時のみトースト OOB（失敗は一覧の上にインラインアラート） | 接続を削除する（秘密領域を先に削除し、次に SQLite 行を削除。[ER §4](../architecture/er.md)） |
 | GET | `/connections/{cid}` | ページ | フルページ / フラグメント（200） | その接続の `last_session`（なければ先頭の許可セッション）のメイン画面をその場に描画する（リダイレクトしない）。初回描画の規則は下記「メイン画面の初回描画」。許可セッションが 0 件なら「許可されたセッションがありません」ページ |
 | GET | `/connections/{cid}/sessions/{sid}` | ページ | フルページ / フラグメント | メイン画面。接続切替・セッションタブ・スナップショット領域を含む。`last_session` を表示するセッションに更新する。ホストとは通信しない（下記「メイン画面の初回描画」）。`{sid}` が許可外と分かっている（直近のタブに無い）ときは先頭の許可セッションを描画する |
 | GET | `/connections/{cid}/sessions/{sid}/snapshot` | ページ（部分） | フラグメント | スナップショット領域（要対応バー・ペイングリッド・利用上限・ホスト負荷）。`report` を呼ぶ（同一 `(cid, sid)` は single-flight）。直近の `sessions_list` が無い・古い（30 秒超）ときは並行して引き直し、`#session-tabs` の OOB を返す。画面更新ポーリングと手動更新が叩く |
@@ -445,7 +445,7 @@ swarm-console への接続（§1。tailnet・Bearer）とは**完全に別の経
 - 許可するホストは `api.github.com`・`github.com`・`objects.githubusercontent.com`・`release-assets.githubusercontent.com`（完全一致・https のみ。ポート指定・userinfo は不可。Android は 443 のみ）。ダウンロードはリダイレクトで配信元のホストへ移ることがあり、リダイレクトも 1 回ごとに同じ検査を通す（最大 5 回）。許可外のホスト・http への転送は通信せずに失敗する
 - 名前解決後のアドレスがループバック・プライベート・リンクローカル・tailnet（`100.64.0.0/10`）のときは接続しない（デスクトップは接続の直前、Android は名前解決の結果から除く）
 - 環境のプロキシは使わず、Cookie は保存しない。通信は GET だけ
-- リポジトリが private の間は、認証なしの `releases/latest` が 404 になり、「新しい版なし」として扱われる（確認の失敗にならない。2026-11-10 に確認）。取得は認証なしのため、公開（public）されているときだけ動く（[アーキテクチャ設計 §11](../architecture/overview.md) #21）
+- リポジトリが private の間（非公開に戻した場合）は、認証なしの `releases/latest` が 404 になり、「新しい版なし」として扱われる（確認の失敗にならない）。取得は認証なしのため、公開（public）されているときだけ動く。2026-11-28 時点で `ousiassllc/swarm-viewer` は公開で、認証なしの `releases/latest` が最新リリースとアセットを返すことを確認した（[アーキテクチャ設計 §11](../architecture/overview.md) #21）
 - 未認証の GitHub API にはレート制限がある（確認は起動時と 6 時間ごと・1 回 1 リクエストのため、通常は届かない）。制限などで 200 以外が返ったときは確認の失敗として扱い、次の周期で再試行する
 - Release に載るアセット（release.yml が作る。[環境構築 §5.5](../environment/setup.md)）: `swarm-viewer_vX.Y.Z_windows_amd64_installer.exe`・`swarm-viewer_vX.Y.Z_darwin_universal.zip`・`swarm-viewer_vX.Y.Z_android_universal.apk`・`SHA256SUMS`（上の 3 ファイルのハッシュ）。同名のアセットが複数あるとき・無いときは更新しない
 
@@ -476,3 +476,4 @@ swarm-console への接続（§1。tailnet・Bearer）とは**完全に別の経
 | 2.1 | 2026-11-09 | 独立レビューの指摘とコード修正の反映。§1.1・§1.2 にツール別のタイムアウト（読み取り 10 秒、`ask_pick`・`send_text`・`send_escape` 30 秒、`pane_start`・`pane_close` 50 秒）、§4.2 のルート表を実装に合わせて訂正（`live?first=1`、`start/dirs?pick=1`、`POST P/start` の 2 段階、`lines`、`POST P/close` の `confirm=true`・状態の再検査）、§4.5 の `hx-sync`・`hx-preserve`・確認ダイアログ中の自動更新停止、§4.6 に確認と状態の再検査を追記 | Issue #97（独立レビュー ReviewDocs） |
 | 2.2 | 2026-11-09 | 新しいセッションの最初のタスク（Issue #103）。§1.1・§1.2 の許可リストを 11 個にして `skill_list`（仮称・swarm-console 側は未実装の要望）を追加、`pane_start` 成功後の `send_text` を追記、§1.5.1・§1.5.2 に `skill_list` の行、§4.2 に `GET P/start/skills?agent=` と `POST P/start` の `skill`・`task`・`resend=1`、§4.5・§4.6、§5 に `skill_list` の無い版の影響 | Issue #103（空きセッションへの最初のタスク） |
 | 2.3 | 2026-11-10 | 新しい版の確認と自動アップデート（Issue #109）。冒頭の表を 5 種類に（GitHub Releases の利用）、§4.2 に `GET /update/notice`・`POST /update/apply` と `PUT /settings` の `auto_update_check`、§5 に GitHub のアセット名・ホストの変更の影響、§6 に GitHub Releases の利用（呼ぶエンドポイント・許可ホスト・上限・接続先を変えられる場所） | Issue #109（新しい版の確認と自動アップデート） |
+| 2.4 | 2026-11-28 | §4.2 の `DELETE /connections/{cid}` の削除順序を ER §4 に合わせて訂正（秘密領域を先、SQLite 行を次）。§6.1 の「private の間は 404」を、公開済みの現状に合わせて更新 | Issue #125・#133（doc-drift）、#127・#132（doc-drift） |

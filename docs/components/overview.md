@@ -35,7 +35,7 @@ graph TD
         Tray[tray.go]
         Proto[protocol.go]
         NotifierImpl[notifier.go<br/>Notifier 実装]
-        Logging[logging.go]
+        Logging[applog]
     end
     subgraph web[web: 画面]
         Router[router]
@@ -630,7 +630,7 @@ func main() {
 | FR-ATT-1 | `organisms.AttentionBar` |
 | FR-POLL-1〜4 | `organisms.SnapshotView`（`hx-trigger`）、`SnapshotService`、`store.Snapshot` |
 | FR-NTF-1〜3 | `NotificationService`、`domain.Detect`、`store.ApplyNotified`、`app/notifier.go` |
-| FR-SET-1 | `SettingsService`・`SettingsInput.AutoUpdateCheck`、`handler/settings.go`、`organisms.SettingsForm`、`app/logging.go`（デバッグログ） |
+| FR-SET-1 | `SettingsService`・`SettingsInput.AutoUpdateCheck`、`handler/settings.go`、`organisms.SettingsForm`、`app/applog`（デバッグログ） |
 | FR-ERR-1 | `domain.Classify`、`organisms.SnapshotView` のバナー |
 | FR-OPS-1・2 | `domain.ConnectionKind`・`Connection.Kind()`、`organisms.ConnectionList`・`pages.MainPage`・`pages.PairingDraftContent`・`molecules.KindBadge` の種類のバッジと警告 |
 | FR-OPS-3 | `panehandler`（`P`・`P/live`）、`molecules.PaneTail`・`PaneHeader`、`panedetail.Live`、`PaneService.Tail` |
@@ -645,7 +645,7 @@ func main() {
 | NFR-SEC-12 | `modal.js` の確認、`PaneService.Escape(confirmed)`・`Close(confirmed)`、`panehandler` の `confirm=true` の検査 |
 | NFR-SEC-13 | `pages.PairingDraftContent` の警告（操作の接続のみ）、README の token 失効の案内 |
 | NFR-SEC-2・3 | `secret.Store`、token を持つ domain 型の限定（`PairingPayload`）、`report.Client` 内でのみ token 解決 |
-| NFR-LOG-1〜4 | `app/logging.go` |
+| NFR-LOG-1〜4 | `app/applog`（`logger.go`・`mask.go`） |
 | FR-UPD-1・2 | `updater.Service`（`Run`・`Check`）、`domain/update`（`Newer`・`ParseRelease`）、`release.Client.Latest`、`updatehandler`（`GET /update/notice`）、`organisms.UpdateNotice`、`pages.MainPage`、`buildinfo.Version` |
 | FR-UPD-3・4 | `updater.Service.ApplyAsync`（取得・検証）、`domain/update`（`AssetName`・`ParseSums`）、`release.Client.Download`、`installer.Installer`（Windows の `ShellExecute`・macOS の `.app` の差し替え）、`updatehandler`（`POST /update/apply`） |
 | FR-UPD-5 | `updater.FailKind`、`updatehandler` の固定文言、`organisms.UpdateNotice`（`atoms.Spinner{Static}`） |
@@ -681,3 +681,4 @@ func main() {
 | 3.2 | 2026-11-09 | molecules の `PaneHeader` は、メモの `repo` と `items` を全件・折り返しの全文で出す。`PaneCard` の `paneNote` は要約のまま（`paneNote` の `full` 引数） | Issue #106（Web のペイン詳細のメモが要約のまま） |
 | 3.3 | 2026-11-09 | 最初のタスク（Issue #103）。§3 の `domain/ops` に `SkillList`・`FirstTask`・`ParseSkillList`、§4.1 の `report.Client` に `SkillList`（`skill_list`。`opsTools` 11 個・`toolTimeoutScale` は 1 倍・`roundTripper` の `/ops` は 11 個）、§5.1 の `paneservice.Client` に `SkillList`、§5.8 の `PaneService` に `Skills`・`Start`（`pane_start` → `send_text`）・`Resend`、§6 に `P/start/skills`・`SkillPicker`・`StartTaskResult`・`StartFormProps` の `Skill`/`Task`、§10 のテスト、§11 の FR-OPS-11 を追加 | Issue #103（空きセッションへの最初のタスク） |
 | 3.4 | 2026-11-10 | 新しい版の確認と自動アップデート（Issue #109）。§1 に `golang.org/x/sys/windows`、§2 の構成図に `updater`・`release`・`installer`・`update`・`updatehandler`、§5.6 に `AutoUpdateCheck`、§5.9 `UpdaterService`（`Source`・`Installer`・`SettingsReader`・失敗の種類・`release.Client`・`installer.Installer`・`buildinfo`）、§6.1 の `updatehandler`、§6.3 の `Spinner` の `Static` と `UpdateNotice`・`MainPage`、§8・§9・§10・§11 を追記 | Issue #109（新しい版の確認と自動アップデート） |
+| 3.5 | 2026-11-28 | 構成図と §11 の `app/logging.go` を、実在する `app/applog`（`logger.go`・`mask.go`）に訂正 | Issue #128・#134（doc-drift） |

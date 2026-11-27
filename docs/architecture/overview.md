@@ -115,7 +115,8 @@ swarm-viewer/
 │   │   ├── idgen/               #   IDGenerator（ULID）の実装
 │   │   ├── navpath/             #   遷移先パスの検証
 │   │   ├── notice/              #   OS 通知の中身の組み立てとクリック時の遷移先
-│   │   └── swap/                #   差し替え可能な http.Handler（アセットハンドラ用）
+│   │   ├── swap/                #   差し替え可能な http.Handler（アセットハンドラ用）
+│   │   └── theme/               #   デスクトップのウィンドウが使う色の定数（`Bone`。`static/src/css/app.css` の `--bone` と同じ値。Wails 非依存。NFR-DSG-2）
 │   ├── router/                  # Gin ルーティング定義（画面ルート + Huma の登録）
 │   └── web/                     # Web 層
 │       ├── handler/             #   画面ハンドラ（機能ドメイン別）
@@ -130,13 +131,18 @@ swarm-viewer/
 │       │   └── start.go         #     新しいセッション（`P/start`・`P/start/dirs`・`P/start/skills`）
 │       ├── updatehandler/       #   新しい版の通知と更新の画面ハンドラ（別パッケージ。linterly の 1 ディレクトリ 2,000 行の上限のため）: `GET /update/notice`・`POST /update/apply`。service/updater と domain にだけ依存
 │       ├── middleware/          #   CSRF・NoStore・CSP・Recover・RequestLog
-│       ├── atoms/               #   badge / progress_bar / spinner / toast / button / input
+│       ├── format/              #   固定文言・表示ラベル・トーン・時刻の整形（presentation。domain は意味だけを持つ）
+│       ├── paths/               #   画面ルートと静的アセットのパスの組み立て（`router`・`handler`・templ・`app/deeplink`・`app/notice` が同じ文字列を共有する）
+│       ├── atoms/               #   alert / badge / checkbox / empty_state / form（Button・Input ほか）/ icon / modal（ConfirmDialog・ModalHeader）/ progress / spinner / toast。部品の一覧は[コンポーネント設計 §6.3](../components/overview.md)
 │       ├── molecules/           #   pane_card / usage_row / host_row / session_tab / attention_item / pane_tail / pane_header / kind_badge
 │       ├── organisms/           #   session_tabs / pane_grid / usage_panel / host_panel / attention_bar / connection_list / update_notice、`panedetail/`（ペイン詳細の本文: `Live`・`AskCard`・`SendForm`・`StartForm`・`StartConfirm`・`DirPicker`・`SkillPicker`・`StartTaskResult`）
 │       ├── pages/               #   main / connections / pairing / settings / pane（`PaneDetailPage`・`PaneStartPage`）
-│       └── layout/              #   base（head・htmx・CSP meta・CSRF meta）
+│       ├── layout/              #   base（head・htmx・CSP meta・CSRF meta）
+│       └── webtest/             #   コンポーネントテスト用の共通ヘルパー（テストコードからだけ使う）
 └── static/
-    ├── src/css/app.css          # Tailwind エントリ（@font-face を含む）
+    ├── src/css/app.css          # Tailwind エントリ（`fonts.css`・`motion.css` を import。linterly の 1 ファイル 300 行の上限のための分割）
+    ├── src/css/fonts.css        # `@font-face`
+    ├── src/css/motion.css       # モーションのトークン・アニメーション
     ├── src/fonts/               # Sora・Noto Sans JP・JetBrains Mono・Symbols Nerd Font Mono（woff2）と各ライセンス原文（OFL・MIT。コミットする）
     └── dist/                    # ビルド成果物（go:embed 対象）
         ├── js/htmx.min.js
@@ -160,7 +166,7 @@ handler → service → repository → domain
 - `repository/`: `domain/` のみに依存。MCP・SQLite・キーストア・GitHub Releases・OS のインストーラという外部とのやり取りを、それぞれ domain の型で返す。GitHub Releases の取得（`release/`）は swarm-console 用（`report/`）とは別のクライアントで、互いに import しない
 - `service/`: `domain/`・`repository/` に依存。ユースケースを実装する。OS 通知など Wails 依存の機能は **service 側に interface を定義**し、`app/` が実装する（service が Wails を import しない）。`service/updater` は、取得（`Source`）・適用（`Installer`）・設定（`SettingsReader`）を interface で受け取り、アプリの終了（`Quit`）も関数として受け取る
 - `web/handler/`・`web/panehandler/`・`web/updatehandler/`: `service/`（`paneservice`・`updater` を含む）・`domain/`（`domain/ops`・`domain/update` を含む）に依存。**`repository/` を直接使わない**（`.golangci.yml` の depguard の規則 `web-handler` が `internal/web/handler/`・`internal/web/panehandler/`・`internal/web/updatehandler/` の 3 つに掛かる）
-- `app/`: Wails 依存。`service/` を呼び、`service/` が要求する interface（通知・ウィンドウ遷移）を実装する。`web/` には依存しない
+- `app/`: Wails 依存。`service/` を呼び、`service/` が要求する interface（通知・ウィンドウ遷移）を実装する。`web/` には依存しない（例外は `web/paths`。標準ライブラリだけに依存する小さなパッケージで、`app/deeplink`・`app/notice` が画面ルートのパスを組み立てるために参照する）
 - `router/`: `handler/`・`panehandler/` を参照してルートを定義する（`updatehandler/` のルートは `handler.Register` が登録する）
 - `buildinfo/`: 何にも依存しない。`main.go` が `buildinfo.Version` を `compose` へ渡す
 
@@ -461,7 +467,7 @@ graph LR
 | 18 | 更新（Windows）の実機確認 | Release の NSIS インストーラ（`swarm-viewer_vX.Y.Z_windows_amd64_installer.exe`）で入れた古い版から、「更新する」で (a) インストーラ（`ShellExecute`）が起動して管理者権限の確認（UAC）が出ること、(b) アプリが終了してインストーラが旧版を上書きできること（実行中の exe がロックされないこと）、(c) インストール後に新しい版へ更新されていること、(d) SmartScreen の警告（unsigned。NFR-DST-2）の見え方、(e) UAC を拒否したときの挙動（`ShellExecute` が成功した時点で `Quit` するため、UAC を拒否してもアプリは閉じる可能性がある）。自動テストはインストーラの起動を偽物に差し替えており、**実機の確認は未実施**（Windows のランナー・実機がないため） |
 | 19 | 更新（macOS）の実機確認 | Release の zip から入れた古い `.app`（`/Applications` など）から、「更新する」で (a) 実行中の `.app` の差し替え（同じフォルダに作業用フォルダ `.swarm-viewer-update-*` を作れること。管理者権限を要するフォルダでは書き込めず `install` の失敗になる）、(b) 補助プロセスが終了を待って新しい `.app` を開き直すこと（単一インスタンスのロックに邪魔されないこと）、(c) Gatekeeper・App Translocation（隔離属性つきのまま `~/Downloads` から実行している `.app` は読み取り専用の別の場所から動くことがあり、差し替えできない場合がある）の影響、(d) 差し替え後の新しい `.app`（unsigned）が警告なしに開けること（新しいファイルのため Gatekeeper の警告が出る可能性がある）、(e) Intel・Apple Silicon の両方。自動テストはファイルシステムの差し替え・補助プロセスのスクリプトまでで、**実機の `.app` での確認は未実施**（macOS のランナー・実機がないため） |
 | 20 | 更新（Android）の実機確認 | Galaxy Fold7 で、署名済みの古い APK から、「更新する」で (a) 「このアプリからのインストール」の許可の設定画面が開き、許可して戻ったあと押し直せること、(b) システムのパッケージインストーラが APK を開き（FileProvider の読み取りの許可が通ること）、署名が同じため上書きインストールできること、(c) 署名が違う APK をアプリがインストーラへ渡さないこと、(d) 更新後にアプリが新しい版で起動すること。エミュレーター・偽のリリースサーバー（デバッグビルドの `-PupdateLatestUrl`）での動作確認は Android 版の作業で行っているが、**実際の GitHub Release に対する確認と実機（Galaxy Fold7）での確認は未実施**。release 署名証明書の指紋は `android/README.md` |
-| 21 | 更新の通信（GitHub Releases）の到達性 | 更新は GitHub に**認証なしで**アクセスする（token・認証ヘッダーを送らない。NFR-SEC-15）ため、`ousiassllc/swarm-viewer` が**公開（public）**のときだけ最新リリースとアセットを取得できる。2026-11-10 時点でリポジトリは private で、認証なしの `releases/latest` は 404（アプリは「新しい版なし」として扱い、通知も失敗表示も出さない）。公開後に、実際の GitHub Release に対して通知 → 更新ができること（`SHA256SUMS`・アセットの取得（リダイレクト先のホストが許可リストに含まれること）。#18〜#20）を確認する。自動テストは偽の取得元・`httptest` の範囲で、**実際の GitHub への通信は未確認** |
+| 21 | 更新の通信（GitHub Releases）の到達性 | 更新は GitHub に**認証なしで**アクセスする（token・認証ヘッダーを送らない。NFR-SEC-15）ため、`ousiassllc/swarm-viewer` が**公開（public）**のときだけ最新リリースとアセットを取得できる。リポジトリは公開済みで、2026-11-28 時点で認証なしの `releases/latest` が 200 で最新リリース（v0.1.19）とアセットを返すことを確認した（非公開に戻すと 404 になり、アプリは「新しい版なし」として扱い、通知も失敗表示も出さない）。残る確認は、実際の GitHub Release に対して通知 → 更新ができること（`SHA256SUMS`・アセットの取得（リダイレクト先のホストが許可リストに含まれること）。#18〜#20）。自動テストは偽の取得元・`httptest` の範囲で、**アプリから実際の GitHub への通信は未確認** |
 
 ## 12. Android 版の構成
 
@@ -473,12 +479,12 @@ Android 版は同じリポジトリの `android/` ディレクトリに置く（
 |------|------|----------------------|
 | 技術スタック | Kotlin + Jetpack Compose（Material 3） | ネイティブ志向に合い、WorkManager・通知・Keystore・折りたたみ対応（WindowSizeClass）を一次の API で扱える。不採用: Wails v3 の Android ビルド（公式が experimental としており、通知・バックグラウンド実行・Keystore を Go から使う手段も公式の対応表に記載がない。https://wails.io/status/ ）、Flutter、Compose UI + gomobile（.aar の型制約・ビルド時間・NDK 依存が増える割に共有対象が小さい） |
 | 最小 / 対象 Android | minSdk 29（Android 10）、targetSdk / compileSdk 35 | 利用者は本人・少人数で最新端末が前提。古い版の分岐を減らす |
-| 配布・署名 | GitHub Releases で署名済み APK（サイドロード）。Google Play は対象外 | private リポジトリ・少人数向けで、Play の審査・開発者登録が不要。debug 署名の APK は配布しない（[環境構築 §11](../environment/setup.md)） |
+| 配布・署名 | GitHub Releases で署名済み APK（サイドロード）。Google Play は対象外 | 少人数向けで、Play の審査・開発者登録が不要。debug 署名の APK は配布しない（[環境構築 §11](../environment/setup.md)） |
 | バックグラウンド通知 | WorkManager の周期ジョブ（最小 15 分。既定 15 分、15 / 30 / 60 分から選択） | OS の制約に沿い電池に優しい。不採用: フォアグラウンドサービスでの常駐ポーリング（常時通知・電池消費。使わないため Android 14 以降のサービス種別は調べない）、FCM（swarm-console 側の変更が要る。即時性が足りなければ別 Issue） |
 | ペアリング | 貼り付け + ディープリンク + QR 読み取り | スマホで長い接続文字列を受け渡す手間を減らし、token をチャット等に貼らずに済ませる。QR の中身は[API 仕様 §2.1](../api/endpoints.md) の接続文字列そのまま |
 | Go コードの共有 | しない。仕様とテストベクタ（JSON）を共有する | 共有対象（検証・解析・状態遷移の検知）が小さく、gomobile のコストに見合わない。挙動の一致はテストベクタで担保する（§12.4） |
 | リポジトリ構成 | 同じリポジトリの `android/` | 仕様書とテストベクタを 1 か所で保ち、仕様変更と両実装を 1 つの PR で揃えられる。CI はパス単位（`android/**`）で分ける |
-| CI / リリース | 既存の Linux セルフホステッドランナー | private リポジトリは GitHub ホストの分数に上限があり、Gradle ビルドは分数を消費する。署名鍵のシークレットを使うのは release.yml の署名ジョブ（`build-android`）の署名の step だけ |
+| CI / リリース | GitHub ホストランナー（`ubuntu-latest`） | リポジトリは public で、標準の GitHub ホストランナーの実行時間は課金されない。JDK 17 は `actions/setup-java`、Android SDK は無ければダウンロードする。署名鍵のシークレットを使うのは release.yml の署名ジョブ（`build-android`）の署名の step だけ |
 | レイアウト | WindowSizeClass で切替（Compact: リスト、Medium / Expanded: `layout` グリッド + 利用上限を横） | Galaxy Fold7 は折りたたみ時と展開時で幅が大きく違う |
 | 画面更新間隔 | デスクトップと同じ（既定 10 秒、5 / 10 / 30 / 60 秒） | 表示中だけ動かし、バックグラウンドでは止めるため、電池・通信への影響は小さい |
 
@@ -591,3 +597,4 @@ graph TD
 | 2.1 | 2026-11-09 | 最初のタスク（Issue #103）。§4.1 に `P/start/skills`・`SkillPicker`・`StartTaskResult`、§5.6 の新しいセッションに `P/start/skills`（`skill_list`）・`pane_start` → `send_text` の続き・`resend=1` を追記、§7・§12 の許可リストを操作 11 個（`skill_list` 追加）に、§11 に #17（`skill_list`・`pane_start` 直後の入力の実機確認）を追加 | Issue #103（空きセッションへの最初のタスク） |
 | 2.2 | 2026-11-10 | 新しい版の確認と自動アップデート（Issue #109）。§3 の構成図に更新と GitHub Releases、§4.1・§4.2 に `buildinfo`・`domain/update`・`repository/release`・`repository/installer`・`service/updater`・`web/updatehandler`・`organisms/update_notice`・`compose/update.go` と依存ルール（depguard の `web-handler` を `updatehandler` にも適用）、§5.7 更新の通信フロー、§7 に GitHub への通信の境界と版の埋め込み、§11 に実機の未確認事項 #18〜#20（Windows・macOS・Android）、§12.3・§12.6・§12.7 に Android の更新の構成・境界・テスト | Issue #109（新しい版の確認と自動アップデート） |
 | 2.3 | 2026-11-10 | §11 に #21（更新の通信の到達性。リポジトリが private の間は認証なしの `releases/latest` が 404 になり、公開されているときだけ更新が動く）を追加 | Issue #109（実装確認で判明した前提） |
+| 2.4 | 2026-11-28 | §4.1 のディレクトリ構成を実態に合わせて訂正（`app/theme`・`web/format`・`web/paths`・`web/webtest`、atoms の一覧、css の分割）。§4.2 の `app/` に `web/paths` の例外を追記。§11 #21・§12.1 の private の記述を公開済みの現状に、§12.1 の CI のランナーを GitHub ホストランナーに更新 | Issue #130・#134（ディレクトリ構成）、#126・#131（ランナー）、#127・#132（private の記述） |

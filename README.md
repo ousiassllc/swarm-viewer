@@ -47,7 +47,7 @@ Nefos Monitor は、デスクトップ（Wails v3 / Go）から、[swarm-console
 | Android | 署名が今のアプリと同じ APK だけを、システムのインストーラで開きます（初回は「このアプリからのインストール」の許可が必要） | 実機（Galaxy Fold7）・実際の GitHub での確認は未実施です |
 | Linux | 更新ファイルが無いため、確認も通知もしません | — |
 
-- GitHub への通信は、swarm-console への接続とは別のクライアントで、`api.github.com` と Releases の配信元への https だけに限ります。swarm-console の token・認証情報は GitHub に送りません。このため、**リポジトリが公開されているときだけ**最新版を取得できます（private の間は新しい版なしと同じ扱いです）
+- GitHub への通信は、swarm-console への接続とは別のクライアントで、`api.github.com` と Releases の配信元への https だけに限ります。swarm-console の token・認証情報は GitHub に送りません。このため、**リポジトリが公開されているときだけ**最新版を取得できます（現在は公開されています。非公開に戻した間は新しい版なしと同じ扱いです）
 - 配布物はコード署名・公証をしていないため、更新後も初回起動の警告が出ることがあります（[署名されていないアプリの開き方](#署名されていないアプリの開き方)）。ロールバックと、無人の更新（「更新する」を押さずに入れ替わること）はありません
 - `wails3 dev`・手元の `go build` のビルド（版が `dev`）は、確認も更新もしません。仕様は [docs/requirements/functional.md §4.10](docs/requirements/functional.md)、手元での確かめ方は [docs/environment/setup.md §5.6](docs/environment/setup.md)
 
@@ -80,7 +80,7 @@ swarm-console が発行する接続文字列（`swarm-viewer://pair?v=1&url=…&
 ## データと注意点
 
 - **スナップショットは平文で保存されます。** 直近の取得結果（`title`・`cwd`・`activity`・`note` などホスト側の作業内容）が、接続×セッションごとに最新 1 件だけ SQLite に残ります。DB は `os.UserConfigDir()/swarm-viewer/viewer.db`（所有者のみ読める権限 `0600`）です。暗号化はしないため、ディスク暗号化（FileVault / BitLocker）は OS の機能に任せてください。接続を削除すると、その接続のスナップショットも消えます
-- **孤立した秘密領域のエントリの削除。** 接続の削除は SQLite を先に消してから秘密領域を消します。秘密領域の削除に失敗すると（ログに警告が残ります）、エントリが孤立することがあります。サービス名は `swarm-viewer`、アカウント名は `connection:<接続 ID>` です。手動で削除してください。
+- **孤立した秘密領域のエントリの削除。** 接続の削除は秘密領域を先に消してから SQLite の行を消します。秘密領域の削除に失敗すると（ログに警告が残ります）接続は残り、もう一度削除できます。行の削除に失敗したときは、接続は残りますが「token なし」の扱いになり、再ペアリングか再削除で片付けます。ごくまれに（「保存データの初期化」などで DB だけが消えたときなど）秘密領域のエントリだけが残ることがあります。サービス名は `swarm-viewer`、アカウント名は `connection:<接続 ID>` です。その場合は手動で削除してください。
   - macOS: Keychain Access で `swarm-viewer` を検索して削除するか、次を実行します
 
     ```sh
