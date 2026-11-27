@@ -9,12 +9,12 @@
 #   verify         コミットが main の履歴にあり、ci.yml が成功している（lint / test はここでは再実行しない）
 #   build-windows  windows-latest で NSIS インストーラ（contents: read だけ）
 #   build-macos    macos-latest でユニバーサル .app の zip（contents: read だけ）
-#   build-android  セルフホステッド（Linux）で署名済み APK（contents: read だけ。署名鍵のシークレットはここだけが参照する）
+#   build-android  ubuntu-latest で署名済み APK（contents: read だけ。署名鍵のシークレットはここだけが参照する）
 #   release        SHA256SUMS を作って gh release create（タグもここで作る）。contents: write を持つのはこのジョブだけ
 # PR・フォークの CI では動かない（workflow_run は main の CI だけが対象）。使う action は GitHub 公式（actions/*）と、
 # ci.yml で既に使っている oven-sh/setup-bun・go-task/setup-task だけ。
-# ci.yml はセルフホステッドだが、Windows / macOS のビルドは GitHub ホストランナー（private リポジトリでは Actions の分数を消費する。macOS は倍率が大きい）。
-# Android（build-android → release-android.yml）だけは、JDK 17・Android SDK を導入済みの既存のセルフホステッドランナー（ci.yml と同じ）で動かす。
+# ci.yml を含む全ジョブが GitHub ホストランナー（ubuntu-latest・windows-latest・macos-latest。セルフホステッドは使わない）。リポジトリは public なので Actions の分数は消費しない。
+# Android（build-android → release-android.yml）は、JDK 17 を actions/setup-java で、Android SDK を無ければ setup-android-toolchain.sh のダウンロードで、ジョブごとに用意する。
 # workflow_run のワークフローは既定ブランチ（main）のファイルだけが動く：このファイル・release-android.yml・ci.yml が main に入るまで自動のリリースは始まらない。
 # 版の唯一の元はタグ：ビルド前に build/config.yml の info.version をタグから書き換える（.github/scripts/set-version.sh）。
 # 署名・公証はしない（unsigned。Windows / macOS）。Android の APK だけは release 署名鍵で署名する（下の build-android）。

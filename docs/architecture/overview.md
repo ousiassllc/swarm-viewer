@@ -133,7 +133,7 @@ swarm-viewer/
 │       ├── middleware/          #   CSRF・NoStore・CSP・Recover・RequestLog
 │       ├── format/              #   固定文言・表示ラベル・トーン・時刻の整形（presentation。domain は意味だけを持つ）
 │       ├── paths/               #   画面ルートと静的アセットのパスの組み立て（`router`・`handler`・templ・`app/deeplink`・`app/notice` が同じ文字列を共有する）
-│       ├── atoms/               #   alert / badge / checkbox / empty_state / form（Button・Input ほか）/ icon / modal（ConfirmDialog・ModalHeader）/ progress / spinner / toast。部品の一覧は[コンポーネント設計 §6.3](../components/overview.md)
+│       ├── atoms/               #   alert / badge / checkbox / empty_state / form（Button・Input ほか）/ icon / modal（ConfirmDialog・ModalHeader）/ nav_link（`#main` を差し替えるアプリ内リンク `NavLink`）/ progress / spinner / toast。部品の一覧は[コンポーネント設計 §6.3](../components/overview.md)
 │       ├── molecules/           #   pane_card / usage_row / host_row / session_tab / attention_item / pane_tail / pane_header / kind_badge
 │       ├── organisms/           #   session_tabs / pane_grid / usage_panel / host_panel / attention_bar / connection_list / update_notice、`panedetail/`（ペイン詳細の本文: `Live`・`AskCard`・`SendForm`・`StartForm`・`StartConfirm`・`DirPicker`・`SkillPicker`・`StartTaskResult`）
 │       ├── pages/               #   main / connections / pairing / settings / pane（`PaneDetailPage`・`PaneStartPage`）
@@ -598,3 +598,4 @@ graph TD
 | 2.2 | 2026-11-10 | 新しい版の確認と自動アップデート（Issue #109）。§3 の構成図に更新と GitHub Releases、§4.1・§4.2 に `buildinfo`・`domain/update`・`repository/release`・`repository/installer`・`service/updater`・`web/updatehandler`・`organisms/update_notice`・`compose/update.go` と依存ルール（depguard の `web-handler` を `updatehandler` にも適用）、§5.7 更新の通信フロー、§7 に GitHub への通信の境界と版の埋め込み、§11 に実機の未確認事項 #18〜#20（Windows・macOS・Android）、§12.3・§12.6・§12.7 に Android の更新の構成・境界・テスト | Issue #109（新しい版の確認と自動アップデート） |
 | 2.3 | 2026-11-10 | §11 に #21（更新の通信の到達性。リポジトリが private の間は認証なしの `releases/latest` が 404 になり、公開されているときだけ更新が動く）を追加 | Issue #109（実装確認で判明した前提） |
 | 2.4 | 2026-11-28 | §4.1 のディレクトリ構成を実態に合わせて訂正（`app/theme`・`web/format`・`web/paths`・`web/webtest`、atoms の一覧、css の分割）。§4.2 の `app/` に `web/paths` の例外を追記。§11 #21・§12.1 の private の記述を公開済みの現状に、§12.1 の CI のランナーを GitHub ホストランナーに更新 | Issue #130・#134（ディレクトリ構成）、#126・#131（ランナー）、#127・#132（private の記述） |
+| 2.5 | 2026-11-28 | §4.1 の atoms の一覧に `nav_link`（`atoms.NavLink`）を追加 | Issue #144・#146・#149（doc-drift） |

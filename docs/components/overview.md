@@ -155,7 +155,7 @@ const (
 type FetchError struct{ Kind ErrKind; Code string } // Code は swarm-console のエラーコード。message・details は持たない
 ```
 
-`FetchError` は `errors.As` で判定する。`Error()` は固定文言（種別名と `Code`）のみで、応答本文を含めない（NFR-LOG-3）。
+`FetchError` は `errors.As` で判定する（ヘルパー `domain.AsFetchError(err) (*FetchError, bool)`）。`Error()` は固定文言（種別名と `Code`）のみで、応答本文を含めない（NFR-LOG-3）。`(*FetchError).NeedsRepair()` は再ペアリングが必要な失敗（`ErrUnauthorized`・`ErrForbiddenScope` = 401・403）かを返す（`nil` は false）。ポーリングを止める判断と `needs_repair` を立てる判断は、すべてこれに揃える（[API 仕様 §4.4](../api/endpoints.md)）。
 
 ## 4. repository
 
@@ -522,12 +522,13 @@ func (s *Service) ApplyAsync() (<-chan struct{}, error)      // ErrNotAvailable�
 | atoms | `ConfirmDialog` | なし | 確認・破壊的操作の中央モーダル。レイアウトに 1 つだけ置き、`modal.js` が `htmx:confirm`（`hx-confirm`）で開く。見出し・ラベルは要素の `data-confirm-title`・`data-confirm-label` |
 | atoms | `ModalHeader` | `ID`・`Title`・`Attrs` | モーダルのヘッダー（ガイドの見本の `header`）。見出し（h2）と閉じる × のアイコンボタン（`data-modal-close`・32px・Iconoir の `xmark`）を左右に置き、下に 1px の `--border`。本文・フッターのクラスは定数 `ModalBodyClass`・`ModalFooterClass`（フッターは右寄せ・ボタン間 8px・上に 1px の `--border`）。`ModalClass` は余白なし・幅は最大 420px で、`ConfirmDialog` とペアリング確認が使う |
 | atoms | `Button` / `Input` | `Button`: `Label`・`Type`・`Variant`・`Size`（標準 / `ButtonSmall`）・`Attrs`。`Input`: 通常の属性 | `Input`・select・textarea は `FieldClass`（高さ 40・文字 16px）。検証に失敗した入力欄は `FieldInvalidClass` を重ねる（`--danger` の枠・`--ring-danger` のリング）。select は `SelectClass`（`FieldClass` に OS の矢印を消して `--mute` のシェブロンを足したもの）。`Button` は `cursor-pointer`、無効（処理中の `hx-disabled-elt` を含む）は `cursor-not-allowed`。ホバーは `hover-fade` の 180ms の遷移で、主は地を `--accent` の 85%（文字は薄くしない。NFR-DSG の承認済みの逸脱）、副は `--accent-soft` の地、危険は `--danger` の 10% の地 |
-| molecules | `PaneCard` | `Pane`・`Highlight`・`ReportWaiting` | 状態ラベル・activity・note 要約。`ReportWaiting` は state バッジの隣に「報告待ち」を出す。カード全体がペイン詳細へのリンク（`organisms.PaneGrid` が `<a>` で包む）。ペインへの送信ボタンは**持たない**。「＋ 始める」は `PaneGrid` が操作の接続（`PaneGridProps.Kind`）の `shell` のカードにだけ出す（見るだけの接続には出さない） |
+| atoms | `NavLink` | `NavLinkProps`: `Href`・`Class`・`Attrs`・子要素 | `#main` を差し替えるアプリ内リンクの**共通部品**（`atoms/nav_link.templ`。手書きしない）。`href` と `hx-get` に同じ値、`hx-target="#main"`、`hx-swap="innerHTML"` を常に付ける（付けないと、ポーリング領域・フォームの `hx-swap="outerHTML"` を継承して `<main id="main">` ごと差し替わり、以降のリンクが `htmx:targetError` で効かなくなる。Issue #100）。`Attrs` は `data-*`・`aria-*`・`hx-sync` などの追加の属性で、`href`・`hx-target`・`hx-swap` は渡さない。`pages` の非公開 `navLink(href, label)` は `NavLink` の薄い包み |
+| molecules | `PaneCard` | `Pane`・`Highlight`・`ReportWaiting` | 状態ラベル・activity・note 要約。`ReportWaiting` は state バッジの隣に「報告待ち」を出す。カード全体がペイン詳細へのリンク（`organisms.PaneGrid` が `atoms.NavLink` で包む）。ペインへの送信ボタンは**持たない**。「＋ 始める」は `PaneGrid` が操作の接続（`PaneGridProps.Kind`）の `shell` のカードにだけ出す（見るだけの接続には出さない） |
 | molecules | `PaneTail`・`PaneHeader`・`KindBadge` | `PaneTail`: `PaneTailProps`（本文・行数）。`PaneHeader`: `PaneHeaderProps`（位置・状態・タイトル・cwd・メモ・エージェント）。`KindBadge`: `domain.ConnectionKind` | `pane_tail` の本文（`<pre>` で等幅・テキストとして）、ペイン詳細のヘッダ（メモの `repo` と `items` は全件を折り返して全文で出す。カードの `paneNote` は要約のまま。NFR-DSG-19）、接続の種類のバッジ（「操作」「見るだけ」。文言を併記し色だけに頼らない）。質問の選択肢の型 `AskOption` は `domain/ops` |
 | molecules | `UsageRow` | `Label`・`Slot` | `unit` で percent / usd を出し分け。`available: false` は「—」 |
 | molecules | `HostRow` | `Label`・`Percent`・`Detail` | |
-| molecules | `SessionTab` | `ConnectionID`・`Session`・`Selected` | `hx-get` |
-| molecules | `AttentionItem` | `Attention`・`AuthExpiresAt` | 未知の `kind` は文字列表示 |
+| molecules | `SessionTab` | `ConnectionID`・`Session`・`Selected` | `atoms.NavLink`（`hx-get`・`hx-target="#main"`・`hx-swap="innerHTML"`） |
+| molecules | `AttentionItem` | `Attention`・`AuthExpiresAt` | 未知の `kind` は文字列表示。ペインへのリンクは `atoms.NavLink` |
 | organisms | `SessionTabs` | `[]Session`・`Selected` | |
 | organisms | `PaneGrid` | `Layout`・`[]Pane` | `Layout.Valid` でなければリスト表示 |
 | organisms | `UsagePanel` | `Usage`・`RegionGrayed`・`Now` | `usage.status` による分岐（[機能要件 §5.1](../requirements/functional.md)） |
@@ -682,3 +683,4 @@ func main() {
 | 3.3 | 2026-11-09 | 最初のタスク（Issue #103）。§3 の `domain/ops` に `SkillList`・`FirstTask`・`ParseSkillList`、§4.1 の `report.Client` に `SkillList`（`skill_list`。`opsTools` 11 個・`toolTimeoutScale` は 1 倍・`roundTripper` の `/ops` は 11 個）、§5.1 の `paneservice.Client` に `SkillList`、§5.8 の `PaneService` に `Skills`・`Start`（`pane_start` → `send_text`）・`Resend`、§6 に `P/start/skills`・`SkillPicker`・`StartTaskResult`・`StartFormProps` の `Skill`/`Task`、§10 のテスト、§11 の FR-OPS-11 を追加 | Issue #103（空きセッションへの最初のタスク） |
 | 3.4 | 2026-11-10 | 新しい版の確認と自動アップデート（Issue #109）。§1 に `golang.org/x/sys/windows`、§2 の構成図に `updater`・`release`・`installer`・`update`・`updatehandler`、§5.6 に `AutoUpdateCheck`、§5.9 `UpdaterService`（`Source`・`Installer`・`SettingsReader`・失敗の種類・`release.Client`・`installer.Installer`・`buildinfo`）、§6.1 の `updatehandler`、§6.3 の `Spinner` の `Static` と `UpdateNotice`・`MainPage`、§8・§9・§10・§11 を追記 | Issue #109（新しい版の確認と自動アップデート） |
 | 3.5 | 2026-11-28 | 構成図と §11 の `app/logging.go` を、実在する `app/applog`（`logger.go`・`mask.go`）に訂正 | Issue #128・#134（doc-drift） |
+| 3.6 | 2026-11-28 | §3 の `FetchError` に `NeedsRepair()`・`AsFetchError()`、§6.3 に `atoms.NavLink`（`SessionTab`・`PaneCard`・`AttentionItem` の備考を `NavLink` 経由に） | Issue #144・#146・#149（doc-drift） |

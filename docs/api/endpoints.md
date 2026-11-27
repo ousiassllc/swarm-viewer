@@ -302,7 +302,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | ID | `{cid}` = `connections.id`（ULID）、`{sid}` = tmux セッション名（URL エンコード）、`{pos}` = ペインの位置（`report` の `panes[].pos`。URL エンコード）、`{did}` = ペアリング下書き ID（ランダム 128 bit、base64url） |
 | CSRF | 状態変更ルート（`POST`・`PUT`・`DELETE`）は `X-CSRF-Token` を要求する。値はレイアウトが `<body hx-headers='{"X-CSRF-Token":"…"}'>` で配り、HTMX が全リクエストに付ける（JSON 属性のため eval 不要）。プロセス起動ごとに生成。不一致は 403 |
 | `Cache-Control` | 全ルート `no-store`（スナップショットがキャッシュされないように） |
-| ステータス | アプリ内の取得失敗（swarm-console の不達・認証エラー）は **200** のまま、状態を HTML で表現する（§4.4）。入力検証エラーは 422（フォームを再描画）。不正な `{cid}`・`{did}` は 404。**見るだけの接続で操作系のルート（§4.2 の `pick`・`send`・`escape`・`close`・`start`）を呼ぶと 403**（コンソールには通信せず、「この接続では操作できません（見るだけの接続です）」のフラグメントを返す。§4.6） |
+| ステータス | アプリ内の取得失敗（swarm-console の不達・認証エラー）は **200** のまま、状態を HTML で表現する（§4.4）。入力検証エラーは 422（フォームを再描画）。不正な `{cid}`・`{did}` は 404。**見るだけの接続で操作系のルート（§4.2 の `pick`・`send`・`escape`・`close`・`start`）を呼ぶと 403**（コンソールには通信せず、「この接続では操作できません（見るだけの接続です）」のフラグメントを返す。§4.6）。**操作系のルートの本文が 256 KiB（`panehandler.maxFormBytes`。swarm-console の要求本文の上限と同じ）を超えると 413**（上限を超えた分は読まず、コンソールには通信せず、「送る内容が大きすぎます」のフラグメントを返す。§4.6）。4xx のフラグメントを画面に差し替えるかは htmx の `responseHandling` の設定による（Issue #121） |
 | トースト | 保存成功・削除成功・操作の結果（機能要件 §10.1）は `hx-swap-oob` でトースト atom（1 行の短文）を返す。3 秒で `app.js` が消す。エラー（接続の削除失敗・ツールのエラーなど）はトーストにせず、フラグメント内のインラインアラートで示す（NFR-DSG-5） |
 | 文字列 | すべて Templ のエスケープに任せる。`templ.Raw` を使わない（NFR-SEC-10） |
 
@@ -338,7 +338,7 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 | GET | `/static/*` | — | 埋め込みアセット | `htmx.min.js`・`app.js`（§4.5 の可視性制御）・`modal.js`（確認ダイアログとモーダル）・`app.css`。外部ホストは参照しない |
 | GET / POST | `/`・`/recovery/reset` | ページ / アクション | フルページ / フラグメント | **recovery モードのみ**（DB が開けない・スキーマが新しすぎる。上記の画面ルートは登録しない）。`/` は初期化導線、`POST /recovery/reset` は保存データを退避して作り直し、成功したら `HX-Redirect: /`（`HX-Request` なしなら案内のみ）。それ以外の GET は初期化導線を 200 で描画し、その他のメソッドは 404 |
 
-ペイン詳細・操作のルートの `P` は `/connections/{cid}/sessions/{sid}/panes/{pos}`。操作系（`pick`・`send`・`escape`・`close`・`start` の各ルート）は、接続の種類が操作でなければ 403 で断る（§4.6）。
+ペイン詳細・操作のルートの `P` は `/connections/{cid}/sessions/{sid}/panes/{pos}`。操作系（`pick`・`send`・`escape`・`close`・`start` の各ルート）は、接続の種類が操作でなければ 403 で断り、フォーム本文が 256 KiB を超えれば 413 で断る（§4.1・§4.6）。
 
 #### メイン画面の初回描画
 
@@ -380,9 +380,9 @@ WebView と Go の間の HTTP。Wails のアセットハンドラ経由（in-pro
 |------|------|------|
 | スナップショット領域 | `hx-get=".../snapshot"` `hx-trigger="load, every Ns, refresh from:body"` `hx-sync="this:drop"` | 画面更新ポーリング。`N` は `settings.screen_poll_seconds` をサーバーがレンダリング。前のリクエスト中は破棄（NFR-PERF-5）。**フィルタ式 `[…]` は使わない**（htmx が eval で評価するため、`unsafe-eval` なしの CSP で動かない） |
 | 更新ボタン | `hx-get="/connections/{cid}/sessions/{sid}"` `hx-target="#main"` | タブも再取得して全体を再描画（FR-POLL-2） |
-| セッションタブ | `hx-get="/connections/{cid}/sessions/{sid}"` `hx-target="#main"` | 切り替え（FR-SESS-2） |
-| `#main` へ描画するリンク（ペイン詳細・新しいセッション・再ペアリングなど） | `hx-get` `hx-target="#main"` `hx-swap="innerHTML"` | `hx-swap` は祖先から継承される。ポーリング領域（`#snapshot`・`#pane-live`）やフォーム（`outerHTML`）の中のリンクは `innerHTML` を自分で持たせる（持たないと `<main id="main">` ごと差し替わり、以降の「メイン画面へ」が `htmx:targetError` で効かなくなる。Issue #100） |
-| 接続切替 | `hx-get="/connections/{cid}"` `hx-target="#main"` | 切り替え（`last_session` のメイン画面フラグメントを返す） |
+| セッションタブ | `hx-get="/connections/{cid}/sessions/{sid}"` `hx-target="#main"` `hx-swap="innerHTML"` | 切り替え（FR-SESS-2）。`atoms.NavLink` が属性を付ける |
+| `#main` へ描画するリンク（ペイン詳細・新しいセッション・再ペアリングなど） | `hx-get` `hx-target="#main"` `hx-swap="innerHTML"` | **共通部品 `atoms.NavLink` を使う（手書きしない）**。`href` と `hx-get` に同じ値、`hx-target="#main"`、`hx-swap="innerHTML"` を常に付ける。`hx-swap` は祖先から継承される。ポーリング領域（`#snapshot`・`#pane-live`）やフォーム（`outerHTML`）の中のリンクは `innerHTML` を自分で持たないと `<main id="main">` ごと差し替わり、以降の「メイン画面へ」が `htmx:targetError` で効かなくなる（Issue #100）。`NavLink` は `innerHTML` を必ず付けるので、これを防ぐ |
+| 接続切替 | `hx-get="/connections/{cid}"` `hx-target="#main"` `hx-swap="innerHTML"` | 切り替え（`last_session` のメイン画面フラグメントを返す）。`atoms.NavLink` が属性を付ける |
 | 非表示中の停止・復帰時の即時取得 | 同梱の静的 `app.js`（下記） | フィルタ式の代わりにクライアントで制御する |
 | 設定フォーム | `hx-put="/settings"` `hx-target="#settings-form"` `hx-target-422="#settings-form"` | `response-targets` 拡張で 422 のとき再描画先を分ける |
 | 接続削除 | `hx-delete="/connections/{cid}"` `hx-confirm` | アクション |
@@ -414,6 +414,7 @@ HTMX の設定は `<meta name="htmx-config" content='{"allowEval":false,"include
 - **取得失敗**（`P/live`）: 200 のまま、直前の表示を残して固定文言のバナー（§4.4 と同じ規則）。`unauthorized` / `forbidden_scope` はバナーに「再ペアリング」リンクを出し、`hx-trigger` の自動更新属性を出さない。`pane_not_found` は「ペインが見つかりません。画面を更新してください」を出し、操作部品を出さない
 - **操作の結果**: 成功・失敗の判定（`ok`・`accepted`・`card_closed`・`interrupted`）は固定文言のトースト OOB（機能要件 §10.1）、ツールのエラー（`operation`）はフラグメント内のインラインアラート。`cursor_mismatch`・`not_asking`・`option_out_of_range` のときは質問カードを取り直したフラグメントを返す
 - **排他**: 同じ `(接続, ペイン)` の操作は service が排他にする。実行中に次の操作が来たら通信せず「前の操作がまだ終わっていません」を返す。見るだけの接続に対する排他の取得もしない（先に種類を確認する）
+- **本文の上限**: 操作系のルート（`pick`・`send`・`escape`・`close`・`start` の POST）は、共通の前処理（`opsForm`）で、接続の種類（403）の次に本文を 256 KiB までしか読まない。超えたら**コンソールに通信せず** 413 と固定文言「送る内容が大きすぎます」（`format.RequestTooLargeMessage`）のフラグメント（`Alert`）を返し、上限超過を空入力と取り違えない。入力欄の本文は 8000 字までなので、通常の操作では 413 にならない。4xx のフラグメントが画面に差し替わるかは Issue #121 に従う
 - **ログ**: `RequestLog` はメソッド・パス・ステータス・所要時間だけ。フォーム値・`pane_tail` と `ask_card` の本文・送信本文は出さない（NFR-SEC-11）
 - **確認と状態の再検査**: `P/escape`・`P/close` は `confirm=true` が無ければ通信せず `confirm_required`（NFR-SEC-12）。`P/close`（`idle`・`shell`）・`P/start`（`shell`。`resend=1` は `idle`）は、画面の古い状態からの操作を通さないよう、送る前にサーバー側で最新の `report`（single-flight）のペイン状態を再検査する（`pane_not_found`・`invalid_state` は通信せず固定文言）
 
@@ -477,3 +478,4 @@ swarm-console への接続（§1。tailnet・Bearer）とは**完全に別の経
 | 2.2 | 2026-11-09 | 新しいセッションの最初のタスク（Issue #103）。§1.1・§1.2 の許可リストを 11 個にして `skill_list`（仮称・swarm-console 側は未実装の要望）を追加、`pane_start` 成功後の `send_text` を追記、§1.5.1・§1.5.2 に `skill_list` の行、§4.2 に `GET P/start/skills?agent=` と `POST P/start` の `skill`・`task`・`resend=1`、§4.5・§4.6、§5 に `skill_list` の無い版の影響 | Issue #103（空きセッションへの最初のタスク） |
 | 2.3 | 2026-11-10 | 新しい版の確認と自動アップデート（Issue #109）。冒頭の表を 5 種類に（GitHub Releases の利用）、§4.2 に `GET /update/notice`・`POST /update/apply` と `PUT /settings` の `auto_update_check`、§5 に GitHub のアセット名・ホストの変更の影響、§6 に GitHub Releases の利用（呼ぶエンドポイント・許可ホスト・上限・接続先を変えられる場所） | Issue #109（新しい版の確認と自動アップデート） |
 | 2.4 | 2026-11-28 | §4.2 の `DELETE /connections/{cid}` の削除順序を ER §4 に合わせて訂正（秘密領域を先、SQLite 行を次）。§6.1 の「private の間は 404」を、公開済みの現状に合わせて更新 | Issue #125・#133（doc-drift）、#127・#132（doc-drift） |
+| 2.5 | 2026-11-28 | §4.1 のステータスと §4.2・§4.6 に、操作系のルートの本文上限（256 KiB）超過の 413 と固定文言を追記。§4.5 に `atoms.NavLink`（`#main` へ描画するリンクの共通部品）を使うこと、セッションタブ・接続切替に `hx-swap="innerHTML"` が付くことを追記 | Issue #144・#146・#149（atoms.NavLink）、#145・#150（413） |

@@ -67,7 +67,7 @@ swarm-viewer/
 |----|------|
 | macOS | Xcode Command Line Tools（`xcode-select --install`）。ビルドの対象は macOS 12.0 以降 |
 | Windows | WebView2 Runtime（ほとんどの Windows 11 に導入済み） |
-| Linux（CI ランナー用） | `gcc` などの標準ビルドツールと、`gtk4`・`webkitgtk-6.0` の開発パッケージ（Ubuntu 24.04 が対象）。必要なパッケージ名は `wails3 doctor` の出力に従う。**ランナーのホストに事前に導入しておく**（ジョブ内で `apt` は実行しない。§5.1） |
+| Linux（手元で Linux 向けをビルドするとき） | `gcc` などの標準ビルドツールと、`gtk4`・`webkitgtk-6.0` の開発パッケージ（Ubuntu 24.04 が対象）。必要なパッケージ名は `wails3 doctor` の出力に従う。CI（GitHub ホストランナー）はこれらを入れない（ジョブ内で `apt` は実行しない。§5.1） |
 
 ### 3.2 タスク一覧（`Taskfile.yml`）
 
@@ -390,10 +390,10 @@ JDK・Android SDK の取得（`setup-android-toolchain.sh`。`android-lint`・`a
 1. 環境（`JAVA_HOME`）が JDK 17 を指していればそれを使い、ダウンロードしない。無ければ Temurin 17.0.21+9 の tar.gz を取得し、**スクリプトに固定した sha256 を検証**してから、`${RUNNER_TOOL_CACHE}/swarm-viewer-toolchain/jdk-17.0.21+9/` に展開する
 2. 環境（`ANDROID_HOME`）に `platforms/android-35` と `build-tools`（`apksigner`・`zipalign`・`aapt2`）が有ればそれを使う。無ければ Android の cmdline-tools（版と sha256 を固定。sha256 は Google の配布一覧の sha1 とも照合済み）を取得して `sdkmanager --licenses` に同意し、`platforms;android-35`・`build-tools;35.0.0`・`build-tools;36.0.0`（AGP の既定）を同じツールキャッシュの `android-sdk-<版>/` に入れる
 3. 結果を `JAVA_HOME`・`ANDROID_HOME`・`ANDROID_SDK_ROOT`（`GITHUB_ENV`）と JDK の `bin`（`GITHUB_PATH`）に書き、後続の step で使えるようにする
-4. 取得は 10 秒・30 秒・60 秒待って再試行し、最後まで失敗したら URL と試行回数を示して止まる。sha256 が違うときは再試行せず止まる。導入は `flock` で直列にし、一時ディレクトリへ展開してから rename する（同じホストでジョブが同時に動いても壊れない）
-5. ログには `cache hit … no download` か `cache miss, downloading …` が出るので、ダウンロードが走ったかどうかを確かめられる。ツールキャッシュが空になったとき（ランナーの `_tool` を消したときなど）は、次のジョブがダウンロードし直す
+4. 取得は 10 秒・30 秒・60 秒待って再試行し、最後まで失敗したら URL と試行回数を示して止まる。sha256 が違うときは再試行せず止まる。導入は `flock` で直列にし、一時ディレクトリへ展開してから rename する（同じ環境でジョブが同時に動いても壊れない）
+5. ログには `cache hit … no download` か `cache miss, downloading …` が出るので、ダウンロードが走ったかどうかを確かめられる。GitHub ホストランナーはジョブごとに新しい環境なので、ツールキャッシュは前のジョブから引き継がれず、環境に JDK・SDK が無ければ毎回 `cache miss, downloading …` になる
 
-ランナーのホストに JDK・SDK を入れて環境変数を設定済みなら、ダウンロードは走らない。
+環境（GitHub ホストランナーの `JAVA_HOME`・`ANDROID_HOME` など）に JDK 17・Android SDK が有れば、ダウンロードは走らない。
 
 ### 11.3 署名鍵
 
@@ -404,7 +404,7 @@ JDK・Android SDK の取得（`setup-android-toolchain.sh`。`android-lint`・`a
 | 鍵 | release 署名鍵を 1 つだけ作る（`keytool -genkeypair`、PKCS12、RSA 4096 bit 以上、有効期間 10,000 日以上）。毎回同じ鍵で署名する。署名が変わるとインストール済みのアプリを上書きアップデートできず、アンインストール（アプリのデータが消え、再ペアリングが必要）が要る |
 | 作成する場所 | 開発者本人のローカル。リポジトリ・CI のログ・チャットに keystore とパスワードを出さない。`*.jks`・`*.keystore`・`*.apk`・`*.aab` は `.gitignore` 済み |
 | CI シークレット | `ANDROID_KEYSTORE_BASE64`（keystore を `base64` した文字列）、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`。**これらを参照するのは release.yml の `build-android` ジョブ（`release-android.yml` を `secrets:` で明示して呼ぶ。`secrets: inherit` は使わない）と、呼ばれた側の署名の step だけ**（`ANDROID_KEYSTORE_BASE64` の登録の有無だけは、呼ばれた側の `gate` の step が真偽値で見る）。`ci.yml` のジョブ・`release` ジョブ（書き込みトークンを持つ）・PR・フォークの CI には渡さない（release.yml は PR では動かない。§5.5）。`sign-android-apk.sh` は keystore を `$RUNNER_TEMP` 配下の一時ディレクトリへ `0600` で復元し、署名の直後と終了時（`trap`）に消す。落とされた場合に備え、ジョブも成否にかかわらず（`if: always()`）一時ディレクトリを消す。パスワードは `apksigner` に `env:` で渡し（引数に出さない）、ログに値を出さない |
-| シークレットが無いとき | **`ANDROID_KEYSTORE_BASE64` が未登録なら、`build-android` は Android のビルドも署名もせずに終わり（失敗にしない）、Release には APK を載せない**（警告を出す）。シークレットとランナーの準備は運用作業なので、それが済むまでデスクトップ版（Windows / macOS）のリリースを止めないため。debug 署名の APK は、どの場合も載せない。`ANDROID_KEYSTORE_BASE64` はあるのに、ほかのシークレットが空・不正なときは設定ミスなので、`build-android` を失敗させて Release を作らない |
+| シークレットが無いとき | **`ANDROID_KEYSTORE_BASE64` が未登録なら、`build-android` は Android のビルドも署名もせずに終わり（失敗にしない）、Release には APK を載せない**（警告を出す）。シークレットの登録は運用作業なので、それが済むまでデスクトップ版（Windows / macOS）のリリースを止めないため。debug 署名の APK は、どの場合も載せない。`ANDROID_KEYSTORE_BASE64` はあるのに、ほかのシークレットが空・不正なときは設定ミスなので、`build-android` を失敗させて Release を作らない |
 | バックアップ | 鍵を失うと上書きアップデートできないため、keystore とパスワードを、**リポジトリ・GitHub とは別の 2 か所以上**に保管する（例: パスワードマネージャーの添付と、オフラインの暗号化メディア）。keystore とパスワードは別々の場所にも置く。バックアップ先の実際の場所はリポジトリに書かない（開発者本人が管理する）。**GitHub のシークレットは登録後に値を読み戻せないため、シークレットはバックアップにならない**。鍵の作成後、バックアップの復元（keystore を開いて `keytool -list` できること）を一度確かめる |
 | 証明書の確認 | 署名証明書の SHA-256 フィンガープリント（`keytool -list -v` / `apksigner verify --print-certs`）を、鍵の作成時に `android/README.md` へ記録する。Release の APK がこの値と一致することを、リリースのたびに確かめる（`build-android` のログにも `Signer #1 certificate SHA-256 digest` が出る。公開情報） |
 | debug 署名 | `assembleDebug` の APK は debug 署名で、**配布しない**。CI の成果物・Release に debug 署名の APK を載せない。`assembleRelease` は署名設定を持たない（`android/app/build.gradle.kts` に `signingConfig` を置かず、署名は `build-android` が `apksigner` で行う）。`sign-android-apk.sh` は、署名後の APK の証明書が debug 証明書（`Android Debug`）なら失敗する |
@@ -437,7 +437,7 @@ Android 版も、デスクトップ版と同じ release.yml（§5.5）のタグ�
 | ジョブ | release.yml の `build-android` ジョブが、再利用可能なワークフロー `release-android.yml`（`workflow_call`。release.yml を linterly の 300 行の上限に収めるため別ファイルにした）を呼ぶ。呼ばれた側のジョブは GitHub ホストランナー（`ubuntu-latest`）で動き、`contents: read` のみ。`android-version.sh` → `./gradlew --no-build-cache assembleRelease`（署名なし）→ `sign-android-apk.sh` の順に動く。`sign-android-apk.sh` は `apksigner sign` で署名し、`zipalign -c -P 16 4`（署名の前に境界を確認）・`apksigner verify`（v2 または v3。署名者は 1 つ）・debug 証明書でないこと・`aapt2 dump badging` でパッケージ・`versionCode`・`versionName` が期待どおりであることを確かめてから `swarm-viewer_vX.Y.Z_android_universal.apk` として置く。1 つでも外れたら APK を残さず失敗する。APK は artifact（`release-android`）として `release` ジョブへ渡し、`release` ジョブが `SHA256SUMS` に含めて `gh release create` する。`release` ジョブ（`contents: write`）はシークレットを持たない |
 | 署名の道具 | `apksigner`・`zipalign`・`aapt2`（Android SDK の build-tools。`setup-android-toolchain.sh` が入れた、または環境にある版）。`build-android` の最初に `setup-android-toolchain.sh` を実行したうえで `check-android-env.sh`（`CHECK_SIGNING_TOOLS=true`）が、JDK 17・`ANDROID_HOME`・これらの道具の有無を確かめる |
 | 前提 | Android のジョブが失敗したときに、デスクトップ版の Release だけが出ることがないように、`release` ジョブはすべてのビルドジョブ（`build-android` を含む）が成功したときだけ動く（§5.5 の構成と同じ）。ただし署名鍵が未登録のときは `build-android` が（何もせず）成功し、Android の成果物を含まない Release が出る（§11.3）。`release` ジョブは、`release-android` の artifact に署名済みの APK があるときだけ `SHA256SUMS` と Release に載せる |
-| リリースの実行 | `release.yml` の `workflow_run` は main の CI の成功で起動する。**ランナーが未準備のあいだ、`android/**` を含む main への push の CI は赤になり、その push のリリースは作られない**（Go だけの変更の CI は影響を受けない） |
+| リリースの実行 | `release.yml` の `workflow_run` は main の CI の成功で起動する。`android/**` を含む main への push も、ほかの変更と同じ GitHub ホストランナーで CI が動き、成功すればリリースが作られる。署名鍵が未登録のあいだは APK を含まない Release になる（§11.3） |
 
 Release の APK の確認（検証手順と実機確認。手動確認項目）:
 
@@ -474,4 +474,4 @@ Release の APK の確認（検証手順と実機確認。手動確認項目）:
 | 1.10 | 2026-11-05 | §3.2 に JS の挙動テスト（`bun test static/src/js`・`happy-dom`）を追加し、§5.2 の `test`・§9 の `pre-push` に載せた。§6.2 の Biome の対象を `static/src/js/*.js`・`static/src/css/*.css` に修正 | 独立レビューの指摘（JS・CSS の文字列を grep するだけのテストの置き換え） |
 | 1.11 | 2026-11-10 | 新しい版の確認と自動アップデート（Issue #109）。§5.2 の `test` に `set-version_test.sh`、§5.4・§11.4 の実機確認に更新の手順（未確認）、§5.5 の「版の埋め込み」に `internal/buildinfo` の書き換え、§5.6「新しい版の確認と自動アップデート」（依存するアセット名・対応 OS・手元での確かめ方・`devupdate` タグの限界）、§11.1 に `-PupdateLatestUrl` と偽のリリースサーバーでの確認 | Issue #109（新しい版の確認と自動アップデート） |
 | 1.12 | 2026-11-11 | §11.4 の APK の確認手順に、build-tools 37 の `apksigner` の証明書の行の書式（`V3.0 Signer: certificate SHA-256 digest`）を追記 | Issue #112（新しい apksigner の出力で署名スクリプトが失敗する） |
-| 1.13 | 2026-11-28 | CI のランナーの記述を実装（GitHub ホストランナー `ubuntu-latest`）に合わせて訂正（§1・§5.1・§5.2・§5.5・§11.2・§11.4）。`setup-go` のキャッシュ・Android の Gradle キャッシュ（`setup-java` の `cache: gradle`）・リポジトリの公開（private の記述）を現状に更新。§9 の pre-commit の `linterly` を、リポジトリ全体を検査する実装に合わせた | Issue #126・#131（CI ランナーの記述）、#127・#132（private の記述）、#129（linterly） |
+| 1.13 | 2026-11-28 | CI のランナーの記述を実装（GitHub ホストランナー `ubuntu-latest`）に合わせて訂正（§1・§3.1・§5.1・§5.2・§5.5・§11.2（ランナー・キャッシュ・手順 4・5 と末尾の注）・§11.3（シークレットが無いとき）・§11.4（ジョブ・リリースの実行））。`setup-go` のキャッシュ・Android の Gradle キャッシュ（`setup-java` の `cache: gradle`）・リポジトリの公開（private の記述）を現状に更新。§9 の pre-commit の `linterly` を、リポジトリ全体を検査する実装に合わせた。`release.yml`・`setup-android-toolchain.sh` のコメントも同じ前提に直した | Issue #126・#131（CI ランナーの記述）、#127・#132（private の記述）、#129（linterly）、#147・#148（ランナー訂正の取りこぼし） |
