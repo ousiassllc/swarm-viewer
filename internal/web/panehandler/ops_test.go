@@ -107,6 +107,8 @@ func TestOpsConnection_StartFlow_DirListThenPaneStart_ConfirmationDoesNotStart(t
 	// 画面（shell のペイン）→ ピッカーが dir_list（path なし = 許可された根）を読む。
 	page := body(t, s.Get(start), 200)
 	mustContain(t, page, "omp", "claude", "codex", `hx-get="`+opsconsole.PanePath("T4", "/start/dirs")+`"`, `hx-trigger="load"`)
+	// タイトル欄は atoms.Input で出す（必須・80 字まで・補完なし・共通の入力欄クラス）。
+	mustContain(t, page, `id="pane-start-title"`, `name="title"`, `maxlength="80"`, "required", `autocomplete="off"`, "min-h-10")
 	dirs := body(t, s.Get(opsconsole.PanePath("T4", "/start/dirs")), 200)
 	mustContain(t, dirs, "work", "docs", "git")
 	if r := callOf(t, s, "dir_list"); r.Args["path"] != nil || r.Args["session"] != nil || r.Args["limit"] != nil {
