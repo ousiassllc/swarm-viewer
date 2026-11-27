@@ -132,7 +132,7 @@ UC12 は接続の種類にかかわらず使える（swarm-console には通信�
 | 10 | macOS の zip の展開が安全（`..`・絶対パス・シンボリックリンク・最上位が `.app` 1 つでない・実行ファイルが無い zip を拒否）で、差し替えに失敗したら元へ戻る | FR-UPD-4・NFR-SEC-18 | `repository/installer` の `TestInstallMacOSBadArchiveLeavesTheAppUntouched`・`TestInstallMacOSNotAZip`・`TestInstallMacOSNotInABundle`・`TestInstallMacOSRollsBackWhenSwapFails`・`TestInstallMacOSRelaunchFailureIsReported`・`TestRelaunchScriptWaitsForTheParentThenCleansUp`・`TestBundleOf` |
 | 11 | （Android）インストールの許可が無いときは、先に設定画面を開き、何もダウンロードしない。前回までの APK は消す。インストーラを開けなかった APK は消す。リリースビルドは本番の宛先に固定される | FR-AND-14・NFR-AND-SEC-12 | `UpdateServiceTest` の `withoutInstallPermissionTheSettingsPageOpensFirstAndNothingIsDownloaded`・`staleDownloadsAreClearedBeforeANewDownload`・`aFailureToOpenTheInstallerDeletesTheFile`、`ReleaseBuildHasNoOverrideTest` の `theReleaseBuildAlwaysUsesTheGithubProductionEndpoints` |
 
-実機・実インストーラで確かめるものは自動テストの範囲外で、確認済みとは見なさない（[アーキテクチャ設計 §11](../architecture/overview.md) の未確認事項 #18〜#21）: Windows の NSIS インストーラの実際の起動・昇格・アプリの終了とのつながり、macOS の `.app` の実際の差し替えと開き直し（配置場所・Gatekeeper・App Translocation の影響）、Android のシステムのインストーラ（Galaxy Fold7）、実際の GitHub Release に対する確認と更新（GitHub へは認証なしで届くため、リポジトリが公開されているときだけ動く。private の間は `releases/latest` が 404 で「新しい版なし」になる。#21）。
+実機・実インストーラで確かめるものは自動テストの範囲外で、確認済みとは見なさない（[アーキテクチャ設計 §11](../architecture/overview.md) の未確認事項 #18〜#21）: Windows の NSIS インストーラの実際の起動・昇格・アプリの終了とのつながり、macOS の `.app` の実際の差し替えと開き直し（配置場所・Gatekeeper・App Translocation の影響）、Android のシステムのインストーラ（Galaxy Fold7）、実際の GitHub Release に対する確認と更新（GitHub へは認証なしで届くため、リポジトリが公開されているときだけ動く。リポジトリは公開済みで、認証なしの `releases/latest` が最新リリースを返すことは確認したが、アプリからの通知・更新は未確認。非公開に戻すと `releases/latest` が 404 で「新しい版なし」になる。#21）。
 
 ## 3. ペインの状態と表示ラベル
 
@@ -770,3 +770,4 @@ sequenceDiagram
 | 2.3 | 2026-11-09 | §4.4 のメモ要約は S2 のカードだけの規則と明記し、§4.5 の S4 のヘッダは `note.repo` と `note.items` を全件・全文（折り返し）で出すと追記 | Issue #106（Web のペイン詳細のメモが要約のまま） |
 | 2.4 | 2026-11-09 | 新しいセッションに「最初のタスク」を追加。UC11、FR-OPS-11、受け入れ条件との対応（§2.2）、S5 の手順（§4.8: スキル（任意。`skill_list`）→ 本文（任意）→ 起動後に `send_text`、`idle` でなければ送らない、失敗時は起動を取り消さず「もう一度送る」）、§4.9 の呼べるツールを `/ops` 11 個に、§10.1 の固定文言 4 件、§11 の範囲外。Android は FR-AND-12（§12.6） | Issue #103（空きセッションへの最初のタスク） |
 | 2.5 | 2026-11-10 | 新しい版の確認と自動アップデートを追加。UC12、FR-UPD-1〜6（デスクトップ。§2・§4.10）、受け入れ条件との対応（§2.3。テスト名を併記）、設定画面 S3 に「自動で確認する」（FR-SET-1・§9）、§11 の範囲外を書き換え（自動更新の有無を OS ごとに）。Android は FR-AND-13〜16（§12.1・§12.4・§12.7） | Issue #109（新しい版の確認と自動アップデート） |
+| 2.6 | 2026-11-28 | §2.3 の実機確認の注記を、リポジトリが公開済みの現状に更新 | Issue #127・#132（private の記述が現状と食い違っていた） |

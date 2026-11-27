@@ -95,7 +95,7 @@ graph TD
 | API 仕様 | `docs/api/endpoints.md` | swarm-console `/report`・`/ops` の利用（種類別の許可リスト）、ペアリング形式、`pair [--scope report\|ops]`、画面ルート（ペイン詳細・操作・新しい版の通知と更新）、GitHub Releases の利用（§6） |
 | コンポーネント設計 | `docs/components/overview.md` | 採用ライブラリ、domain/repository/service/web/app の責務・interface、並行性、テスト設計、要件との対応 |
 | Android 版の設計 | `docs/android/overview.md` | WorkManager による通知の確認、通知チャンネル、権限（`REQUEST_INSTALL_PACKAGES`・FileProvider を含む）、WindowSizeClass によるレイアウト切替、フォアグラウンドの更新、テストベクタの置き場所と読み方、操作モード（ペイン詳細・質問・送信・新しいセッション）、アプリの更新（§11） |
-| 環境構築 | `docs/environment/setup.md` | 開発環境のセットアップ、Taskfile、CI（GitHub Actions・セルフホステッドランナー）、lint/format、linterly、Git Hooks（bun 前提）、Android の開発環境・CI・署名鍵・リリース（§11） |
+| 環境構築 | `docs/environment/setup.md` | 開発環境のセットアップ、Taskfile、CI（GitHub Actions・GitHub ホストランナー）、lint/format、linterly、Git Hooks（bun 前提）、Android の開発環境・CI・署名鍵・リリース（§11） |
 
 ## 用語集
 
@@ -132,3 +132,4 @@ graph TD
 | 1.6 | 2026-11-08 | 操作モード（Issue #97）。目的・スコープ・範囲外を「既定は見るだけ、操作の接続のときだけ操作できる」に変更。システム全体像・ドキュメントマップ・用語集（`/ops`・ops トークン・接続の種類）を更新 | Issue #97（操作モード） |
 | 1.7 | 2026-11-09 | 最初のタスクをスコープに追加（FR-OPS-11）。`skill_list`（要望・swarm-console 側は未実装）をステークホルダー・範囲外・用語集（`/ops`）に反映 | Issue #103（空きセッションへの最初のタスク） |
 | 1.8 | 2026-11-10 | 新しい版の確認と自動アップデートをスコープに追加（デスクトップ・Android）。「含まないもの」の自動更新を、Linux・無人の更新・手動の確認ボタン・ロールバックに書き換え。システム全体像に GitHub Releases、ドキュメントマップ・用語集（`SHA256SUMS`）を更新 | Issue #109（新しい版の確認と自動アップデート） |
+| 1.9 | 2026-11-28 | ドキュメントマップの「環境構築」の CI を、GitHub ホストランナーの記述に訂正 | Issue #126・#131（CI ランナーの記述が実装と食い違っていた） |
