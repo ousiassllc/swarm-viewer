@@ -31,13 +31,19 @@ type outcome struct {
 	clearInput bool
 }
 
-// opsForm は操作ルートの共通の前処理。操作の接続でなければ 403、本文が大きすぎれば 413。lines も読む。
+// opsForm は操作ルートの共通の前処理。操作の接続でなければ 403、本文が大きすぎれば 413（本文はここで読み切る）。lines も読む。
 func (h *PaneHandler) opsForm(c *gin.Context) (target, int, bool) {
 	t, ok := h.loadOpsTarget(c)
 	if !ok {
 		return target{}, 0, false
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxFormBytes)
+	// gin の PostForm は本文の読み取りエラーを捨てて空の値を返す。上限超過を空入力と取り違えないよう、先に自分で読んで確かめる。
+	var tooLarge *http.MaxBytesError
+	if err := c.Request.ParseForm(); errors.As(err, &tooLarge) {
+		h.resp.Fail(c, http.StatusRequestEntityTooLarge, format.RequestTooLargeMessage)
+		return target{}, 0, false
+	}
 	return t, linesParam(c.PostForm(panedetail.FieldLines)), true
 }
 

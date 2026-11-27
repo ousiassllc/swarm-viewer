@@ -14,6 +14,8 @@ const (
 	BusyMessage = "前の操作がまだ終わっていません"
 	// ViewOnlyMessage は見るだけの接続で操作を求められたとき。
 	ViewOnlyMessage = "この接続では操作できません（見るだけの接続です）"
+	// RequestTooLargeMessage は操作のフォーム本文が上限を超えたとき（413）。
+	RequestTooLargeMessage = "送る内容が大きすぎます"
 	// OpsWarning・OpsLeakNote は操作の接続のペアリング確認画面の警告文。
 	OpsWarning  = "この接続はペインに送信・中断・起動・終了できます"
 	OpsLeakNote = "token が漏れると、この Tailscale 内からペインを操作されます。紛失したらホストで `swarm-console token revoke <名前>` を実行してください"

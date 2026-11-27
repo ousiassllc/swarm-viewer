@@ -2,8 +2,11 @@ package panehandler_test
 
 import (
 	"net/http"
+	"net/url"
+	"strings"
 	"testing"
 
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
 	"github.com/ousiassllc/swarm-viewer/internal/web/webtest/opsconsole"
 )
 
@@ -149,5 +152,16 @@ func TestOpsConnection_PaneClose_ReachesConsoleAndReturnsToMainScreen(t *testing
 	r := callOf(t, s, "pane_close")
 	if r.Args["session"] != "0" || r.Args["pane"] != "T3" || len(r.Args) != 2 {
 		t.Errorf("引数 = %v", r.Args)
+	}
+}
+
+// 本文が上限（256 KiB）を超えたら、空の入力として扱わずに 413 を返し、console へは何も送らない。
+func TestOpsConnection_OversizedForm_Returns413WithoutCommunicating(t *testing.T) {
+	s := opsconsole.NewStack(t, pathOps)
+	big := url.Values{"text": {strings.Repeat("あ", 100<<10)}} // URL エンコードで 900 KiB 超
+	html := body(t, s.Post(opsconsole.PanePath("T3", "/send"), big), http.StatusRequestEntityTooLarge)
+	mustContain(t, html, format.RequestTooLargeMessage)
+	if n := len(s.Console.Calls(pathOps)); n != 0 {
+		t.Errorf("console への通信 = %d 回; want 0", n)
 	}
 }
