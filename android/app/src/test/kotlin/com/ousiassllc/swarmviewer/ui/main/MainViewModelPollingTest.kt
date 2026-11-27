@@ -59,6 +59,9 @@ internal class MainViewModelPollingTest : MainViewModelFixture() {
                 }
             val viewModel = started(brokenSettings)
             assertEquals(1, reports.calls.size)
+            assertTrue(viewModel.state.value.snapshot != null) // 取得は成功している
+            assertNull(viewModel.state.value.failure) // 設定を読めなくても、取得の失敗表示は立てない
+            assertFalse(viewModel.state.value.stale)
 
             passTime(DEFAULT_INTERVAL_MILLIS - 1)
             assertEquals(1, reports.calls.size)
@@ -66,6 +69,8 @@ internal class MainViewModelPollingTest : MainViewModelFixture() {
             assertEquals(2, reports.calls.size)
             passTime(DEFAULT_INTERVAL_MILLIS)
             assertEquals(3, reports.calls.size)
+            assertNull(viewModel.state.value.failure)
+            assertFalse(viewModel.state.value.stale)
             viewModel.onStop()
         }
 
