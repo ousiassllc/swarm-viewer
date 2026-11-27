@@ -39,8 +39,7 @@ func (h *PaneHandler) opsForm(c *gin.Context) (target, int, bool) {
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxFormBytes)
 	// gin の PostForm は本文の読み取りエラーを捨てて空の値を返す。上限超過を空入力と取り違えないよう、先に自分で読んで確かめる。
-	var tooLarge *http.MaxBytesError
-	if err := c.Request.ParseForm(); errors.As(err, &tooLarge) {
+	if err := c.Request.ParseForm(); errors.As(err, new(*http.MaxBytesError)) {
 		h.resp.Fail(c, http.StatusRequestEntityTooLarge, format.RequestTooLargeMessage)
 		return target{}, 0, false
 	}

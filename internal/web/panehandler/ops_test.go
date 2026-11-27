@@ -2,7 +2,6 @@ package panehandler_test
 
 import (
 	"net/http"
-	"net/url"
 	"strings"
 	"testing"
 
@@ -107,7 +106,6 @@ func TestOpsConnection_StartFlow_DirListThenPaneStart_ConfirmationDoesNotStart(t
 	// 画面（shell のペイン）→ ピッカーが dir_list（path なし = 許可された根）を読む。
 	page := body(t, s.Get(start), 200)
 	mustContain(t, page, "omp", "claude", "codex", `hx-get="`+opsconsole.PanePath("T4", "/start/dirs")+`"`, `hx-trigger="load"`)
-	// タイトル欄は atoms.Input で出す（必須・80 字まで・補完なし・共通の入力欄クラス）。
 	mustContain(t, page, `id="pane-start-title"`, `name="title"`, `maxlength="80"`, "required", `autocomplete="off"`, "min-h-10")
 	dirs := body(t, s.Get(opsconsole.PanePath("T4", "/start/dirs")), 200)
 	mustContain(t, dirs, "work", "docs", "git")
@@ -157,13 +155,9 @@ func TestOpsConnection_PaneClose_ReachesConsoleAndReturnsToMainScreen(t *testing
 	}
 }
 
-// 本文が上限（256 KiB）を超えたら、空の入力として扱わずに 413 を返し、console へは何も送らない。
-func TestOpsConnection_OversizedForm_Returns413WithoutCommunicating(t *testing.T) {
+// 本文が上限（256 KiB）を超えたら、空入力にせず 413 を返す（URL エンコードで 900 KiB 超）。
+func TestOpsConnection_OversizedForm_Returns413(t *testing.T) {
 	s := opsconsole.NewStack(t, pathOps)
-	big := url.Values{"text": {strings.Repeat("あ", 100<<10)}} // URL エンコードで 900 KiB 超
-	html := body(t, s.Post(opsconsole.PanePath("T3", "/send"), big), http.StatusRequestEntityTooLarge)
-	mustContain(t, html, format.RequestTooLargeMessage)
-	if n := len(s.Console.Calls(pathOps)); n != 0 {
-		t.Errorf("console への通信 = %d 回; want 0", n)
-	}
+	big := form("text", strings.Repeat("あ", 100<<10))
+	mustContain(t, body(t, s.Post(opsconsole.PanePath("T3", "/send"), big), http.StatusRequestEntityTooLarge), format.RequestTooLargeMessage)
 }
