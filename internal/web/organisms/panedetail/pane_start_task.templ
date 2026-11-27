@@ -145,12 +145,9 @@ templ StartTaskResult(p StartTaskResultProps) {
 					@atoms.Button(atoms.ButtonProps{Label: "もう一度送る", Type: "submit", Variant: atoms.ButtonPrimary})
 				</form>
 			}
-			<a
-				href={ templ.SafeURL(paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos)) }
-				hx-get={ paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos) }
-				hx-target="#main"
-				class="text-link hover-fade inline-flex min-h-10 items-center text-sm text-ink"
-			>ペイン詳細を開く</a>
+			@atoms.NavLink(atoms.NavLinkProps{Href: paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos), Class: "text-link hover-fade inline-flex min-h-10 items-center text-sm text-ink"}) {
+				ペイン詳細を開く
+			}
 		</div>
 	</div>
 }

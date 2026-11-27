@@ -1,0 +1,27 @@
+package atoms
+
+// NavLinkProps は NavLink の入力。
+type NavLinkProps struct {
+	// Href は遷移先。JS 無効時のために href にも、HTMX の hx-get にも同じ値を入れる。
+	Href string
+	// Class はリンクの見た目（呼び出し側が持つ）。
+	Class string
+	// Attrs は追加の属性（data-*・aria-*・hx-sync など）。
+	Attrs templ.Attributes
+}
+
+// NavLink は #main を差し替えるアプリ内リンク。中身は子要素に書く。
+// hx-swap="innerHTML" を必ず付ける。付けないと、ポーリング領域・フォームの hx-swap="outerHTML" を継承して
+// <main id="main"> ごと差し替わり、以降のリンクが htmx:targetError で効かなくなる（Issue #100）。
+templ NavLink(p NavLinkProps) {
+	<a
+		href={ templ.SafeURL(p.Href) }
+		hx-get={ p.Href }
+		hx-target="#main"
+		hx-swap="innerHTML"
+		class={ p.Class }
+		{ p.Attrs... }
+	>
+		{ children... }
+	</a>
+}

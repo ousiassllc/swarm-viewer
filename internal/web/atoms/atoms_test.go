@@ -1,6 +1,8 @@
 package atoms_test
 
 import (
+	"context"
+	"io"
 	"strings"
 	"testing"
 
@@ -223,4 +225,18 @@ func TestInput(t *testing.T) {
 	// 入力欄の文字は本文と同じ 16px（ガイド T3）。
 	webtest.MustContain(t, html, "min-h-10", "text-base")
 	webtest.MustNotContain(t, html, "text-sm")
+}
+
+// NavLink は href と hx-get に同じ値を入れ、#main 向けに hx-swap="innerHTML" を必ず付ける（Issue #100: outerHTML の継承で <main> ごと差し替わるのを防ぐ）。
+func TestNavLink(t *testing.T) {
+	t.Parallel()
+	c := atoms.NavLink(atoms.NavLinkProps{
+		Href: "/connections/c1?a=1&b=2", Class: "k", Attrs: templ.Attributes{"data-x": true, "hx-sync": "#pane-live:replace"},
+	})
+	html := webtest.Render(t, templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
+		return c.Render(templ.WithChildren(ctx, templ.ComponentFunc(func(_ context.Context, w io.Writer) error { _, err := io.WriteString(w, "中身"); return err })), w)
+	}))
+	webtest.MustContain(t, html,
+		`href="/connections/c1?a=1&amp;b=2"`, `hx-get="/connections/c1?a=1&amp;b=2"`,
+		`hx-target="#main"`, `hx-swap="innerHTML"`, `class="k"`, "data-x", `hx-sync="#pane-live:replace"`, "中身")
 }

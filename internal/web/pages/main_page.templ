@@ -9,6 +9,14 @@ import (
 	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
 )
 
+// connectionTabAttrs は接続切替で表示中の接続だけに aria-current を付ける。
+func connectionTabAttrs(current bool) templ.Attributes {
+	if current {
+		return templ.Attributes{"aria-current": "true"}
+	}
+	return nil
+}
+
 // MainProps は MainPage / MainContent の入力。ハンドラが service の結果を解決して渡す。
 type MainProps struct {
 	// Connection は表示中の接続（名前・ID だけ使う。token は持たない）。
@@ -51,15 +59,13 @@ templ MainContent(p MainProps) {
 		if len(p.Connections) > 1 {
 			<nav class="flex flex-wrap gap-1" aria-label="接続の切替">
 				for _, c := range p.Connections {
-					<a
-						href={ templ.SafeURL(paths.Connection(c.ID)) }
-						hx-get={ paths.Connection(c.ID) }
-						hx-target="#main"
-						class="hover-fade rounded-md border border-border px-2 py-1 text-sm text-ink hover:bg-accent-soft aria-[current=true]:bg-accent-soft"
-						if c.ID == p.Connection.ID {
-							aria-current="true"
-						}
-					>{ c.Name }</a>
+					@atoms.NavLink(atoms.NavLinkProps{
+						Href:  paths.Connection(c.ID),
+						Class: "hover-fade rounded-md border border-border px-2 py-1 text-sm text-ink hover:bg-accent-soft aria-[current=true]:bg-accent-soft",
+						Attrs: connectionTabAttrs(c.ID == p.Connection.ID),
+					}) {
+						{ c.Name }
+					}
 				}
 			</nav>
 		}

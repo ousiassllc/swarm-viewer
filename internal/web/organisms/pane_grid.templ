@@ -91,26 +91,21 @@ templ PaneGrid(p PaneGridProps) {
 templ paneCell(p PaneGridProps, pane domain.Pane) {
 	<div class="flex min-w-0 flex-col gap-2">
 		if pane.Pos != "" {
-			<a
-				href={ templ.SafeURL(paths.Pane(p.ConnectionID, p.Session, pane.Pos)) }
-				hx-get={ paths.Pane(p.ConnectionID, p.Session, pane.Pos) }
-				hx-target="#main"
-				hx-swap="innerHTML"
-				aria-label={ "ペイン " + pane.Pos + " の詳細を開く" }
-				data-pane-link
-				class="hover-fade block min-w-0 rounded-lg hover:bg-accent-soft/40"
-			>
+			@atoms.NavLink(atoms.NavLinkProps{
+				Href:  paths.Pane(p.ConnectionID, p.Session, pane.Pos),
+				Class: "hover-fade block min-w-0 rounded-lg hover:bg-accent-soft/40",
+				Attrs: templ.Attributes{"aria-label": "ペイン " + pane.Pos + " の詳細を開く", "data-pane-link": true},
+			}) {
 				@molecules.PaneCard(cardProps(p, pane))
-			</a>
+			}
 			if p.Kind == domain.KindOps && pane.State == domain.StateShell {
-				<a
-					href={ templ.SafeURL(paths.PaneStart(p.ConnectionID, p.Session, pane.Pos)) }
-					hx-get={ paths.PaneStart(p.ConnectionID, p.Session, pane.Pos) }
-					hx-target="#main"
-					hx-swap="innerHTML"
-					data-pane-start
-					class="hover-fade inline-flex h-8 w-fit items-center rounded-md border border-border px-3 text-sm font-semibold text-ink hover:bg-accent-soft"
-				>＋ 始める</a>
+				@atoms.NavLink(atoms.NavLinkProps{
+					Href:  paths.PaneStart(p.ConnectionID, p.Session, pane.Pos),
+					Class: "hover-fade inline-flex h-8 w-fit items-center rounded-md border border-border px-3 text-sm font-semibold text-ink hover:bg-accent-soft",
+					Attrs: templ.Attributes{"data-pane-start": true},
+				}) {
+					＋ 始める
+				}
 			}
 		} else {
 			@molecules.PaneCard(cardProps(p, pane))
