@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ousiassllc.swarmviewer.data.store.Snapshot
 import com.ousiassllc.swarmviewer.domain.ConnectionKind
+import com.ousiassllc.swarmviewer.domain.DEFAULT_SCREEN_POLL_SECONDS
 import com.ousiassllc.swarmviewer.domain.ErrKind
 import com.ousiassllc.swarmviewer.domain.FetchException
 import com.ousiassllc.swarmviewer.service.ConnectionGoneException
@@ -156,7 +157,9 @@ class MainViewModel(
                 while (isActive && !mutableState.value.needsRepair && mutableState.value.connectionId != null) {
                     ensureFetch().join()
                     if (mutableState.value.needsRepair) break
-                    delay(settings.get().screenPollSeconds * MILLIS_PER_SECOND)
+                    // 設定を読めなくても、ポーリングは既定の間隔で続ける
+                    val seconds = attempt { settings.get().screenPollSeconds } ?: DEFAULT_SCREEN_POLL_SECONDS
+                    delay(seconds * MILLIS_PER_SECOND)
                 }
             }
     }

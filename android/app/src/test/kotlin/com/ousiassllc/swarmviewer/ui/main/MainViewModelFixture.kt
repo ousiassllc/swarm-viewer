@@ -2,6 +2,7 @@ package com.ousiassllc.swarmviewer.ui.main
 
 import com.ousiassllc.swarmviewer.data.store.FakeTokenStore
 import com.ousiassllc.swarmviewer.data.store.FakeViewerStore
+import com.ousiassllc.swarmviewer.data.store.ViewerStore
 import com.ousiassllc.swarmviewer.domain.Connection
 import com.ousiassllc.swarmviewer.domain.FetchException
 import com.ousiassllc.swarmviewer.domain.Pane
@@ -76,7 +77,7 @@ internal abstract class MainViewModelFixture {
         tokens.put(id, TOKEN)
     }
 
-    protected fun newViewModel() =
+    protected fun newViewModel(settingsStore: ViewerStore = store) =
         MainViewModel(
             SnapshotService(
                 lister =
@@ -90,11 +91,11 @@ internal abstract class MainViewModelFixture {
                 attention = AttentionObserver { _, _, _, _ -> },
             ),
             connections,
-            SettingsService(store),
+            SettingsService(settingsStore),
         )
 
-    protected fun TestScope.started(): MainViewModel {
-        val viewModel = newViewModel()
+    protected fun TestScope.started(settingsStore: ViewerStore = store): MainViewModel {
+        val viewModel = newViewModel(settingsStore)
         viewModel.onStart()
         runCurrent()
         return viewModel

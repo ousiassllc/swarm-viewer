@@ -1,5 +1,6 @@
 package com.ousiassllc.swarmviewer.ui.main
 
+import com.ousiassllc.swarmviewer.data.store.ViewerStore
 import com.ousiassllc.swarmviewer.domain.Settings
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -46,6 +47,25 @@ internal class MainViewModelPollingTest : MainViewModelFixture() {
             assertEquals(1, reports.calls.size)
             passTime(1_000)
             assertEquals(2, reports.calls.size)
+            viewModel.onStop()
+        }
+
+    @Test
+    fun pollingContinuesAtTheDefaultIntervalWhenReadingTheSettingsFails() =
+        runTest {
+            val brokenSettings =
+                object : ViewerStore by store {
+                    override suspend fun settings(): Settings = throw IllegalStateException("database is closed")
+                }
+            val viewModel = started(brokenSettings)
+            assertEquals(1, reports.calls.size)
+
+            passTime(DEFAULT_INTERVAL_MILLIS - 1)
+            assertEquals(1, reports.calls.size)
+            passTime(1) // 設定を読めなくても落ちず、既定の間隔で次の取得に進む
+            assertEquals(2, reports.calls.size)
+            passTime(DEFAULT_INTERVAL_MILLIS)
+            assertEquals(3, reports.calls.size)
             viewModel.onStop()
         }
 
