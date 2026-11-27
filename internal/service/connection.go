@@ -176,7 +176,7 @@ func (s *ConnectionService) MarkRepaired(id string) {
 
 // noteFetchError は認証・スコープのエラー（401/403）のとき needs_repair を立てる。
 func (s *ConnectionService) noteFetchError(id string, fe *domain.FetchError) {
-	if needsRepair(fe) {
+	if fe.NeedsRepair() {
 		s.MarkNeedsRepair(id)
 	}
 }
@@ -187,10 +187,6 @@ func classify(err error) *domain.FetchError {
 		return fe
 	}
 	return &domain.FetchError{Kind: domain.ErrProtocol}
-}
-
-func needsRepair(fe *domain.FetchError) bool {
-	return fe != nil && (fe.Kind == domain.ErrUnauthorized || fe.Kind == domain.ErrForbiddenScope)
 }
 
 // allowedSessions は許可されたセッションだけに絞る（順序は保つ）。

@@ -123,7 +123,7 @@ func (s *PaneService) failure(connID, tool, session, pane string, err error) *do
 	if fe == nil {
 		fe = &domain.FetchError{Kind: domain.ErrProtocol}
 	}
-	if fe.Kind == domain.ErrUnauthorized || fe.Kind == domain.ErrForbiddenScope {
+	if fe.NeedsRepair() {
 		s.conns.MarkNeedsRepair(connID)
 	}
 	s.log.Warn("pane call failed", "connection_id", connID, "tool", tool, "session", session, "pane", pane, "kind", fe.Kind.String(), "code", fe.Code)

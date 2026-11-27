@@ -77,14 +77,14 @@ func (h *PaneHandler) load(c *gin.Context, t target, lines int) (panedetail.Live
 // failed は取得失敗の固定文言を p に入れる。直前の本文（tail・card）は持たない。
 func failed(p panedetail.LiveProps, fe *domain.FetchError) panedetail.LiveProps {
 	p.Banner = format.FetchErrorMessage(fe)
-	p.Repair = format.NeedsRepair(fe)
+	p.Repair = fe.NeedsRepair()
 	p.Tail, p.HasTail, p.Card, p.HasCard = ops.PaneTail{}, false, ops.AskCard{}, false
 	return p
 }
 
 // asFetchError は service が返した取得失敗を *domain.FetchError にする。想定外のエラーは protocol（固定文言）。
 func asFetchError(err error) *domain.FetchError {
-	if fe, ok := fetchError(err); ok {
+	if fe, ok := domain.AsFetchError(err); ok {
 		return fe
 	}
 	return &domain.FetchError{Kind: domain.ErrProtocol}

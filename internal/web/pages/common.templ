@@ -7,7 +7,9 @@ import (
 
 // navLink は #main を差し替えるアプリ内リンク。JS 無効時のために href も持つ。
 templ navLink(href, label string) {
-	<a href={ templ.SafeURL(href) } hx-get={ href } hx-target="#main" hx-swap="innerHTML" class="text-link hover-fade text-sm text-ink">{ label }</a>
+	@atoms.NavLink(atoms.NavLinkProps{Href: href, Class: "text-link hover-fade text-sm text-ink"}) {
+		{ label }
+	}
 }
 
 // pageTitle は各画面の見出し。

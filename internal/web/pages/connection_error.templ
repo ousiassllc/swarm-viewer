@@ -30,7 +30,7 @@ templ ConnectionErrorContent(p ConnectionErrorProps) {
 	@pageTitle("接続できません")
 	@atoms.Alert(atoms.AlertProps{Kind: atoms.AlertDanger, Message: "接続「" + p.Name + "」: " + format.FetchErrorMessage(p.Err)})
 	<div class="flex items-center gap-4">
-		if format.NeedsRepair(p.Err) {
+		if p.Err.NeedsRepair() {
 			@navLink(paths.Pairing, "再ペアリング")
 		} else {
 			@navLink(paths.Connection(p.ConnectionID), "再試行")

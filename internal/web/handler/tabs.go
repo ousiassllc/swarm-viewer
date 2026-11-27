@@ -62,7 +62,7 @@ func (h *Handler) fetchFirstTabs(c *gin.Context, conn domain.Connection, request
 		}
 		return tabs, sid, true
 	default:
-		fe, isFetch := fetchError(err)
+		fe, isFetch := domain.AsFetchError(err)
 		if !isFetch {
 			h.internal(c, "tabs", err)
 			return nil, "", false

@@ -1,6 +1,9 @@
 package molecules
 
-import "github.com/ousiassllc/swarm-viewer/internal/web/paths"
+import (
+	"github.com/ousiassllc/swarm-viewer/internal/web/atoms"
+	"github.com/ousiassllc/swarm-viewer/internal/web/paths"
+)
 
 // SessionTabProps は SessionTab の入力。
 type SessionTabProps struct {
@@ -19,17 +22,17 @@ func sessionTabClass(selected bool) string {
 	return "hover-fade -mb-px border-b-2 border-transparent py-2.5 text-sm text-mute hover:text-ink"
 }
 
+// sessionTabAttrs は選択中のタブだけに aria-current を付ける。
+func sessionTabAttrs(selected bool) templ.Attributes {
+	if selected {
+		return templ.Attributes{"aria-current": "page"}
+	}
+	return nil
+}
+
 // SessionTab はセッションタブ 1 つ。選択でメイン領域（#main）を再取得する（FR-SESS-2）。
 templ SessionTab(p SessionTabProps) {
-	<a
-		href={ templ.SafeURL(paths.Session(p.ConnectionID, p.Session)) }
-		hx-get={ paths.Session(p.ConnectionID, p.Session) }
-		hx-target="#main"
-		class={ sessionTabClass(p.Selected) }
-		if p.Selected {
-			aria-current="page"
-		}
-	>
+	@atoms.NavLink(atoms.NavLinkProps{Href: paths.Session(p.ConnectionID, p.Session), Class: sessionTabClass(p.Selected), Attrs: sessionTabAttrs(p.Selected)}) {
 		{ p.Session }
-	</a>
+	}
 }
