@@ -12,10 +12,7 @@ import com.ousiassllc.swarmviewer.service.PaneService
 import com.ousiassllc.swarmviewer.service.PaneTarget
 import com.ousiassllc.swarmviewer.service.SnapshotService
 import com.ousiassllc.swarmviewer.service.StartOutcome
-import com.ousiassllc.swarmviewer.ui.UNEXPECTED_ERROR_MESSAGE
-import com.ousiassllc.swarmviewer.ui.fetchErrorMessage
 import com.ousiassllc.swarmviewer.ui.operationErrorMessage
-import com.ousiassllc.swarmviewer.ui.rejectionMessage
 import com.ousiassllc.swarmviewer.ui.sendToast
 import com.ousiassllc.swarmviewer.ui.startToast
 import kotlinx.coroutines.CancellationException
@@ -86,12 +83,13 @@ class StartSessionViewModel(
         loadJob?.cancel()
         loadJob =
             viewModelScope.launch {
-                val kind = attempt { panes.kind(target.connectionId) } ?: return@launch
+                val kind = mutableState.attempt { panes.kind(target.connectionId) } ?: return@launch
                 if (kind != ConnectionKind.Ops) {
                     mutableState.update { it.copy(viewOnly = true) }
                     return@launch
                 }
-                val recent = attempt { snapshots.cached(target.connectionId, target.session) }?.report?.panes.orEmpty()
+                val cached = mutableState.attempt { snapshots.cached(target.connectionId, target.session) }
+                val recent = cached?.report?.panes.orEmpty()
                 mutableState.update { it.copy(recent = recentFolders(recent)) }
                 history.clear()
                 load(null)
@@ -174,7 +172,7 @@ class StartSessionViewModel(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    showFailure(e)
+                    mutableState.showFailure(e)
                 } finally {
                     mutableState.update { it.copy(busy = false) }
                 }
@@ -214,7 +212,7 @@ class StartSessionViewModel(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    val text = failureText(e)
+                    val text = mutableState.failureText(e)
                     mutableState.update { it.copy(notice = notice.copy(reason = text)) }
                 } finally {
                     mutableState.update { it.copy(busy = false) }
@@ -246,7 +244,7 @@ class StartSessionViewModel(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            showFailure(e)
+            mutableState.showFailure(e)
         } finally {
             mutableState.update { it.copy(listingLoading = false) }
         }
@@ -266,7 +264,7 @@ class StartSessionViewModel(
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        val text = failureText(e)
+                        val text = mutableState.failureText(e)
                         if (e is FetchException) SkillListing.failed(e) else SkillListing.Failed(text, reload = true)
                     }
                 mutableState.update { if (it.agent == agent) it.copy(skills = listing) else it }
@@ -275,32 +273,8 @@ class StartSessionViewModel(
 
     // 起動の結果。最初のタスクを送っていない・送れなかったときは、遷移せずに結果の表示を出す（本文は state に残る）。
     private fun started(outcome: StartOutcome) {
-        val notice = outcome.notice(outcome.error?.let(::failureText))
+        val notice = outcome.notice(outcome.error?.let { mutableState.failureText(it) })
         if (outcome.start.ok && notice == null) mutableStarted.trySend(Unit)
         mutableState.update { it.copy(notice = notice, message = if (notice == null) startToast(outcome.start) else null) }
     }
-
-    private fun showFailure(e: Exception) {
-        val text = failureText(e)
-        mutableState.update { it.copy(message = text) }
-    }
-
-    // 失敗の固定文言。401・403 は再ペアリングの案内を出す。
-    private fun failureText(e: Exception): String {
-        if (e is FetchException) {
-            mutableState.update { it.copy(needsRepair = it.needsRepair || e.requiresRepair) }
-            return fetchErrorMessage(e)
-        }
-        return rejectionMessage(e) ?: UNEXPECTED_ERROR_MESSAGE
-    }
-
-    private suspend fun <T> attempt(block: suspend () -> T): T? =
-        try {
-            block()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            mutableState.update { it.copy(message = UNEXPECTED_ERROR_MESSAGE) }
-            null
-        }
 }

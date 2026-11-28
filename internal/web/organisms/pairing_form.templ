@@ -18,7 +18,8 @@ type PairingFormProps struct {
 	Error string
 }
 
-// PairingForm は接続文字列の貼り付けフォーム。成功（303）は #main へ、検証失敗（422）は #pairing-form へ描画する。
+// PairingForm は接続文字列の貼り付けフォーム。成功は HX-Redirect（200。3xx は使わず、hx-target="#main" の差し替えは起きない）、
+// 検証失敗（422）は hx-target-422 で #pairing-form へ描画する。
 templ PairingForm(p PairingFormProps) {
 	<form
 		hx-post={ paths.Pairing }

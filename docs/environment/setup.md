@@ -14,7 +14,7 @@ swarm-viewer の開発環境・CI/CD・lint・format・Git Hooks を定める。
 | Lint / Format | Go: golangci-lint（gofmt・goimports を含む）、Templ: `templ fmt`、JS/CSS: Biome |
 | 行数管理 | linterly |
 | Git Hooks | Lefthook |
-| CI | GitHub Actions（セルフホステッドランナー: Linux） |
+| CI | GitHub Actions（GitHub ホストランナー: `ubuntu-latest`） |
 | Swagger / OpenAPI | 対象外（§10） |
 | 対応 OS（開発・配布） | Windows 11 / 最新 2 世代の macOS。CI のランナーは Linux のみ（§5.4 の制約と、Windows / macOS 向けの `go vet` による穴埋めを参照）。Android 版は §11 |
 
@@ -67,7 +67,7 @@ swarm-viewer/
 |----|------|
 | macOS | Xcode Command Line Tools（`xcode-select --install`）。ビルドの対象は macOS 12.0 以降 |
 | Windows | WebView2 Runtime（ほとんどの Windows 11 に導入済み） |
-| Linux（CI ランナー用） | `gcc` などの標準ビルドツールと、`gtk4`・`webkitgtk-6.0` の開発パッケージ（Ubuntu 24.04 が対象）。必要なパッケージ名は `wails3 doctor` の出力に従う。**ランナーのホストに事前に導入しておく**（ジョブ内で `apt` は実行しない。§5.1） |
+| Linux（手元で Linux 向けをビルドするとき） | `gcc` などの標準ビルドツールと、`gtk4`・`webkitgtk-6.0` の開発パッケージ（Ubuntu 24.04 が対象）。必要なパッケージ名は `wails3 doctor` の出力に従う。CI（GitHub ホストランナー）はこれらを入れない（ジョブ内で `apt` は実行しない。§5.1） |
 
 ### 3.2 タスク一覧（`Taskfile.yml`）
 
@@ -124,11 +124,11 @@ lint で機械的に守らせるアーキテクチャ上のルール（§6.1 の
 | 項目 | 内容 |
 |------|------|
 | プラットフォーム | GitHub Actions（`.github/workflows/ci.yml`） |
-| ランナー | **セルフホステッドランナー**。全ジョブに `runs-on: [self-hosted, linux, x64]` を指定する（ラベルは登録するランナーに合わせて実装時に確定する） |
-| ランナーの前提 | ジョブは `apt` や `sudo` を使わない。Linux 向けの Wails のビルドには `gcc`・`gtk4`・`webkitgtk-6.0`・`libsoup-3.0` の開発パッケージ（§3.1）が要る。**現在のランナーホストにはこれらが未導入**のため、Linux のジョブは `internal/app` 直下と `main.go` を検査対象から外し、Windows 向け（CGO 不要）の検査で補う（§5.2）。開発パッケージをホストに導入したら、この除外と `build` ジョブの Windows 向けビルドを Linux 向けへ戻す。Go と bun は `actions/setup-go`・`oven-sh/setup-bun` でジョブごとに準備する |
-| 実行の制限 | リポジトリは private。セルフホステッドランナーで信頼できないコードを実行しないよう、`pull_request` は同一リポジトリのブランチ（`github.event.pull_request.head.repo.full_name == github.repository`）のときだけジョブを実行する。リポジトリを public にする場合は、ランナーの利用を見直す |
+| ランナー | **GitHub ホストランナー**。全ジョブに `runs-on: ubuntu-latest` を指定する（セルフホステッドランナーは使わない） |
+| ランナーの前提 | ジョブは `apt` や `sudo` を使わない。Linux 向けの Wails のビルドには `gcc`・`gtk4`・`webkitgtk-6.0`・`libsoup-3.0` の開発パッケージ（§3.1）が要る。CI はこれらを入れないため、Linux のジョブは `internal/app` 直下と `main.go` を検査対象から外し、Windows 向け（CGO 不要）の検査で補う（§5.2）。開発パッケージを入れる方式に変えたら、この除外と `build` ジョブの Windows 向けビルドを Linux 向けへ戻す。Go と bun は `actions/setup-go`・`oven-sh/setup-bun` でジョブごとに準備する |
+| 実行の制限 | リポジトリは public。fork の PR のコードを CI で実行しないよう、`pull_request` は同一リポジトリのブランチ（`github.event.pull_request.head.repo.full_name == github.repository`）のときだけジョブを実行する |
 | トリガー | `push`（`main` と `feat/**`）、`pull_request`（`main` 向け） |
-| 並行実行 | 同じ ref の古い実行を `concurrency` でキャンセルする。ランナーが 1 台のときはジョブが直列に実行される |
+| 並行実行 | 同じ ref の古い実行を `concurrency` でキャンセルする |
 | 作業ディレクトリ | ジョブの最初に `actions/checkout`（`clean: true`）で作業ツリーを初期化する。ランナーの `_work` に前回の生成物が残っていても、`task generate` が毎回作り直す |
 | 権限 | `permissions: contents: read` のみ |
 | Go 側と Android 側の出し分け | 先頭の `changes` ジョブが、変更されたファイルから Go 側（`lint`・`test`・`build`）と Android 側（`android-lint`・`android-test`・`android-build`）のどちらを動かすかを決め、各ジョブの `if` で出し分ける。`paths` で workflow ごと止めない（必須チェックが pending のまま残るため）。skip したジョブは必須チェックでは成功として扱われる。詳細は §11.2 |
@@ -159,7 +159,7 @@ graph LR
   - `CGO_ENABLED=0 GOOS=windows go vet ./...`
   - `CGO_ENABLED=0 GOOS=darwin go vet ./internal/domain/... ./internal/repository/... ./internal/service/... ./internal/web/...`
 - `wails3 build` の実ビルド（Windows の NSIS インストーラ・macOS の `.app` を含む）は CI では行わない。配布物は release.yml（§5.5）が GitHub ホストランナーで作り、**その成果物を実機で確認する**（§5.4）
-- `actions/setup-go` のキャッシュ保存は無効（`cache: false`）にする。セルフホステッドランナーで post ステップが 20 分以上止まりジョブがタイムアウトしたため。Go のモジュール・ビルドキャッシュはランナーのローカルに残る。bun のキャッシュは `oven-sh/setup-bun` の既定に任せる
+- `actions/setup-go` はキャッシュを既定のまま使う（`cache: false` は指定しない）。bun のキャッシュは `oven-sh/setup-bun` の既定に任せる
 - 生成物をコミットしないため、生成物の差分検知ステップ（`git diff --exit-code`）は置かない
 - リリース（Windows の NSIS インストーラ・macOS の `.app`・Android の署名済み APK を Releases へ配布）は release.yml が行う。トリガー・ジョブ構成・ランナー・権限・成果物は §5.5 に定める（[NFR-DST-1](../requirements/non-functional.md)）
 
@@ -178,7 +178,7 @@ graph LR
 | トレイ・OS 通知・URL スキームの動作 | 自動テスト対象外。実機で確認する |
 | Windows のパス・改行（CRLF）に依存する不具合 | `.gitattributes` で `* text=auto eol=lf` を指定し、パス処理は `path/filepath` を使う |
 
-OS 別のマトリクス（Windows / macOS のセルフホステッドランナーの追加）は、Windows / macOS 固有の破損が実際に見つかった時点で検討する。
+OS 別のマトリクス（Windows / macOS のランナーでの CI ジョブの追加）は、Windows / macOS 固有の破損が実際に見つかった時点で検討する。
 
 Release の成果物の実機確認（手動確認項目）:
 
@@ -201,7 +201,7 @@ Release の成果物の実機確認（手動確認項目）:
 | 古いコミット・main 以外 | 自動のタグは、CI が成功したコミットが **main の先頭**のときだけ付ける（古いコミットに新しい版を付けない。先頭に既に `v*` タグがあれば何もしない）。さらに verify ジョブが、リリースするコミットが **main の履歴にある**ことと、そのコミットで **`ci.yml` が成功している**ことを確かめる。手で打ったタグがこれを満たさなければ Release は作られない。lint・test は release.yml 内では再実行しない |
 | 版の埋め込み | タグが版の唯一の元。ビルド前に `.github/scripts/set-version.sh` が `build/config.yml` の `info.version` をタグの `X.Y.Z` に書き換え、`task common:update:build-assets`（`wails3 update build-assets`）で `Info.plist`（`CFBundleShortVersionString`・`CFBundleVersion`）・`build/windows/info.json`（Windows のファイルのプロパティ）・`wails_tools.nsh`・`wails.exe.manifest` を再生成し、各ファイルに版が入ったことを確かめる（入っていなければ失敗）。このコマンドは `project.nsi`・各 Taskfile・`protocols` の設定には触れず、plist は既存の内容にマージする。同じスクリプトが、アプリ自身の版（新しい版の確認・自動アップデートが使う）として `internal/buildinfo/buildinfo.go` の `var Version = "dev"` の行をタグの `X.Y.Z` に書き換える（リポジトリには `dev` のまま置く。ワークツリーだけの書き換えでコミットしない。形が変わって書き換えられなければ失敗し、`dev` のままリリースしない。`.github/scripts/set-version_test.sh`・CI の `test` ジョブ）。ビルド後に、Windows は exe とインストーラの固定の版（`FileVersionRaw` = `X.Y.Z.0`）とインストーラの `ProductVersion` の文字列（exe の文字列欄は .NET の `VersionInfo` では空に見えるため見ない。Explorer のプロパティ表示は実機確認。§5.4）、macOS は `Info.plist` の版・URL スキーム・universal（`x86_64` と `arm64`）・署名の検証も行う。`wails3 dev`・手元の `go build` のビルドの版は `dev` で、新しい版の確認も更新もしない（§5.6） |
 | ジョブ構成 | 下図 |
-| ランナー | `plan`・`verify`・`release` は `ubuntu-latest`、`build-windows` は `windows-latest`、`build-macos` は `macos-latest`（いずれも GitHub ホストランナー）。**`build-android` だけは既存の Linux セルフホステッドランナー**（`[self-hosted, linux, x64]`。JDK 17・Android SDK は無ければジョブの最初にダウンロードする。§11.2）。リリースするのは `verify` を通った main の履歴のコミットだけなので、セルフホステッドでも信頼できないコードは動かない。**CI（`ci.yml`）はセルフホステッドだが、Windows / macOS のリリースは GitHub ホストランナーを使う。リポジトリは private なので、リリースごとに Actions の分数を消費する**（macOS は倍率が大きい） |
+| ランナー | `plan`・`verify`・`release`・`build-android` は `ubuntu-latest`、`build-windows` は `windows-latest`、`build-macos` は `macos-latest`（いずれも GitHub ホストランナー。`ci.yml` も同じ）。`build-android` は再利用可能なワークフロー `release-android.yml` の `ubuntu-latest` で動き、JDK 17 は `actions/setup-java`、Android SDK は環境に無ければジョブの最初にダウンロードする（§11.2）。リリースするのは `verify` を通った main の履歴のコミットだけ。リポジトリは public なので、標準の GitHub ホストランナーの実行時間は課金されない |
 | 権限 | 既定は `contents: read`。`contents: write` を持つのは `release` ジョブだけ（タグも `gh release create --target <コミット>` でここで作る。手で打ったタグは `--verify-tag`）。`verify` は `gh run list` のために `actions: read` も持つ。署名鍵のシークレットを参照するのは `build-android` の署名の step だけで、`release` ジョブはシークレットを持たない（§11.3） |
 | 同時実行 | `concurrency: group: release`、`cancel-in-progress: false`。次の版を既存のタグから決めるため、2 本を同時に動かさない |
 | ツール | Go・bun・Task は ci.yml と同じ action・版。`wails3` CLI は `go.mod` の版を `go install` する。NSIS（`makensis`）は 3.11 系に固定する（release.yml の `NSIS_VERSION`）。`.github/scripts/install-nsis.sh` が、PATH か既定の場所の `makensis` の版が `NSIS_VERSION` と一致すればそれを使い、そうでなければ公式配布の `nsis-3.11.zip`（SourceForge の固定 URL）を取得して sha256（スクリプト内の `NSIS_SHA256`。公式配布物を実際に取得して確かめた値）を検証し、展開して PATH に足す。取得・検証の失敗は 10 秒・30 秒・60 秒の待ちを挟んで最大 4 回試し、試行し切ったあとだけ原因（HTTP エラーまたは sha256 の不一致）付きの `::error::` で失敗する。Chocolatey は使わない（一時障害の 503 でリリースが止まったため）。使った版は `makensis -VERSION` でログに出る（`install-nsis.sh` と `Build the NSIS installer`）。版を上げるときは `NSIS_VERSION` と `NSIS_SHA256` を一緒に直す。使う action は GitHub 公式（`actions/*`）と `oven-sh/setup-bun`・`go-task/setup-task` だけ |
@@ -237,7 +237,7 @@ graph LR
 - 通しの動作（確認 → 通知 → 取得 → SHA-256 の検証 → 適用 → 終了）は、`go test ./internal/app/compose -run TestUpdateEndToEnd` が、偽の Release の取得元と偽のインストーラで確かめる（`compose.Config` の `Version`・`GOOS`・`Releases`・`Installer`・`Quit`）。画面（通知・更新中・失敗の固定文言）は `go test ./internal/web/updatehandler ./internal/web/organisms`。個別の失敗（ハッシュの不一致・途中切れ・オフライン・資格情報・リダイレクト・macOS の zip の拒否）は `go test ./internal/service/updater ./internal/repository/release ./internal/repository/installer`
 - `devupdate` ビルドタグ付きでだけコンパイルされる `release.NewDevClient(latestURL, base)`（`internal/repository/release/dev.go`）は、ローカルの偽の Release サーバー（指定した URL と同じホストへの http / https だけを許す）へ向けた `Source` を作る部品。**`main.go`・`compose` はこれを呼ばないため、`go build -tags devupdate` だけで実行ファイルが偽のサーバーへ向くわけではない**（実行ファイルで偽のサーバーを使う起動の配線は無い。本番のビルドは常に GitHub に固定される）。自動テストが範囲外としている実機の適用は §5.4 の手順（Release の成果物での実機確認）で行う
 - 版が `dev` のビルドは更新の通知を出さないため、画面を見るには、リリースと同じ形で版を埋めたビルド（`set-version.sh` を実行したワークツリー。**コミットしない**。実行後は `git checkout internal/buildinfo/buildinfo.go` で戻す）が要る。このときの確認先は本物の GitHub なので、実際の最新リリースより古い版を埋めたときだけ通知が出る
-- 確認先の GitHub は認証なしで読むため（token・認証ヘッダーを GitHub に送らない。NFR-SEC-15）、**リポジトリが公開（public）のときだけ**最新リリースとアセットを取得できる。リポジトリが private の間は `releases/latest` が 404 になり、アプリは「新しい版なし」として通知しない（確認の失敗にもしない）。2026-11-10 時点で `ousiassllc/swarm-viewer` は private で、認証なしの `releases/latest` が 404 を返すことを確認した。実際の GitHub での更新は、公開してから §5.4 の手順で確かめる
+- 確認先の GitHub は認証なしで読むため（token・認証ヘッダーを GitHub に送らない。NFR-SEC-15）、**リポジトリが公開（public）のときだけ**最新リリースとアセットを取得できる。リポジトリが private の間（非公開に戻した場合）は `releases/latest` が 404 になり、アプリは「新しい版なし」として通知しない（確認の失敗にもしない）。2026-11-28 時点で `ousiassllc/swarm-viewer` は公開で、認証なしの `releases/latest` が最新リリース（v0.1.19）とアセットを返すことを確認した（アプリでの通知 → 更新は未確認）。実際の GitHub での更新は §5.4 の手順で確かめる
 
 ## 6. Lint
 
@@ -326,7 +326,7 @@ language: ja
 | | `templ-fmt`（`go tool templ fmt {staged_files}`、`stage_fixed: true`） | ステージ済みの `*.templ` |
 | | `golangci-lint`（`golangci-lint run ./...`） | Go 全体 |
 | | `biome`（`bunx biome check --write {staged_files}`、`stage_fixed: true`） | ステージ済みの `static/src/**` の JS/CSS |
-| | `linterly`（`bunx linterly check {staged_files}`） | ステージ済みのファイル |
+| | `linterly`（`bunx linterly check`。`{staged_files}` は渡さない。1 パスしか取れず、ディレクトリ単位の上限もあるため） | リポジトリ全体 |
 | `pre-push` | `generate` → `test`（`go test ./...`） | リポジトリ全体 |
 | | `js-test`（`bun test static/src/js`） | `app.js`・`modal.js` の挙動テスト |
 
@@ -379,21 +379,21 @@ Android の検査は、デスクトップ版と同じ `ci.yml`（§5）に `andr
 |------|------|
 | ワークフロー | `ci.yml` の 1 ファイル。**`paths` で workflow ごと止めない**（必須チェックが「実行されない」まま pending で残るため）。先頭の `changes` ジョブが、変更されたファイルから Go 側（`lint`・`test`・`build`）と Android 側（`android-*`）を動かすかを決め、各ジョブの `if` で出し分ける。`if` で skip したジョブは、必須チェックでは成功として扱われる |
 | 変更の検知 | `.github/scripts/detect-changes.sh`（テストは `detect-changes_test.sh`。`test` ジョブが実行する）。`git diff --name-only <比較元> HEAD`（比較元は PR の base・push の before）の一覧を読む。**Go 側**: `android/` の外のファイルが 1 つでもあれば動かす（`android/**` だけの変更では動かさない）。**Android 側**: `android/**`・`testdata/vectors/**`（Android のテストも読む）・`ci.yml`・`.editorconfig`・`.linterly.yml`・`.linterlyignore`・`package.json`・`bun.lock` が変わったときに動かす。比較元が無い・差分が取れないとき（新しいブランチの最初の push など）は両方動かす（検査を飛ばして壊れた変更を通さない側に倒す） |
-| ランナー | 既存と同じ Linux セルフホステッドランナー（`runs-on: [self-hosted, linux, x64]`）。**ランナーのホストには JDK・Android SDK を導入しない**（ランナーの設定・サービスにも触れない）。各ジョブの最初に `.github/scripts/setup-android-toolchain.sh` が、環境（`JAVA_HOME`・`ANDROID_HOME`）に JDK 17 と Android SDK が**無ければダウンロード**して使う（下の手順）。`apt` / `sudo` は使わない |
-| 実行の制限 | §5.1 と同じ。`pull_request` は同一リポジトリのブランチのときだけジョブを実行する（セルフホステッドランナーで信頼できないコードを実行しない）。`changes` ジョブも同じ条件 |
+| ランナー | `ci.yml` の他のジョブと同じ GitHub ホストランナー（`runs-on: ubuntu-latest`）。JDK 17 は各ジョブが `actions/setup-java`（`distribution: temurin`・`java-version: "17"`）で用意する。Android SDK は、各ジョブの最初に `.github/scripts/setup-android-toolchain.sh` が、環境（`ANDROID_HOME`）に Android SDK が**無ければダウンロード**して使う（下の手順）。`apt` / `sudo` は使わない |
+| 実行の制限 | §5.1 と同じ。`pull_request` は同一リポジトリのブランチのときだけジョブを実行する（fork の PR のコードを実行しない）。`changes` ジョブも同じ条件 |
 | ジョブ | `android-lint`（`bunx linterly check`・`./gradlew lint ktlintCheck`。Go 側の `lint` ジョブは `android/**` だけの変更では動かないため、Kotlin の行数上限の検査（§8）をここでも行う）、`android-test`（`./gradlew test`）、`android-build`（`android-lint`・`android-test` が成功したときだけ。`./gradlew assembleDebug`。コンパイルの確認だけで、成果物は配布しない）。lint・test・build は別のコマンドで 1 つずつ実行する。各ジョブの最初に `setup-android-toolchain.sh`（無ければダウンロード）→ `.github/scripts/check-android-env.sh`（JDK 17 と SDK の有無を確かめ、**足りなければ不足を 1 行で示して失敗する**）の順に実行する |
 | 権限 | `permissions: contents: read` のみ。署名鍵などのシークレットは使わない |
-| キャッシュ | `actions/setup-java` などで Gradle のキャッシュを保存するステップは使わない（セルフホステッドで post ステップが止まった経緯。§5.2）。Gradle のキャッシュ（`GRADLE_USER_HOME`）はランナーのローカルに残る。ダウンロードした JDK・SDK は、ランナーのツールキャッシュ（`RUNNER_TOOL_CACHE`）の `swarm-viewer-toolchain/` に置き、2 回目以降のジョブは再利用してダウンロードしない（post ステップを使わない） |
+| キャッシュ | `actions/setup-java` の `cache: gradle`（`cache-dependency-path` は `android/**/*.gradle*`・`android/gradle/**`）で Gradle の依存を保存する（`android-lint`・`android-test`・`android-build`）。リリースの `build-android` は `--no-build-cache` で、`cache` は指定しない。ダウンロードした JDK・SDK は、ランナーのツールキャッシュ（`RUNNER_TOOL_CACHE`）の `swarm-viewer-toolchain/` に置く。GitHub ホストランナーはジョブごとに新しい環境のため、ジョブをまたいでは再利用されない |
 
 JDK・Android SDK の取得（`setup-android-toolchain.sh`。`android-lint`・`android-test`・`android-build`・`build-android` の最初に実行する。ランナーのホストでの手作業は要らない）:
 
 1. 環境（`JAVA_HOME`）が JDK 17 を指していればそれを使い、ダウンロードしない。無ければ Temurin 17.0.21+9 の tar.gz を取得し、**スクリプトに固定した sha256 を検証**してから、`${RUNNER_TOOL_CACHE}/swarm-viewer-toolchain/jdk-17.0.21+9/` に展開する
 2. 環境（`ANDROID_HOME`）に `platforms/android-35` と `build-tools`（`apksigner`・`zipalign`・`aapt2`）が有ればそれを使う。無ければ Android の cmdline-tools（版と sha256 を固定。sha256 は Google の配布一覧の sha1 とも照合済み）を取得して `sdkmanager --licenses` に同意し、`platforms;android-35`・`build-tools;35.0.0`・`build-tools;36.0.0`（AGP の既定）を同じツールキャッシュの `android-sdk-<版>/` に入れる
 3. 結果を `JAVA_HOME`・`ANDROID_HOME`・`ANDROID_SDK_ROOT`（`GITHUB_ENV`）と JDK の `bin`（`GITHUB_PATH`）に書き、後続の step で使えるようにする
-4. 取得は 10 秒・30 秒・60 秒待って再試行し、最後まで失敗したら URL と試行回数を示して止まる。sha256 が違うときは再試行せず止まる。導入は `flock` で直列にし、一時ディレクトリへ展開してから rename する（同じホストでジョブが同時に動いても壊れない）
-5. ログには `cache hit … no download` か `cache miss, downloading …` が出るので、ダウンロードが走ったかどうかを確かめられる。ツールキャッシュが空になったとき（ランナーの `_tool` を消したときなど）は、次のジョブがダウンロードし直す
+4. 取得は 10 秒・30 秒・60 秒待って再試行し、最後まで失敗したら URL と試行回数を示して止まる。sha256 が違うときは再試行せず止まる。導入は `flock` で直列にし、一時ディレクトリへ展開してから rename する（同じ環境でジョブが同時に動いても壊れない）
+5. ログには `cache hit … no download` か `cache miss, downloading …` が出るので、ダウンロードが走ったかどうかを確かめられる。GitHub ホストランナーはジョブごとに新しい環境なので、ツールキャッシュは前のジョブから引き継がれず、環境に JDK・SDK が無ければ毎回 `cache miss, downloading …` になる
 
-ランナーのホストに JDK・SDK を入れて環境変数を設定済みなら、ダウンロードは走らない。
+環境（GitHub ホストランナーの `JAVA_HOME`・`ANDROID_HOME` など）に JDK 17・Android SDK が有れば、ダウンロードは走らない。
 
 ### 11.3 署名鍵
 
@@ -404,7 +404,7 @@ JDK・Android SDK の取得（`setup-android-toolchain.sh`。`android-lint`・`a
 | 鍵 | release 署名鍵を 1 つだけ作る（`keytool -genkeypair`、PKCS12、RSA 4096 bit 以上、有効期間 10,000 日以上）。毎回同じ鍵で署名する。署名が変わるとインストール済みのアプリを上書きアップデートできず、アンインストール（アプリのデータが消え、再ペアリングが必要）が要る |
 | 作成する場所 | 開発者本人のローカル。リポジトリ・CI のログ・チャットに keystore とパスワードを出さない。`*.jks`・`*.keystore`・`*.apk`・`*.aab` は `.gitignore` 済み |
 | CI シークレット | `ANDROID_KEYSTORE_BASE64`（keystore を `base64` した文字列）、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`。**これらを参照するのは release.yml の `build-android` ジョブ（`release-android.yml` を `secrets:` で明示して呼ぶ。`secrets: inherit` は使わない）と、呼ばれた側の署名の step だけ**（`ANDROID_KEYSTORE_BASE64` の登録の有無だけは、呼ばれた側の `gate` の step が真偽値で見る）。`ci.yml` のジョブ・`release` ジョブ（書き込みトークンを持つ）・PR・フォークの CI には渡さない（release.yml は PR では動かない。§5.5）。`sign-android-apk.sh` は keystore を `$RUNNER_TEMP` 配下の一時ディレクトリへ `0600` で復元し、署名の直後と終了時（`trap`）に消す。落とされた場合に備え、ジョブも成否にかかわらず（`if: always()`）一時ディレクトリを消す。パスワードは `apksigner` に `env:` で渡し（引数に出さない）、ログに値を出さない |
-| シークレットが無いとき | **`ANDROID_KEYSTORE_BASE64` が未登録なら、`build-android` は Android のビルドも署名もせずに終わり（失敗にしない）、Release には APK を載せない**（警告を出す）。シークレットとランナーの準備は運用作業なので、それが済むまでデスクトップ版（Windows / macOS）のリリースを止めないため。debug 署名の APK は、どの場合も載せない。`ANDROID_KEYSTORE_BASE64` はあるのに、ほかのシークレットが空・不正なときは設定ミスなので、`build-android` を失敗させて Release を作らない |
+| シークレットが無いとき | **`ANDROID_KEYSTORE_BASE64` が未登録なら、`build-android` は Android のビルドも署名もせずに終わり（失敗にしない）、Release には APK を載せない**（警告を出す）。シークレットの登録は運用作業なので、それが済むまでデスクトップ版（Windows / macOS）のリリースを止めないため。debug 署名の APK は、どの場合も載せない。`ANDROID_KEYSTORE_BASE64` はあるのに、ほかのシークレットが空・不正なときは設定ミスなので、`build-android` を失敗させて Release を作らない |
 | バックアップ | 鍵を失うと上書きアップデートできないため、keystore とパスワードを、**リポジトリ・GitHub とは別の 2 か所以上**に保管する（例: パスワードマネージャーの添付と、オフラインの暗号化メディア）。keystore とパスワードは別々の場所にも置く。バックアップ先の実際の場所はリポジトリに書かない（開発者本人が管理する）。**GitHub のシークレットは登録後に値を読み戻せないため、シークレットはバックアップにならない**。鍵の作成後、バックアップの復元（keystore を開いて `keytool -list` できること）を一度確かめる |
 | 証明書の確認 | 署名証明書の SHA-256 フィンガープリント（`keytool -list -v` / `apksigner verify --print-certs`）を、鍵の作成時に `android/README.md` へ記録する。Release の APK がこの値と一致することを、リリースのたびに確かめる（`build-android` のログにも `Signer #1 certificate SHA-256 digest` が出る。公開情報） |
 | debug 署名 | `assembleDebug` の APK は debug 署名で、**配布しない**。CI の成果物・Release に debug 署名の APK を載せない。`assembleRelease` は署名設定を持たない（`android/app/build.gradle.kts` に `signingConfig` を置かず、署名は `build-android` が `apksigner` で行う）。`sign-android-apk.sh` は、署名後の APK の証明書が debug 証明書（`Android Debug`）なら失敗する |
@@ -434,10 +434,10 @@ Android 版も、デスクトップ版と同じ release.yml（§5.5）のタグ�
 |------|------|
 | 成果物 | `swarm-viewer_vX.Y.Z_android_universal.apk`（署名済み。`universal` は ABI を分けない 1 つの APK の意味で、`versionName` = `X.Y.Z`）。`SHA256SUMS` に含める（デスクトップ版の 2 ファイルと同じファイル。署名鍵が未登録のリリースでは、APK を含めない） |
 | 版 | タグが唯一の元。`.github/scripts/android-version.sh`（テストは `android-version_test.sh`。`test` ジョブが実行する）が、タグの `X.Y.Z` を `versionName`、`X × 1,000,000 + Y × 1,000 + Z` を `versionCode` として決め、Gradle に `-PappVersionName`・`-PappVersionCode` で渡す（[NFR-AND-DST-4](../requirements/non-functional.md)）。`android/app/build.gradle.kts` は渡されないとき `0.1.0` / `1` を使う（`assembleDebug` など）。`Y`・`Z` は 999 まで、`X` は 2099 まで（超えたら `versionCode` が単調増加でなくなるため失敗する）。`v0.0.0` も失敗する。版が上がれば `versionCode` は必ず大きくなるので、同じ署名鍵で上書きインストールできる |
-| ジョブ | release.yml の `build-android` ジョブが、再利用可能なワークフロー `release-android.yml`（`workflow_call`。release.yml を linterly の 300 行の上限に収めるため別ファイルにした）を呼ぶ。呼ばれた側のジョブは既存の Linux セルフホステッドランナーで動き、`contents: read` のみ。`android-version.sh` → `./gradlew --no-build-cache assembleRelease`（署名なし）→ `sign-android-apk.sh` の順に動く。`sign-android-apk.sh` は `apksigner sign` で署名し、`zipalign -c -P 16 4`（署名の前に境界を確認）・`apksigner verify`（v2 または v3。署名者は 1 つ）・debug 証明書でないこと・`aapt2 dump badging` でパッケージ・`versionCode`・`versionName` が期待どおりであることを確かめてから `swarm-viewer_vX.Y.Z_android_universal.apk` として置く。1 つでも外れたら APK を残さず失敗する。APK は artifact（`release-android`）として `release` ジョブへ渡し、`release` ジョブが `SHA256SUMS` に含めて `gh release create` する。`release` ジョブ（`contents: write`）はシークレットを持たない |
+| ジョブ | release.yml の `build-android` ジョブが、再利用可能なワークフロー `release-android.yml`（`workflow_call`。release.yml を linterly の 300 行の上限に収めるため別ファイルにした）を呼ぶ。呼ばれた側のジョブは GitHub ホストランナー（`ubuntu-latest`）で動き、`contents: read` のみ。`android-version.sh` → `./gradlew --no-build-cache assembleRelease`（署名なし）→ `sign-android-apk.sh` の順に動く。`sign-android-apk.sh` は `apksigner sign` で署名し、`zipalign -c -P 16 4`（署名の前に境界を確認）・`apksigner verify`（v2 または v3。署名者は 1 つ）・debug 証明書でないこと・`aapt2 dump badging` でパッケージ・`versionCode`・`versionName` が期待どおりであることを確かめてから `swarm-viewer_vX.Y.Z_android_universal.apk` として置く。1 つでも外れたら APK を残さず失敗する。APK は artifact（`release-android`）として `release` ジョブへ渡し、`release` ジョブが `SHA256SUMS` に含めて `gh release create` する。`release` ジョブ（`contents: write`）はシークレットを持たない |
 | 署名の道具 | `apksigner`・`zipalign`・`aapt2`（Android SDK の build-tools。`setup-android-toolchain.sh` が入れた、または環境にある版）。`build-android` の最初に `setup-android-toolchain.sh` を実行したうえで `check-android-env.sh`（`CHECK_SIGNING_TOOLS=true`）が、JDK 17・`ANDROID_HOME`・これらの道具の有無を確かめる |
 | 前提 | Android のジョブが失敗したときに、デスクトップ版の Release だけが出ることがないように、`release` ジョブはすべてのビルドジョブ（`build-android` を含む）が成功したときだけ動く（§5.5 の構成と同じ）。ただし署名鍵が未登録のときは `build-android` が（何もせず）成功し、Android の成果物を含まない Release が出る（§11.3）。`release` ジョブは、`release-android` の artifact に署名済みの APK があるときだけ `SHA256SUMS` と Release に載せる |
-| リリースの実行 | `release.yml` の `workflow_run` は main の CI の成功で起動する。**ランナーが未準備のあいだ、`android/**` を含む main への push の CI は赤になり、その push のリリースは作られない**（Go だけの変更の CI は影響を受けない） |
+| リリースの実行 | `release.yml` の `workflow_run` は main の CI の成功で起動する。`android/**` を含む main への push も、ほかの変更と同じ GitHub ホストランナーで CI が動き、成功すればリリースが作られる。署名鍵が未登録のあいだは APK を含まない Release になる（§11.3） |
 
 Release の APK の確認（検証手順と実機確認。手動確認項目）:
 
@@ -474,3 +474,4 @@ Release の APK の確認（検証手順と実機確認。手動確認項目）:
 | 1.10 | 2026-11-05 | §3.2 に JS の挙動テスト（`bun test static/src/js`・`happy-dom`）を追加し、§5.2 の `test`・§9 の `pre-push` に載せた。§6.2 の Biome の対象を `static/src/js/*.js`・`static/src/css/*.css` に修正 | 独立レビューの指摘（JS・CSS の文字列を grep するだけのテストの置き換え） |
 | 1.11 | 2026-11-10 | 新しい版の確認と自動アップデート（Issue #109）。§5.2 の `test` に `set-version_test.sh`、§5.4・§11.4 の実機確認に更新の手順（未確認）、§5.5 の「版の埋め込み」に `internal/buildinfo` の書き換え、§5.6「新しい版の確認と自動アップデート」（依存するアセット名・対応 OS・手元での確かめ方・`devupdate` タグの限界）、§11.1 に `-PupdateLatestUrl` と偽のリリースサーバーでの確認 | Issue #109（新しい版の確認と自動アップデート） |
 | 1.12 | 2026-11-11 | §11.4 の APK の確認手順に、build-tools 37 の `apksigner` の証明書の行の書式（`V3.0 Signer: certificate SHA-256 digest`）を追記 | Issue #112（新しい apksigner の出力で署名スクリプトが失敗する） |
+| 1.13 | 2026-11-28 | CI のランナーの記述を実装（GitHub ホストランナー `ubuntu-latest`）に合わせて訂正（§1・§3.1・§5.1・§5.2・§5.5・§11.2（ランナー・キャッシュ・手順 4・5 と末尾の注）・§11.3（シークレットが無いとき）・§11.4（ジョブ・リリースの実行））。`setup-go` のキャッシュ・Android の Gradle キャッシュ（`setup-java` の `cache: gradle`）・リポジトリの公開（private の記述）を現状に更新。§9 の pre-commit の `linterly` を、リポジトリ全体を検査する実装に合わせた。`release.yml`・`setup-android-toolchain.sh` のコメントも同じ前提に直した | Issue #126・#131（CI ランナーの記述）、#127・#132（private の記述）、#129（linterly）、#147・#148（ランナー訂正の取りこぼし） |

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ousiassllc.swarmviewer.data.store.Snapshot
 import com.ousiassllc.swarmviewer.domain.ConnectionKind
+import com.ousiassllc.swarmviewer.domain.DEFAULT_SCREEN_POLL_SECONDS
 import com.ousiassllc.swarmviewer.domain.ErrKind
 import com.ousiassllc.swarmviewer.domain.FetchException
 import com.ousiassllc.swarmviewer.service.ConnectionGoneException
@@ -156,7 +157,7 @@ class MainViewModel(
                 while (isActive && !mutableState.value.needsRepair && mutableState.value.connectionId != null) {
                     ensureFetch().join()
                     if (mutableState.value.needsRepair) break
-                    delay(settings.get().screenPollSeconds * MILLIS_PER_SECOND)
+                    delay(pollSeconds() * MILLIS_PER_SECOND)
                 }
             }
     }
@@ -166,6 +167,16 @@ class MainViewModel(
         fetchJob?.takeIf { it.isActive }?.let { return it }
         return viewModelScope.launch { fetch() }.also { fetchJob = it }
     }
+
+    /** 画面のポーリング間隔（秒）。設定を読めないときは既定値にする。取得の失敗ではないので、失敗表示は立てない。 */
+    private suspend fun pollSeconds(): Int =
+        try {
+            settings.get().screenPollSeconds
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            DEFAULT_SCREEN_POLL_SECONDS
+        }
 
     /** 接続の一覧と選択を読み直す。選択中の接続が変わっていれば、その接続の記憶したセッションと前回取得を出す。 */
     private suspend fun reload() {

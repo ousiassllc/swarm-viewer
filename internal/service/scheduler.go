@@ -163,7 +163,7 @@ func (s *NotificationService) pollConnection(ctx context.Context, conn domain.Co
 // failed は取得失敗を分類してログに残し、401/403 なら needs_repair を立てて true を返す。
 func (s *NotificationService) failed(conn domain.Connection, session string, err error) (repair bool) {
 	fe := classify(err)
-	if repair = needsRepair(fe); repair {
+	if repair = fe.NeedsRepair(); repair {
 		s.conns.MarkNeedsRepair(conn.ID)
 	}
 	s.log.Warn("polling failed", fetchLogAttrs(conn, session, fe)...)

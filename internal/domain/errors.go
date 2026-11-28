@@ -62,6 +62,21 @@ func (e *FetchError) Error() string {
 	return "swarm-console fetch error: " + e.Kind.String() + " (" + e.Code + ")"
 }
 
+// NeedsRepair は再ペアリングが必要な失敗（401・403）かを返す。nil は false。
+// ポーリングを止める判断と needs_repair を立てる判断は、すべてこれに揃える（API 仕様 §4.4）。
+func (e *FetchError) NeedsRepair() bool {
+	return e != nil && (e.Kind == ErrUnauthorized || e.Kind == ErrForbiddenScope)
+}
+
+// AsFetchError は err が取得失敗（*FetchError）ならそれを返す。
+func AsFetchError(err error) (*FetchError, bool) {
+	var fe *FetchError
+	if errors.As(err, &fe) {
+		return fe, true
+	}
+	return nil, false
+}
+
 // Classify は失敗を FetchError に分類する（API 仕様 §1.5）。成功と判断できるとき（err が nil で、
 // HTTP が 4xx/5xx でなく、toolCode も空）は nil を返す。
 //

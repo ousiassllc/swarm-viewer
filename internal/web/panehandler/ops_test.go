@@ -2,8 +2,10 @@ package panehandler_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
+	"github.com/ousiassllc/swarm-viewer/internal/web/format"
 	"github.com/ousiassllc/swarm-viewer/internal/web/webtest/opsconsole"
 )
 
@@ -104,6 +106,7 @@ func TestOpsConnection_StartFlow_DirListThenPaneStart_ConfirmationDoesNotStart(t
 	// 画面（shell のペイン）→ ピッカーが dir_list（path なし = 許可された根）を読む。
 	page := body(t, s.Get(start), 200)
 	mustContain(t, page, "omp", "claude", "codex", `hx-get="`+opsconsole.PanePath("T4", "/start/dirs")+`"`, `hx-trigger="load"`)
+	mustContain(t, page, `id="pane-start-title"`, `name="title"`, `maxlength="80"`, "required", `autocomplete="off"`, "min-h-10")
 	dirs := body(t, s.Get(opsconsole.PanePath("T4", "/start/dirs")), 200)
 	mustContain(t, dirs, "work", "docs", "git")
 	if r := callOf(t, s, "dir_list"); r.Args["path"] != nil || r.Args["session"] != nil || r.Args["limit"] != nil {
@@ -150,4 +153,11 @@ func TestOpsConnection_PaneClose_ReachesConsoleAndReturnsToMainScreen(t *testing
 	if r.Args["session"] != "0" || r.Args["pane"] != "T3" || len(r.Args) != 2 {
 		t.Errorf("引数 = %v", r.Args)
 	}
+}
+
+// 本文が上限（256 KiB）を超えたら、空入力にせず 413 を返す（URL エンコードで 900 KiB 超）。
+func TestOpsConnection_OversizedForm_Returns413(t *testing.T) {
+	s := opsconsole.NewStack(t, pathOps)
+	big := form("text", strings.Repeat("あ", 100<<10))
+	mustContain(t, body(t, s.Post(opsconsole.PanePath("T3", "/send"), big), http.StatusRequestEntityTooLarge), format.RequestTooLargeMessage)
 }

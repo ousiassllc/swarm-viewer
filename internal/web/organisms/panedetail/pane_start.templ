@@ -99,11 +99,13 @@ templ StartForm(p StartFormProps) {
 			</div>
 			<div class="flex flex-col gap-2">
 				<label for="pane-start-title" class="text-sm font-semibold text-ink">5. タイトル（1〜80 字）</label>
-				<input id="pane-start-title" name={ FieldTitle } value={ p.Title } required maxlength="80" autocomplete="off" class={ atoms.FieldClass, "w-full px-3" }/>
+				@atoms.Input(atoms.InputProps{ID: "pane-start-title", Name: FieldTitle, Value: p.Title, Required: true, Attrs: templ.Attributes{"maxlength": "80"}})
 			</div>
 			<div class="flex flex-wrap items-center gap-3">
 				@atoms.Button(atoms.ButtonProps{Label: "確認へ", Type: "submit", Variant: atoms.ButtonPrimary})
-				<a href={ templ.SafeURL(paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos)) } hx-get={ paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos) } hx-target="#main" hx-swap="innerHTML" class="text-link hover-fade text-sm text-ink">やめる</a>
+				@atoms.NavLink(atoms.NavLinkProps{Href: paths.Pane(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos), Class: "text-link hover-fade text-sm text-ink"}) {
+					やめる
+				}
 			</div>
 		</form>
 	</div>

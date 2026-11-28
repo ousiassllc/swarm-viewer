@@ -32,15 +32,13 @@ templ AttentionItem(p AttentionItemProps) {
 		@atoms.Badge(atoms.BadgeProps{Text: format.AttentionLabel(p.Attention.Kind), Tone: format.AttentionTone(p.Attention.Kind), Marker: true})
 		if p.Attention.Pane != "" {
 			if p.PaneHref != "" {
-				<a
-					href={ templ.SafeURL(p.PaneHref) }
-					hx-get={ p.PaneHref }
-					hx-target="#main"
-					hx-swap="innerHTML"
-					data-attention-link
-					aria-label={ "ペイン " + p.Attention.Pane + " の詳細を開く" }
-					class="hover-fade font-mono text-xs text-ink underline underline-offset-2"
-				>{ p.Attention.Pane }</a>
+				@atoms.NavLink(atoms.NavLinkProps{
+					Href:  p.PaneHref,
+					Class: "hover-fade font-mono text-xs text-ink underline underline-offset-2",
+					Attrs: templ.Attributes{"aria-label": "ペイン " + p.Attention.Pane + " の詳細を開く", "data-attention-link": true},
+				}) {
+					{ p.Attention.Pane }
+				}
 			} else {
 				<span class="font-mono text-xs text-ink">{ p.Attention.Pane }</span>
 			}

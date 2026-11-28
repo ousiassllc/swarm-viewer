@@ -166,14 +166,13 @@ templ paneDanger(p LiveProps) {
 				@closeButton(p, "終了")
 			}
 			if p.Pane.State == domain.StateShell {
-				<a
-					href={ templ.SafeURL(paths.PaneStart(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos)) }
-					hx-get={ paths.PaneStart(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos) }
-					hx-target="#main"
-					hx-swap="innerHTML"
-					hx-sync={ PreemptPoll }
-					class="text-link hover-fade text-sm text-ink"
-				>＋ 始める</a>
+				@atoms.NavLink(atoms.NavLinkProps{
+					Href:  paths.PaneStart(p.Ref.ConnectionID, p.Ref.Session, p.Ref.Pos),
+					Class: "text-link hover-fade text-sm text-ink",
+					Attrs: templ.Attributes{"hx-sync": PreemptPoll},
+				}) {
+					＋ 始める
+				}
 			}
 		</div>
 	}

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # android-* ジョブと build-android ジョブの最初に、JDK 17 と Android SDK が無ければダウンロードして使えるようにする（docs/environment/setup.md §11.2）。
 # ランナーのホストには何も導入しない。ランナーの設定・サービスにも触らない。導入先はランナーのツールキャッシュ（RUNNER_TOOL_CACHE。
-# セルフホステッドではジョブをまたいで残るので、2 回目以降はダウンロードしない）。無ければ ~/.cache/swarm-viewer-toolchain。
+# GitHub ホストランナーはジョブごとに新しい環境なので、ジョブをまたいでは再利用されず、毎回ダウンロードする。ANDROID_HOME・JAVA_HOME がある環境ではそれを使う）。無ければ ~/.cache/swarm-viewer-toolchain。
 #   JDK 17        環境（JAVA_HOME）に有れば、それを使う。無ければ Temurin の固定版を取得し、sha256 を検証して展開する
 #   Android SDK   環境（ANDROID_HOME）に platforms;android-35 と build-tools が有れば、それを使う。無ければ cmdline-tools の固定版を取得し
 #                 （sha256 を検証）、ライセンスに同意して platforms;android-35 と build-tools を入れる
 # 結果は GITHUB_ENV に JAVA_HOME・ANDROID_HOME・ANDROID_SDK_ROOT として、GITHUB_PATH に JDK の bin として書く（後続の step で使える）。
 # GITHUB_ENV が無い（手元で実行した）ときは、同じ内容を export 文として標準出力に出す。
-# 複数のジョブが同じホストで同時に動いても壊れないよう、導入は flock で直列にし、展開は一時ディレクトリへ行ってから rename する。
+# 同じ環境で複数のジョブが同時に動いても壊れないよう、導入は flock で直列にし、展開は一時ディレクトリへ行ってから rename する。
 # 取得は再試行し、失敗したら理由つきの ::error:: で止まる。
 set -euo pipefail
 
